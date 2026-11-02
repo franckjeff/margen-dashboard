@@ -10,6 +10,7 @@ const state = {
   contacts: [],
   athletes: [],
   leads: [],
+  orders: [],
   users: [], // profiles, admins only
   loaded: false,
   role: undefined, // undefined = still loading, null = no profile, else "admin" | "factory" | "client"
@@ -66,9 +67,13 @@ const PAGES = [
 
 const visiblePages = () => PAGES.filter((p) => p.roles.includes(state.role));
 
-// Hash routes: #/dashboard, #/customs, #/shopify, plus #/organizations,
+// Pages whose URL differs from their table's name.
+const TABLE_ROUTES = { orders: "customs" };
+const routeFor = (table) => TABLE_ROUTES[table] ?? table;
+
+// Hash routes: #/dashboard, #/shopify, #/users, plus #/organizations,
 // #/organizations/new, #/organizations/<id>, #/organizations/<id>/edit, and the same for
-// athletes, leads and contacts.
+// athletes, leads, contacts and customs (orders).
 function route() {
   const [, page, id = null, mode = null] = location.hash.split("/");
   const pages = visiblePages();
@@ -98,14 +103,14 @@ async function loadData() {
     state.role = data?.role ?? null;
     if (error) return notify("error", `Couldn't load your account: ${error.message}`);
   }
-  // Only admins can read organizations, contacts, athletes and leads.
+  // Only admins can read organizations, contacts, athletes, leads and orders.
   if (state.role !== "admin") {
     state.loaded = true;
     render();
     return;
   }
 
-  const [orgs, contacts, athletes, leads, users] = await Promise.all([
+  const [orgs, contacts, athletes, leads, orders, users] = await Promise.all([
     supabase
       .from("organizations")
       .select(
@@ -126,9 +131,14 @@ async function loadData() {
       .order("first_name"),
     // Newest leads first.
     supabase.from("leads").select("*").order("created_at", { ascending: false }),
+    // Newest orders first, with the linked organization's name.
+    supabase
+      .from("orders")
+      .select("id, margen_order_id, factory_order_id, organization_id, created_at, organization:organizations(id, name)")
+      .order("created_at", { ascending: false }),
     supabase.from("profiles").select("id, email, role, created_at").order("email"),
   ]);
-  const error = orgs.error || contacts.error || athletes.error || leads.error || users.error;
+  const error = orgs.error || contacts.error || athletes.error || leads.error || orders.error || users.error;
   if (error) {
     notify("error", `Couldn't load data: ${error.message}`);
     return;
@@ -144,6 +154,7 @@ async function loadData() {
   }));
   state.athletes = athletes.data;
   state.leads = leads.data;
+  state.orders = orders.data;
   state.users = users.data;
   state.loaded = true;
   render();
@@ -156,11 +167,23 @@ async function saveRow(form, table, row, label) {
     ? supabase.from(table).update(row).eq("id", id)
     : supabase.from(table).insert(row);
   const { data, error } = await query.select("id").single();
+  if (error?.code === "23505") return notify("error", `Couldn't save ${label}: that ID is already used by another record.`);
   if (error) return notify("error", `Couldn't save ${label}: ${error.message}`);
   state.notice = { type: "success", text: id ? `Saved ${label}.` : `Added ${label}.` };
   state.keepNotice = true;
   await loadData();
-  go(`#/${table}/${data.id}`);
+  go(`#/${routeFor(table)}/${data.id}`);
+}
+
+async function saveOrder(form) {
+  const values = Object.fromEntries(new FormData(form));
+  const row = {
+    margen_order_id: values.margen_order_id.trim(),
+    factory_order_id: values.factory_order_id.trim() || null,
+    organization_id: values.organization_id || null,
+  };
+  if (!row.margen_order_id) return notify("error", "The order needs a Margen order ID.");
+  await saveRow(form, "orders", row, `order ${row.margen_order_id}`);
 }
 
 async function saveOrganization(form) {
@@ -213,11 +236,12 @@ async function setLeadStatus(id, status) {
   await loadData();
 }
 
-// Works for organizations, contacts, athletes and leads (each loaded into state under its table name).
+// Works for every table loaded into state under its own name.
 async function deleteRow(table, id) {
   const record = state[table].find((r) => r.id === id);
   if (!record) return;
-  const label = table === "organizations" ? record.name : fullName(record);
+  const label =
+    table === "organizations" ? record.name : table === "orders" ? `order ${record.margen_order_id}` : fullName(record);
   // Organizations and contacts are linked to each other; deleting one removes its links.
   const linked = { organizations: ["contacts", "contact"], contacts: ["organizations", "organization"] }[table];
   const links = linked ? record[linked[0]].length : 0;
@@ -233,7 +257,7 @@ async function deleteRow(table, id) {
   state.notice = { type: "success", text: `Deleted ${label}.` };
   state.keepNotice = true;
   await loadData();
-  go(`#/${table}`);
+  go(`#/${routeFor(table)}`);
 }
 
 async function setRole(id, role) {
@@ -354,6 +378,7 @@ function dashboardPage() {
   return `
     <div class="page-head"><h1>Dashboard</h1></div>
     <div class="stats">
+      ${stat("Orders", state.orders.length, "#/customs")}
       ${stat("Open leads", state.leads.filter((l) => OPEN_LEAD_STATUSES.includes(l.status)).length, "#/leads")}
       ${stat("Athletes", state.athletes.length, "#/athletes")}
       ${stat("Organizations", state.organizations.length, "#/organizations")}
@@ -544,7 +569,29 @@ function organizationPage(org, editing) {
     <div class="detail-grid">
       <section class="card section">${details}</section>
       <section class="card section">${organizationContacts(org)}</section>
+      <section class="card section span-all">${organizationOrders(org)}</section>
     </div>`;
+}
+
+function organizationOrders(org) {
+  const orders = state.orders.filter((o) => o.organization_id === org.id);
+  const rows = orders
+    .map(
+      (o) => `
+      <tr>
+        <td><a href="#/customs/${o.id}" class="strong mono">${esc(o.margen_order_id)}</a></td>
+        <td class="mono">${esc(o.factory_order_id) || dash}</td>
+        <td class="muted num">${formatDate(o.created_at)}</td>
+      </tr>`
+    )
+    .join("");
+  return `
+    <h2>Orders <span class="count">${orders.length}</span></h2>
+    ${
+      rows
+        ? `<div class="table-wrap"><table class="static"><tbody>${rows}</tbody></table></div>`
+        : `<p class="empty">No orders yet. <a href="#/customs/new">Add one in Customs</a> and choose this organization.</p>`
+    }`;
 }
 
 function organizationContacts(org) {
@@ -661,6 +708,92 @@ function athletePage(athlete, editing) {
           ? ""
           : `<a href="#/athletes/${athlete.id}/edit" class="button">Edit</a>
              <button type="button" class="danger" data-action="delete" data-table="athletes" data-id="${athlete.id}">Delete</button>`
+      }
+    </div>
+    <div class="detail-grid single">
+      <section class="card section">${details}</section>
+    </div>`;
+}
+
+function orderForm(order) {
+  const back = order ? `#/customs/${order.id}` : "#/customs";
+  const options = state.organizations
+    .map((o) => `<option value="${o.id}"${o.id === order?.organization_id ? " selected" : ""}>${esc(o.name)}</option>`)
+    .join("");
+  return `
+    ${panelHead(order ? "Edit order" : "New order", back)}
+    <form data-form="order"${order ? ` data-id="${order.id}"` : ""} class="stack">
+      <label>Margen order ID<input name="margen_order_id" required autofocus autocomplete="off" value="${esc(order?.margen_order_id)}" placeholder="e.g. 2026_1_OUTRIGGER"></label>
+      <label><span>Factory order ID <span class="muted">(optional)</span></span><input name="factory_order_id" autocomplete="off" value="${esc(order?.factory_order_id)}" placeholder="e.g. RKU12060-M"></label>
+      <label><span>Organization <span class="muted">(optional)</span></span>
+        <select name="organization_id"><option value="">No organization</option>${options}</select>
+      </label>
+      ${formButtons(order ? "Save changes" : "Create order", back)}
+    </form>`;
+}
+
+const orderOrganization = (order) =>
+  order.organization ? `<a href="#/organizations/${order.organization.id}">${esc(order.organization.name)}</a>` : dash;
+
+// Orders live under the Customs menu (#/customs), but in the "orders" table.
+function ordersPage(id, editing) {
+  if (id && id !== "new") {
+    const order = state.orders.find((o) => o.id === id);
+    if (order) return orderPage(order, editing);
+    return `
+      <a href="#/customs" class="back">← Customs</a>
+      <section class="card"><p class="empty">${state.loaded ? "This order doesn't exist or was deleted." : "Loading…"}</p></section>`;
+  }
+
+  const rows = state.orders
+    .map(
+      (o) => `
+      <tr data-href="#/customs/${o.id}"
+          data-search="${esc(`${o.margen_order_id} ${o.factory_order_id ?? ""} ${o.organization?.name ?? ""}`.toLowerCase())}">
+        <td><a href="#/customs/${o.id}" class="strong mono">${esc(o.margen_order_id)}</a></td>
+        <td class="mono">${esc(o.factory_order_id) || dash}</td>
+        <td>${orderOrganization(o)}</td>
+        <td class="muted hide-sm">${formatDate(o.created_at)}</td>
+      </tr>`
+    )
+    .join("");
+
+  return listPage({
+    title: "Customs",
+    count: state.orders.length,
+    newHash: "#/customs/new",
+    newLabel: "New order",
+    placeholder: "Search orders",
+    head: `<th>Margen order ID</th><th>Factory order ID</th><th>Organization</th><th class="hide-sm">Added</th>`,
+    rows,
+    panel: id === "new" ? orderForm() : "",
+  });
+}
+
+function orderPage(order, editing) {
+  const details = editing
+    ? orderForm(order)
+    : `
+      <h2>Details</h2>
+      <dl class="details">
+        <div><dt>Margen order ID</dt><dd class="mono">${esc(order.margen_order_id)}</dd></div>
+        <div><dt>Factory order ID</dt><dd class="mono">${esc(order.factory_order_id) || dash}</dd></div>
+        <div><dt>Organization</dt><dd>${orderOrganization(order)}</dd></div>
+        <div><dt>Added</dt><dd>${formatDate(order.created_at)}</dd></div>
+      </dl>`;
+
+  return `
+    <a href="#/customs" class="back">← Customs</a>
+    <div class="page-head">
+      <div class="title-block">
+        <h1 class="mono">${esc(order.margen_order_id)}</h1>
+        <p class="muted">${order.factory_order_id ? `Factory order ${esc(order.factory_order_id)}` : "No factory order ID yet"}</p>
+      </div>
+      ${
+        editing
+          ? ""
+          : `<a href="#/customs/${order.id}/edit" class="button">Edit</a>
+             <button type="button" class="danger" data-action="delete" data-table="orders" data-id="${order.id}">Delete</button>`
       }
     </div>
     <div class="detail-grid single">
@@ -905,7 +1038,7 @@ function render() {
   const { page, id, editing } = route();
   const content = {
     dashboard: () => dashboardPage(),
-    customs: () => placeholderPage("Customs"),
+    customs: () => ordersPage(id, editing),
     shopify: () => placeholderPage("Shopify"),
     organizations: () => organizationsPage(id, editing),
     contacts: () => contactsPage(id, editing),
@@ -940,6 +1073,9 @@ app.addEventListener("submit", async (event) => {
       break;
     case "athlete":
       await saveAthlete(form);
+      break;
+    case "order":
+      await saveOrder(form);
       break;
     case "lead":
       await saveLead(form);

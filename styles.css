@@ -226,6 +226,8 @@ legend { padding: 0; margin-bottom: 4px; font-size: 0.8rem; font-weight: 600; te
 
 .detail-grid { display: grid; gap: 16px; grid-template-columns: 320px minmax(0, 1fr); align-items: start; }
 .detail-grid.single { grid-template-columns: minmax(0, 480px); }
+.span-all { grid-column: 1 / -1; }
+.mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.95em; }
 .section { padding: 20px; min-width: 0; }
 .section > h2 { margin-bottom: 14px; }
 .section .panel-head { margin-bottom: 14px; }
