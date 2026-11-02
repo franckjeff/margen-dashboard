@@ -354,6 +354,21 @@ table.static tbody tr:hover { background: none; }
 .import-actions { justify-content: flex-start; }
 .import-actions .primary { flex: 0 1 auto; }
 
+/* Notes: one card per entry, newest first, stamped with time and author. */
+.note-form textarea { min-height: 64px; }
+.note-form p { margin: 6px 0 0; }
+.notes-list { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 10px; }
+.note {
+  padding: 10px 10px 12px 14px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--green);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.note-meta { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); }
+.note-meta time { font: 500 0.68rem var(--heading); text-transform: uppercase; letter-spacing: 0.15em; color: var(--text); }
+.note-meta .icon-btn { margin-left: auto; width: 26px; height: 26px; font-size: 1.1rem; }
+.note-body { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
 .panel { padding: 22px; position: sticky; top: 16px; }
 .panel-head { display: flex; align-items: start; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
 

@@ -11,6 +11,7 @@ const state = {
   athletes: [],
   leads: [],
   orders: [],
+  notes: [], // newest first; each has a contact_id or an athlete_id
   users: [], // profiles, admins only
   loaded: false,
   role: undefined, // undefined = still loading, null = no profile, else "admin" | "factory" | "client"
@@ -45,6 +46,8 @@ const byPerson = (a, b) =>
 const dash = '<span class="muted">—</span>';
 const formatDate = (date) =>
   new Date(date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+const formatDateTime = (date) =>
+  new Date(date).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 const ROLE_LABELS = { admin: "Admin", factory: "Factory", client: "Client" };
 
@@ -129,7 +132,7 @@ async function loadData() {
     return;
   }
 
-  const [orgs, contacts, athletes, leads, orders, users] = await Promise.all([
+  const [orgs, contacts, athletes, leads, orders, notes, users] = await Promise.all([
     supabase
       .from("organizations")
       .select(
@@ -157,9 +160,15 @@ async function loadData() {
         "id, margen_order_id, factory_order_id, order_status, production_status, organization_id, created_at, organization:organizations(id, name)"
       )
       .order("created_at", { ascending: false }),
+    // Newest notes first, with who wrote them.
+    supabase
+      .from("notes")
+      .select("id, contact_id, athlete_id, body, created_at, author:profiles(email)")
+      .order("created_at", { ascending: false }),
     supabase.from("profiles").select("id, email, role, created_at").order("email"),
   ]);
-  const error = orgs.error || contacts.error || athletes.error || leads.error || orders.error || users.error;
+  const error =
+    orgs.error || contacts.error || athletes.error || leads.error || orders.error || notes.error || users.error;
   if (error) {
     notify("error", `Couldn't load data: ${error.message}`);
     return;
@@ -176,6 +185,7 @@ async function loadData() {
   state.athletes = athletes.data;
   state.leads = leads.data;
   state.orders = orders.data;
+  state.notes = notes.data;
   state.users = users.data;
   state.loaded = true;
   render();
@@ -446,7 +456,9 @@ async function deleteRow(table, id) {
   const warning = links
     ? `\n\nIts ${links} ${other} link${links === 1 ? "" : "s"} will be removed too. The ${other}s themselves are kept.`
     : "";
-  if (!confirm(`Delete ${label}? This can't be undone.${warning}`)) return;
+  const noteCount = state.notes.filter((n) => n.contact_id === id || n.athlete_id === id).length;
+  const noteWarning = noteCount ? `\n\nIts ${noteCount} note${noteCount === 1 ? "" : "s"} will be deleted too.` : "";
+  if (!confirm(`Delete ${label}? This can't be undone.${warning}${noteWarning}`)) return;
 
   const { data, error } = await supabase.from(table).delete().eq("id", id).select("id");
   if (error) return notify("error", `Couldn't delete ${label}: ${error.message}`);
@@ -494,6 +506,37 @@ async function unlink(organization_id, contact_id) {
     .eq("organization_id", organization_id)
     .eq("contact_id", contact_id);
   if (error) return notify("error", `Couldn't unlink them: ${error.message}`);
+  state.notice = null;
+  await loadData();
+}
+
+// ---------- notes ----------
+
+// Adds a note to the contact or athlete named on the form; the database stamps the time and author.
+async function addNote(form) {
+  const input = form.elements.body;
+  const body = input.value.trim();
+  if (!body) return;
+  const subject = form.dataset.contact ? { contact_id: form.dataset.contact } : { athlete_id: form.dataset.athlete };
+  input.disabled = true;
+  const { error } = await supabase.from("notes").insert({ ...subject, body });
+  if (error) {
+    notify("error", `Couldn't save the note: ${error.message}`);
+    // Keep what was typed so nothing is lost.
+    const retry = app.querySelector("[data-note-input]");
+    if (retry) retry.value = body;
+    return;
+  }
+  state.notice = null;
+  await loadData();
+  app.querySelector("[data-note-input]")?.focus();
+}
+
+async function deleteNote(id) {
+  if (!confirm("Delete this note? This can't be undone.")) return;
+  const { data, error } = await supabase.from("notes").delete().eq("id", id).select("id");
+  if (error) return notify("error", `Couldn't delete the note: ${error.message}`);
+  if (!data.length) return notify("error", "The note wasn't deleted. You may not have permission.");
   state.notice = null;
   await loadData();
 }
@@ -960,9 +1003,36 @@ function athletePage(athlete, editing) {
              <button type="button" class="danger" data-action="delete" data-table="athletes" data-id="${athlete.id}">Delete</button>`
       }
     </div>
-    <div class="detail-grid single">
+    <div class="detail-grid">
       <section class="card section">${details}</section>
+      <section class="card section">${notesSection("athlete", athlete.id)}</section>
     </div>`;
+}
+
+// Notes timeline for a contact or athlete (kind is "contact" or "athlete"), newest first.
+function notesSection(kind, id) {
+  const notes = state.notes.filter((n) => n[`${kind}_id`] === id);
+  const items = notes
+    .map(
+      (n) => `
+      <li class="note">
+        <div class="note-meta">
+          <time datetime="${n.created_at}">${formatDateTime(n.created_at)}</time>
+          ${n.author ? `<span class="note-author">${esc(n.author.email)}</span>` : ""}
+          <button type="button" class="icon-btn" data-action="delete-note" data-id="${n.id}" aria-label="Delete note" title="Delete note">×</button>
+        </div>
+        <p class="note-body">${esc(n.body)}</p>
+      </li>`
+    )
+    .join("");
+  return `
+    <h2>Notes <span class="count">${notes.length}</span></h2>
+    <form data-form="note" data-${kind}="${id}" class="note-form">
+      <textarea name="body" rows="2" data-note-input aria-label="New note"
+        placeholder="Add a note: a call, a conversation, something to remember…"></textarea>
+      <p class="muted small">Press Enter to save. Shift+Enter starts a new line.</p>
+    </form>
+    ${notes.length ? `<ol class="notes-list">${items}</ol>` : `<p class="empty">No notes yet.</p>`}`;
 }
 
 function orderForm(order) {
@@ -1334,6 +1404,7 @@ function contactPage(contact, editing) {
     <div class="detail-grid">
       <section class="card section">${details}</section>
       <section class="card section">${contactOrganizations(contact)}</section>
+      <section class="card section span-all">${notesSection("contact", contact.id)}</section>
     </div>`;
 }
 
@@ -1437,6 +1508,9 @@ app.addEventListener("submit", async (event) => {
     case "lead":
       await saveLead(form);
       break;
+    case "note":
+      await addNote(form);
+      break;
     case "link": {
       const choice = new FormData(form);
       await link(
@@ -1470,6 +1544,9 @@ app.addEventListener("click", async (event) => {
       case "make-default":
         action.disabled = true;
         await makeDefault(action.dataset.org, action.dataset.contact);
+        break;
+      case "delete-note":
+        await deleteNote(action.dataset.id);
         break;
       case "toggle-theme":
         setTheme(currentTheme() === "dark" ? "light" : "dark", true);
@@ -1506,6 +1583,14 @@ app.addEventListener("change", async (event) => {
   if (select.dataset.roleFor) await setRole(select.dataset.roleFor, select.value);
   else if (select.dataset.orderField) await setOrderField(select.dataset.orderId, select.dataset.orderField, select.value);
   else await setLeadStatus(select.dataset.leadStatusFor, select.value);
+});
+
+// In the note box, Enter saves the note and Shift+Enter adds a line break.
+app.addEventListener("keydown", (event) => {
+  if (!event.target.matches("[data-note-input]")) return;
+  if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+  event.preventDefault();
+  if (!event.target.disabled) event.target.form.requestSubmit();
 });
 
 // Filter rows in place so the search box keeps focus while typing.
