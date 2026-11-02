@@ -9,7 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600&family=Open+Sans:wght@400;600;700&display=swap">
-  <link rel="stylesheet" href="styles.css">
+  <!-- ?v= forces browsers that cached the files before serve.py turned caching off to fetch them again. -->
+  <link rel="stylesheet" href="styles.css?v=2">
   <script>
     // Apply the saved theme, or the system's, before the page paints (app.js handles the switch).
     (function () {
@@ -22,6 +23,6 @@
 </head>
 <body>
   <div id="app"><p class="loading">Loading…</p></div>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=2"></script>
 </body>
 </html>
