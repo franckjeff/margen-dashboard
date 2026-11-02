@@ -19,6 +19,7 @@ const state = {
   notice: null, // { type: "error" | "success", text }
   keepNotice: false,
   importPreview: null, // { fileName, raw, rows } while an order spreadsheet is being checked
+  menuGroups: {}, // menu group name -> open (true) or closed (false), once the user toggles it
 };
 
 // ---------- helpers ----------
@@ -639,6 +640,8 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) =>
 const SUN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
 const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>`;
 
+const CHEVRON_ICON = `<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
+
 function themeToggle() {
   const dark = currentTheme() === "dark";
   const label = dark ? "Switch to light mode" : "Switch to dark mode";
@@ -657,15 +660,22 @@ function shell(page, content) {
     if (p.group && last?.group === p.group) last.pages.push(p);
     else items.push(p.group ? { group: p.group, pages: [p] } : p);
   }
+  // Groups start closed; the one holding the current page opens unless the user closed it.
   const tabs = items
-    .map((item) =>
-      item.group
-        ? `<div class="tab-group" role="group" aria-label="${item.group}">
-             <span class="tab-group-label${item.pages.some((p) => p.name === page) ? " active" : ""}">${item.group}</span>
-             ${item.pages.map(tab).join("")}
-           </div>`
-        : tab(item)
-    )
+    .map((item) => {
+      if (!item.group) return tab(item);
+      const holdsPage = item.pages.some((p) => p.name === page);
+      const open = state.menuGroups[item.group] ?? holdsPage;
+      const id = `menu-${item.group.toLowerCase()}`;
+      return `
+        <div class="tab-group${open ? " open" : ""}">
+          <button type="button" class="tab-group-label${holdsPage ? " active" : ""}" data-action="toggle-group"
+            data-group="${item.group}" aria-expanded="${open}" aria-controls="${id}">
+            ${item.group}${CHEVRON_ICON}
+          </button>
+          <div class="tab-group-pages" id="${id}">${item.pages.map(tab).join("")}</div>
+        </div>`;
+    })
     .join("");
   const notice = state.notice
     ? `<div class="notice ${state.notice.type}" role="status">
@@ -1629,6 +1639,11 @@ app.addEventListener("click", async (event) => {
         break;
       case "delete-note":
         await deleteNote(action.dataset.id);
+        break;
+      case "toggle-group":
+        state.menuGroups[action.dataset.group] = action.getAttribute("aria-expanded") !== "true";
+        render();
+        app.querySelector(`[data-action="toggle-group"][data-group="${action.dataset.group}"]`)?.focus();
         break;
       case "toggle-theme":
         setTheme(currentTheme() === "dark" ? "light" : "dark", true);
