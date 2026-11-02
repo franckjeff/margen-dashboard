@@ -20,6 +20,7 @@ const state = {
   keepNotice: false,
   importPreview: null, // { fileName, raw, rows } while an order spreadsheet is being checked
   menuGroups: {}, // menu group name -> open (true) or closed (false), once the user toggles it
+  orgFilters: { country: "", state: "" }, // Organizations list filters; "" means all
 };
 
 // ---------- helpers ----------
@@ -805,7 +806,7 @@ function placeholderPage(title) {
     <section class="card"><p class="empty">This section isn't set up yet.</p></section>`;
 }
 
-function listPage({ title, count, newHash, newLabel, placeholder, head, rows, panel, actions = "" }) {
+function listPage({ title, count, newHash, newLabel, placeholder, head, rows, panel, actions = "", filters = "" }) {
   const body = !state.loaded
     ? `<p class="empty">Loading…</p>`
     : rows
@@ -815,6 +816,7 @@ function listPage({ title, count, newHash, newLabel, placeholder, head, rows, pa
   return `
     <div class="page-head">
       <h1>${title} <span class="count">${count}</span></h1>
+      ${filters}
       <input type="search" class="search" placeholder="${placeholder}" aria-label="${placeholder}">
       ${actions}
       <a href="${newHash}" class="button primary">${newLabel}</a>
@@ -877,11 +879,31 @@ function contactForm(contact) {
     </form>`;
 }
 
+// Country and State dropdowns for the Organizations list. States only list those in the chosen country.
+function organizationFilters() {
+  const { country, state: region } = state.orgFilters;
+  const distinct = (values) => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const countries = distinct(state.organizations.map((o) => o.country));
+  const states = distinct(state.organizations.filter((o) => !country || o.country === country).map((o) => o.state));
+  const options = (values, selected, allLabel) =>
+    `<option value="">${allLabel}</option>` +
+    values.map((v) => `<option value="${esc(v)}"${v === selected ? " selected" : ""}>${esc(v)}</option>`).join("");
+  return `
+    <select class="filter" data-org-filter="country" aria-label="Filter by country">${options(countries, country, "All countries")}</select>
+    <select class="filter" data-org-filter="state" aria-label="Filter by state">${options(states, region, "All states")}</select>`;
+}
+
+const matchesOrgFilters = (o) =>
+  (!state.orgFilters.country || o.country === state.orgFilters.country) &&
+  (!state.orgFilters.state || o.state === state.orgFilters.state);
+
 function organizationsPage(id, editing) {
   const rows = state.organizations
     .map(
       (o) => `
-      <tr data-href="#/organizations/${o.id}" data-search="${esc(`${o.name} ${place(o)}`.toLowerCase())}">
+      <tr data-href="#/organizations/${o.id}" data-search="${esc(`${o.name} ${place(o)}`.toLowerCase())}"${
+        matchesOrgFilters(o) ? "" : " data-filtered-out"
+      }>
         <td><a href="#/organizations/${o.id}" class="strong">${esc(o.name)}</a></td>
         <td>${esc(o.state) || dash}</td>
         <td>${esc(o.country) || dash}</td>
@@ -912,6 +934,7 @@ function organizationsPage(id, editing) {
     head: `<th>Name</th><th>State</th><th>Country</th><th class="hide-sm">Default contact</th><th class="num">Contacts</th>`,
     rows,
     panel: id === "new" ? organizationForm() : "",
+    filters: organizationFilters(),
   });
 }
 
@@ -1564,6 +1587,7 @@ function render() {
     users: () => usersPage(),
   }[page]();
   app.innerHTML = shell(page, content);
+  applySearch();
   app.querySelector("[autofocus]")?.focus();
 }
 
@@ -1669,6 +1693,25 @@ app.addEventListener("click", async (event) => {
 });
 
 app.addEventListener("change", async (event) => {
+  if (event.target.matches("select[data-org-filter]")) {
+    const field = event.target.dataset.orgFilter;
+    state.orgFilters[field] = event.target.value;
+    // A state that isn't in the newly chosen country no longer applies.
+    if (field === "country" && state.orgFilters.state) {
+      const stillThere = state.organizations.some(
+        (o) => o.state === state.orgFilters.state && (!event.target.value || o.country === event.target.value)
+      );
+      if (!stillThere) state.orgFilters.state = "";
+    }
+    // Re-render to refresh the State choices, keeping what was typed in the search box.
+    const query = app.querySelector(".search")?.value ?? "";
+    render();
+    const search = app.querySelector(".search");
+    if (search) search.value = query;
+    applySearch();
+    app.querySelector(`select[data-org-filter="${field}"]`)?.focus();
+    return;
+  }
   if (event.target.matches("input[data-import-file]")) {
     const [file] = event.target.files;
     if (file) await readImportFile(file);
@@ -1691,13 +1734,17 @@ app.addEventListener("keydown", (event) => {
 });
 
 // Filter rows in place so the search box keeps focus while typing.
-app.addEventListener("input", (event) => {
-  if (!event.target.matches(".search")) return;
-  const query = event.target.value.trim().toLowerCase();
+// Rows left out by a list's filters (data-filtered-out) stay hidden whatever the search says.
+function applySearch() {
+  const query = app.querySelector(".search")?.value.trim().toLowerCase() ?? "";
   const rows = [...app.querySelectorAll("tr[data-search]")];
-  rows.forEach((row) => (row.hidden = !row.dataset.search.includes(query)));
+  rows.forEach((row) => (row.hidden = row.hasAttribute("data-filtered-out") || !row.dataset.search.includes(query)));
   const noMatch = app.querySelector(".no-match");
   if (noMatch) noMatch.hidden = rows.some((row) => !row.hidden);
+}
+
+app.addEventListener("input", (event) => {
+  if (event.target.matches(".search")) applySearch();
 });
 
 // A notice is dropped on navigation, except the one that announced the navigation itself.
