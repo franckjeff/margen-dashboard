@@ -16,6 +16,7 @@ const state = {
   role: undefined, // undefined = still loading, null = no profile, else "admin" | "factory" | "client"
   notice: null, // { type: "error" | "success", text }
   keepNotice: false,
+  importPreview: null, // { fileName, raw, rows } while an order spreadsheet is being checked
 };
 
 // ---------- helpers ----------
@@ -206,6 +207,161 @@ async function saveOrder(form) {
   };
   if (!row.margen_order_id) return notify("error", "The order needs a Margen order ID.");
   await saveRow(form, "orders", row, `order ${row.margen_order_id}`);
+}
+
+// ---------- order import ----------
+
+// SheetJS is only downloaded when someone imports a file or asks for the template.
+const loadSheetJS = () => import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
+
+// Headings each order field accepts, compared without case, spaces or punctuation.
+const IMPORT_COLUMNS = {
+  margen_order_id: ["margenorderid", "margenid", "margenorder"],
+  factory_order_id: ["factoryorderid", "factoryid", "factoryorder"],
+  organization: ["organization", "organisation", "org", "client"],
+  order_status: ["orderstatus", "status"],
+  production_status: ["productionstatus", "production"],
+};
+const IMPORT_TEMPLATE = [
+  ["Margen order ID", "Factory order ID", "Organization", "Order status", "Production status"],
+  ["2026_1_OUTRIGGER", "RKU12060-M", "Outrigger Canoe Club", "Accepted", "Sewing"],
+];
+const CHANGE_LABELS = {
+  factory_order_id: "factory ID",
+  organization_id: "organization",
+  order_status: "order status",
+  production_status: "production",
+};
+const squash = (text) => String(text ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const sameName = (a, b) => a.trim().toLowerCase().replace(/\s+/g, " ") === b.trim().toLowerCase().replace(/\s+/g, " ");
+
+// Status key for a cell such as "On hold", "on_hold" or "ON HOLD"; undefined if it isn't one.
+const parseStatus = (labels, text) =>
+  Object.keys(labels).find((key) => squash(key) === squash(text) || squash(labels[key]) === squash(text));
+
+async function downloadImportTemplate() {
+  try {
+    const XLSX = await loadSheetJS();
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(IMPORT_TEMPLATE), "Orders");
+    XLSX.writeFile(book, "margen-orders-template.xlsx");
+  } catch (error) {
+    notify("error", `Couldn't create the template: ${error.message}`);
+  }
+}
+
+// Reads the first sheet of an Excel or CSV file into rows keyed by order field.
+async function readImportFile(file) {
+  let table;
+  try {
+    const XLSX = await loadSheetJS();
+    const book = XLSX.read(await file.arrayBuffer());
+    table = XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]], { header: 1, raw: false, defval: "" });
+  } catch (error) {
+    return notify("error", `Couldn't read ${file.name}: ${error.message}`);
+  }
+  const [headings = [], ...lines] = table;
+  const columns = {};
+  headings.forEach((heading, index) => {
+    const field = Object.keys(IMPORT_COLUMNS).find((f) => IMPORT_COLUMNS[f].includes(squash(heading)));
+    if (field && !(field in columns)) columns[field] = index;
+  });
+  if (!("margen_order_id" in columns)) {
+    return notify("error", `${file.name} has no "Margen order ID" column. Download the template to see the expected columns.`);
+  }
+  const raw = lines
+    .map((cells, index) => ({
+      line: index + 2, // spreadsheet row number, counting the heading row
+      ...Object.fromEntries(
+        Object.keys(IMPORT_COLUMNS).map((f) => [f, f in columns ? String(cells[columns[f]] ?? "").trim() : ""])
+      ),
+    }))
+    .filter((row) => Object.keys(IMPORT_COLUMNS).some((f) => row[f]));
+  if (!raw.length) return notify("error", `${file.name} has no orders in it.`);
+  state.importPreview = { fileName: file.name, raw, rows: checkImportRows(raw) };
+  state.notice = null;
+  render();
+}
+
+// Works out what each row would do: add an order, update the order with the same
+// Margen order ID (only the filled-in cells), change nothing, or be skipped for errors.
+function checkImportRows(raw) {
+  const seenMargen = new Set();
+  const seenFactory = new Set();
+  return raw.map((row) => {
+    const errors = [];
+    const change = {};
+    const existing = state.orders.find((o) => o.margen_order_id === row.margen_order_id);
+
+    if (!row.margen_order_id) errors.push("Margen order ID is missing");
+    else if (seenMargen.has(row.margen_order_id)) errors.push("Margen order ID is in the file twice");
+    seenMargen.add(row.margen_order_id);
+
+    if (row.factory_order_id) {
+      const owner = state.orders.find((o) => o.factory_order_id === row.factory_order_id);
+      if (seenFactory.has(row.factory_order_id)) errors.push("Factory order ID is in the file twice");
+      else if (owner && owner !== existing) errors.push(`Factory order ID is already used by ${owner.margen_order_id}`);
+      seenFactory.add(row.factory_order_id);
+      change.factory_order_id = row.factory_order_id;
+    }
+    if (row.organization) {
+      const org = state.organizations.find((o) => sameName(o.name, row.organization));
+      if (org) change.organization_id = org.id;
+      else errors.push(`No organization called "${row.organization}"`);
+    }
+    if (row.order_status) {
+      const status = parseStatus(ORDER_STATUSES, row.order_status);
+      if (status) change.order_status = status;
+      else errors.push(`"${row.order_status}" isn't an order status`);
+    }
+    if (row.production_status) {
+      const status =
+        squash(row.production_status) === "notstarted" ? null : parseStatus(PRODUCTION_STATUSES, row.production_status);
+      if (status !== undefined) change.production_status = status;
+      else errors.push(`"${row.production_status}" isn't a production status`);
+    }
+
+    if (existing) for (const field of Object.keys(change)) if (change[field] === existing[field]) delete change[field];
+    const action = errors.length ? "error" : !existing ? "new" : Object.keys(change).length ? "update" : "same";
+    return { ...row, errors, change, existing, action };
+  });
+}
+
+async function importOrders() {
+  const { raw, rows } = state.importPreview;
+  const added = rows
+    .filter((r) => r.action === "new")
+    .map((r) => ({
+      margen_order_id: r.margen_order_id,
+      factory_order_id: null,
+      organization_id: null,
+      order_status: "received",
+      production_status: null,
+      ...r.change,
+    }));
+  const updates = rows.filter((r) => r.action === "update");
+  const failures = [];
+  // New orders go in as one insert, so they are all added or none are.
+  if (added.length) {
+    const { error } = await supabase.from("orders").insert(added);
+    if (error) failures.push(`the new orders weren't added (${error.message})`);
+  }
+  for (const r of updates) {
+    const { error } = await supabase.from("orders").update(r.change).eq("id", r.existing.id);
+    if (error) failures.push(`${r.margen_order_id} wasn't updated (${error.message})`);
+  }
+  await loadData();
+  if (failures.length) {
+    state.importPreview.rows = checkImportRows(raw);
+    return notify("error", `Import incomplete: ${failures.join("; ")}.`);
+  }
+  const parts = [];
+  if (added.length) parts.push(`added ${added.length} order${added.length === 1 ? "" : "s"}`);
+  if (updates.length) parts.push(`updated ${updates.length}`);
+  state.importPreview = null;
+  state.notice = { type: "success", text: `Import done: ${parts.join(" and ")}.` };
+  state.keepNotice = true;
+  go("#/customs");
 }
 
 // Quick status change from an order page; field is "order_status" or "production_status".
@@ -467,7 +623,7 @@ function placeholderPage(title) {
     <section class="card"><p class="empty">This section isn't set up yet.</p></section>`;
 }
 
-function listPage({ title, count, newHash, newLabel, placeholder, head, rows, panel }) {
+function listPage({ title, count, newHash, newLabel, placeholder, head, rows, panel, actions = "" }) {
   const body = !state.loaded
     ? `<p class="empty">Loading…</p>`
     : rows
@@ -478,6 +634,7 @@ function listPage({ title, count, newHash, newLabel, placeholder, head, rows, pa
     <div class="page-head">
       <h1>${title} <span class="count">${count}</span></h1>
       <input type="search" class="search" placeholder="${placeholder}" aria-label="${placeholder}">
+      ${actions}
       <a href="${newHash}" class="button primary">${newLabel}</a>
     </div>
     <div class="layout${panel ? " has-panel" : ""}">
@@ -784,6 +941,7 @@ const orderOrganization = (order) =>
 
 // Orders live under the Customs menu (#/customs), but in the "orders" table.
 function ordersPage(id, editing) {
+  if (id === "import") return importPage();
   if (id && id !== "new") {
     const order = state.orders.find((o) => o.id === id);
     if (order) return orderPage(order, editing);
@@ -819,7 +977,87 @@ function ordersPage(id, editing) {
     head: `<th>Margen order ID</th><th class="hide-sm">Factory order ID</th><th class="hide-sm">Organization</th><th>Order status</th><th>Production</th>`,
     rows,
     panel: id === "new" ? orderForm() : "",
+    actions: `<a href="#/customs/import" class="button">Import from Excel</a>`,
   });
+}
+
+function importPage() {
+  const preview = state.importPreview;
+  return `
+    <a href="#/customs" class="back">← Customs</a>
+    <div class="page-head">
+      <div class="title-block">
+        <h1>Import orders</h1>
+        <p class="muted">Orders whose Margen order ID already exists are updated. The others are added.</p>
+      </div>
+      <button type="button" data-action="import-template">Download template</button>
+    </div>
+    <div class="stack">
+      <section class="card section">
+        <label>Excel or CSV file<input type="file" accept=".xlsx,.xls,.csv" data-import-file></label>
+        <p class="muted small import-help">
+          The first sheet is read. Columns: <strong>Margen order ID</strong> (required), Factory order ID,
+          Organization (its exact name), Order status and Production status.
+          Blank cells leave an existing order's value as it is; write "Not started" to clear a production status.
+        </p>
+      </section>
+      ${preview ? importPreviewSection(preview) : ""}
+    </div>`;
+}
+
+function importPreviewSection({ fileName, rows }) {
+  const count = (action) => rows.filter((r) => r.action === action).length;
+  const ready = count("new") + count("update");
+  const summary = [
+    [count("new"), "new"],
+    [count("update"), "to update"],
+    [count("same"), "unchanged"],
+    [count("error"), "with problems, skipped"],
+  ]
+    .filter(([n]) => n)
+    .map(([n, label]) => `${n} ${label}`)
+    .join(" · ");
+  const result = (r) =>
+    ({
+      new: `<span class="status tone-accent">New</span>`,
+      update: `<span class="status tone-success">Update</span> <span class="muted small">${Object.keys(r.change)
+        .map((f) => CHANGE_LABELS[f])
+        .join(", ")}</span>`,
+      same: `<span class="muted small">No change</span>`,
+      error: `<span class="error-text small">${esc(r.errors.join(". "))}</span>`,
+    })[r.action];
+  const body = rows
+    .map(
+      (r) => `
+      <tr${r.action === "error" ? ` class="row-error"` : ""}>
+        <td class="muted num">${r.line}</td>
+        <td class="mono">${esc(r.margen_order_id) || dash}</td>
+        <td class="mono hide-sm">${esc(r.factory_order_id) || dash}</td>
+        <td class="hide-sm">${esc(r.organization) || dash}</td>
+        <td class="hide-sm">${esc(r.order_status) || dash}</td>
+        <td class="hide-sm">${esc(r.production_status) || dash}</td>
+        <td>${result(r)}</td>
+      </tr>`
+    )
+    .join("");
+  return `
+    <section class="card section">
+      <div class="panel-head">
+        <div><h2>${esc(fileName)}</h2><p class="muted small">${rows.length} row${rows.length === 1 ? "" : "s"}: ${summary}</p></div>
+      </div>
+      <div class="table-wrap">
+        <table class="static">
+          <thead><tr><th class="num">Row</th><th>Margen order ID</th><th class="hide-sm">Factory order ID</th><th class="hide-sm">Organization</th><th class="hide-sm">Order status</th><th class="hide-sm">Production</th><th>Result</th></tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+      <div class="form-actions import-actions">
+        <button type="button" class="primary" data-action="import-orders"${ready ? "" : " disabled"}>
+          ${ready ? `Import ${ready} order${ready === 1 ? "" : "s"}` : "Nothing to import"}
+        </button>
+        <button type="button" data-action="import-clear">Clear</button>
+      </div>
+    </section>`;
 }
 
 function orderPage(order, editing) {
@@ -1183,6 +1421,18 @@ app.addEventListener("click", async (event) => {
         action.disabled = true;
         await makeDefault(action.dataset.org, action.dataset.contact);
         break;
+      case "import-template":
+        await downloadImportTemplate();
+        break;
+      case "import-orders":
+        action.disabled = true;
+        action.textContent = "Importing…";
+        await importOrders();
+        break;
+      case "import-clear":
+        state.importPreview = null;
+        render();
+        break;
     }
     return;
   }
@@ -1192,6 +1442,11 @@ app.addEventListener("click", async (event) => {
 });
 
 app.addEventListener("change", async (event) => {
+  if (event.target.matches("input[data-import-file]")) {
+    const [file] = event.target.files;
+    if (file) await readImportFile(file);
+    return;
+  }
   const select = event.target.closest("select[data-role-for], select[data-lead-status-for], select[data-order-field]");
   if (!select) return;
   select.disabled = true;
@@ -1226,6 +1481,7 @@ supabase.auth.onAuthStateChange((event, session) => {
     state.role = undefined;
     state.organizations = [];
     state.contacts = [];
+    state.importPreview = null;
     state.loaded = false;
   }
   if (session) state.notice = null;

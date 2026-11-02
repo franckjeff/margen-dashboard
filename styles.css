@@ -290,6 +290,11 @@ table.static tbody tr { cursor: default; }
 table.static tbody tr:hover { background: none; }
 .role-cell select { width: auto; min-width: 120px; padding: 4px 8px; }
 .hint { margin: 12px 4px 0; }
+.import-help { margin: 10px 0 0; }
+.error-text { color: var(--danger); }
+.row-error td { background: var(--danger-soft); }
+.import-actions { justify-content: flex-start; }
+.import-actions .primary { flex: 0 1 auto; }
 
 .panel { padding: 20px; position: sticky; top: 16px; }
 .panel-head { display: flex; align-items: start; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
