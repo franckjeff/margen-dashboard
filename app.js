@@ -79,10 +79,10 @@ const productionBadge = (status) =>
 // Hiding a page here is only cosmetic: the database's access rules are what protect the data.
 const PAGES = [
   { name: "dashboard", label: "Dashboard", roles: ["admin", "factory", "client"] },
-  { name: "customs", label: "Customs", roles: ["admin"] },
-  { name: "shopify", label: "Shopify", roles: ["admin"] },
-  { name: "athletes", label: "Athletes", roles: ["admin"] },
   // Consecutive pages with the same group sit under that heading in the menu.
+  { name: "customs", label: "Customs", roles: ["admin"], group: "Orders" },
+  { name: "shopify", label: "Shopify", roles: ["admin"], group: "Orders" },
+  { name: "athletes", label: "Athletes", roles: ["admin"] },
   { name: "leads", label: "Leads", roles: ["admin"], group: "Clients" },
   { name: "organizations", label: "Organizations", roles: ["admin"], group: "Clients" },
   { name: "contacts", label: "Contacts", roles: ["admin"], group: "Clients" },
