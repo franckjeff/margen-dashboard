@@ -21,6 +21,7 @@ const state = {
   importPreview: null, // { fileName, raw, rows } while an order spreadsheet is being checked
   menuGroups: {}, // menu group name -> open (true) or closed (false), once the user toggles it
   orgFilters: { country: "", state: "" }, // Organizations list filters; "" means all
+  reportFilters: {}, // report id -> { filter name: value }; "" means all
 };
 
 // ---------- helpers ----------
@@ -88,6 +89,7 @@ const PAGES = [
   { name: "leads", label: "Leads", roles: ["admin"], group: "Clients" },
   { name: "organizations", label: "Organizations", roles: ["admin"], group: "Clients" },
   { name: "contacts", label: "Contacts", roles: ["admin"], group: "Clients" },
+  { name: "reports", label: "Reports", roles: ["admin"] },
   { name: "users", label: "Users", roles: ["admin"] },
 ];
 
@@ -387,6 +389,85 @@ async function importOrders() {
   state.notice = { type: "success", text: `Import done: ${parts.join(" and ")}.` };
   state.keepNotice = true;
   go("#/customs");
+}
+
+// ---------- reports ----------
+
+// Each report: its filters (built from current data), which records match them, and the
+// spreadsheet columns as [heading, value, width]. Add a new report by adding an entry here.
+const REPORTS = [
+  {
+    id: "orders",
+    title: "Order report",
+    description: "Every order with its IDs, organization, statuses and date added.",
+    noun: ["order", "orders"],
+    fileName: "margen-order-report",
+    filters: () => [
+      {
+        name: "organization_id",
+        label: "Organization",
+        options: [
+          ["", "All organizations"],
+          ...state.organizations.map((o) => [o.id, o.name]).sort((a, b) => a[1].localeCompare(b[1])),
+          ["none", "No organization"],
+        ],
+      },
+      { name: "order_status", label: "Order status", options: [["", "All order statuses"], ...Object.entries(ORDER_STATUSES)] },
+      {
+        name: "production_status",
+        label: "Production status",
+        options: [["", "All production statuses"], ["not_started", "Not started"], ...Object.entries(PRODUCTION_STATUSES)],
+      },
+      { name: "from", label: "Added from", type: "date" },
+      { name: "to", label: "Added to", type: "date" },
+    ],
+    records: (f) =>
+      state.orders.filter(
+        (o) =>
+          (!f.organization_id || (f.organization_id === "none" ? !o.organization_id : o.organization_id === f.organization_id)) &&
+          (!f.order_status || o.order_status === f.order_status) &&
+          (!f.production_status || (o.production_status ?? "not_started") === f.production_status) &&
+          withinDates(o.created_at, f.from, f.to)
+      ),
+    columns: [
+      ["Margen order ID", (o) => o.margen_order_id, 22],
+      ["Factory order ID", (o) => o.factory_order_id ?? "", 18],
+      ["Organization", (o) => o.organization?.name ?? "", 30],
+      ["Order status", (o) => ORDER_STATUSES[o.order_status], 14],
+      ["Production status", (o) => (o.production_status ? PRODUCTION_STATUSES[o.production_status] : "Not started"), 20],
+      ["Added", (o) => new Date(o.created_at), 14],
+    ],
+  },
+];
+
+// Inclusive date range on the user's local calendar; from/to are "YYYY-MM-DD" or "".
+function withinDates(timestamp, from, to) {
+  const at = new Date(timestamp);
+  if (from && at < new Date(`${from}T00:00:00`)) return false;
+  if (to && at >= new Date(new Date(`${to}T00:00:00`).getTime() + 86400000)) return false;
+  return true;
+}
+
+const reportFilters = (report) => (state.reportFilters[report.id] ??= {});
+const reportCountText = (report, n) => (n === 1 ? `1 ${report.noun[0]} matches` : `${n} ${report.noun[1]} match`);
+
+async function downloadReport(id) {
+  const report = REPORTS.find((r) => r.id === id);
+  const records = report.records(reportFilters(report));
+  try {
+    const XLSX = await loadSheetJS();
+    const sheet = XLSX.utils.aoa_to_sheet(
+      [report.columns.map(([heading]) => heading), ...records.map((r) => report.columns.map(([, value]) => value(r)))],
+      { cellDates: true, dateNF: "yyyy-mm-dd" }
+    );
+    sheet["!cols"] = report.columns.map(([, , wch]) => ({ wch }));
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, sheet, report.title.slice(0, 31));
+    const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
+    XLSX.writeFile(book, `${report.fileName}-${today}.xlsx`);
+  } catch (error) {
+    notify("error", `Couldn't create the ${report.title.toLowerCase()}: ${error.message}`);
+  }
 }
 
 // Quick status change from an order page; field is "order_status" or "production_status".
@@ -766,6 +847,43 @@ function dashboardNotes() {
           : `<p class="empty">No new notes. Notes added to contacts and athletes appear here until you hide them.</p>`
       }
     </section>`;
+}
+
+function reportsPage() {
+  const cards = REPORTS.map((report) => {
+    const values = reportFilters(report);
+    const n = state.loaded ? report.records(values).length : 0;
+    const fields = report
+      .filters()
+      .map((f) =>
+        f.type === "date"
+          ? `<label>${f.label}<input type="date" name="${f.name}" value="${esc(values[f.name])}"></label>`
+          : `<label>${f.label}<select name="${f.name}">${f.options
+              .map(([v, text]) => `<option value="${esc(v)}"${v === (values[f.name] ?? "") ? " selected" : ""}>${esc(text)}</option>`)
+              .join("")}</select></label>`
+      )
+      .join("");
+    return `
+      <section class="card section">
+        <h2>${report.title}</h2>
+        <p class="muted report-description">${report.description}</p>
+        <form class="report-filters" data-report="${report.id}">${fields}</form>
+        <div class="report-actions">
+          <button type="button" class="primary" data-action="download-report" data-report="${report.id}"${n ? "" : " disabled"}>
+            Download Excel
+          </button>
+          <span class="muted small" data-report-count="${report.id}">${state.loaded ? reportCountText(report, n) : "Loading…"}</span>
+        </div>
+      </section>`;
+  }).join("");
+  return `
+    <div class="page-head">
+      <div class="title-block">
+        <h1>Reports</h1>
+        <p class="muted">Choose filters, then download the matching data as an Excel spreadsheet.</p>
+      </div>
+    </div>
+    <div class="stack">${cards}</div>`;
 }
 
 function usersPage() {
@@ -1584,6 +1702,7 @@ function render() {
     contacts: () => contactsPage(id, editing),
     athletes: () => athletesPage(id, editing),
     leads: () => leadsPage(id, editing),
+    reports: () => reportsPage(),
     users: () => usersPage(),
   }[page]();
   app.innerHTML = shell(page, content);
@@ -1664,6 +1783,11 @@ app.addEventListener("click", async (event) => {
       case "delete-note":
         await deleteNote(action.dataset.id);
         break;
+      case "download-report":
+        action.disabled = true;
+        await downloadReport(action.dataset.report);
+        if (action.isConnected) action.disabled = false;
+        break;
       case "toggle-group":
         state.menuGroups[action.dataset.group] = action.getAttribute("aria-expanded") !== "true";
         render();
@@ -1693,6 +1817,16 @@ app.addEventListener("click", async (event) => {
 });
 
 app.addEventListener("change", async (event) => {
+  const reportForm = event.target.closest("form[data-report]");
+  if (reportForm) {
+    // Update the match count and button in place, so focus stays in the filters.
+    const report = REPORTS.find((r) => r.id === reportForm.dataset.report);
+    reportFilters(report)[event.target.name] = event.target.value;
+    const n = report.records(reportFilters(report)).length;
+    app.querySelector(`[data-report-count="${report.id}"]`).textContent = reportCountText(report, n);
+    app.querySelector(`[data-action="download-report"][data-report="${report.id}"]`).disabled = !n;
+    return;
+  }
   if (event.target.matches("select[data-org-filter]")) {
     const field = event.target.dataset.orgFilter;
     state.orgFilters[field] = event.target.value;
