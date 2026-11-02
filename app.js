@@ -660,17 +660,21 @@ function shell(page, content) {
        </div>`
     : "";
   return `
-    <header class="topbar">
-      <a href="#/dashboard" class="brand" aria-label="MARGEN Dashboard home">${logo}</a>
-      <nav class="tabs">${tabs}</nav>
-      <div class="user">
-        <span class="muted">${esc(state.session.user.email)}</span>
-        <span class="role">${ROLE_LABELS[state.role]}</span>
-        ${themeToggle()}
-        <button type="button" class="ghost" data-action="signout">Sign out</button>
-      </div>
-    </header>
-    <main class="page">${notice}${content}</main>`;
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a href="#/dashboard" class="brand" aria-label="MARGEN Dashboard home">${logo}</a>
+        <nav class="tabs" aria-label="Main menu">${tabs}</nav>
+        <div class="user">
+          <span class="user-email">${esc(state.session.user.email)}</span>
+          <div class="user-actions">
+            <span class="role">${ROLE_LABELS[state.role]}</span>
+            ${themeToggle()}
+            <button type="button" class="ghost" data-action="signout">Sign out</button>
+          </div>
+        </div>
+      </aside>
+      <main class="page">${notice}${content}</main>
+    </div>`;
 }
 
 function dashboardPage() {
