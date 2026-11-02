@@ -161,10 +161,11 @@ async function loadData() {
         "id, margen_order_id, factory_order_id, order_status, production_status, organization_id, created_at, organization:organizations(id, name)"
       )
       .order("created_at", { ascending: false }),
-    // Newest notes first, with who wrote them.
+    // Newest notes first, with who wrote them. The foreign key is named because notes also
+    // reach profiles through note_dismissals, which makes a bare "profiles" ambiguous.
     supabase
       .from("notes")
-      .select("id, contact_id, athlete_id, body, created_at, author:profiles(email)")
+      .select("id, contact_id, athlete_id, body, created_at, author:profiles!notes_created_by_fkey(email)")
       .order("created_at", { ascending: false }),
     // Only this user's own dismissals are visible to them.
     supabase.from("note_dismissals").select("note_id"),
