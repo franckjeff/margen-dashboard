@@ -1,0 +1,15 @@
+# Personal Claude Code settings
+.claude/settings.local.json
+
+# Temporary preview pages used while testing
+dev-preview.html
+
+# Secrets (never commit a Supabase service-role key)
+.env
+.env.*
+
+# OS / editor clutter
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
