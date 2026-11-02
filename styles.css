@@ -206,24 +206,11 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 }
 .tab:hover { color: #ffffff; background: rgb(255 255 255 / 0.05); text-decoration: none; }
 .tab.active { color: #ffffff; background: rgb(255 255 255 / 0.07); border-left-color: var(--green); }
-/* Record count beside a menu item. */
-.tab-count {
-  margin-left: auto;
-  min-width: 22px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.1);
-  color: rgb(255 255 255 / 0.85);
-  font: 600 0.65rem var(--heading);
-  letter-spacing: 0.04em;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-.tab.active .tab-count { background: var(--green); color: var(--dark-navy); }
 /* A collapsible menu heading (e.g. Clients) with its pages indented underneath. */
 .tab-group-label {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   width: 100%;
   padding: 11px 20px 11px 24px;
   border: 0;
@@ -237,10 +224,7 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 }
 .tab-group-label:hover { color: #ffffff; background: rgb(255 255 255 / 0.05); border-color: transparent; }
 .tab-group-label.active { color: var(--green); }
-.chevron { width: 14px; height: 14px; flex-shrink: 0; transition: transform 0.15s ease; }
-/* Heading text takes the free space; its total and the arrow sit together on the right. */
-.tab-group-label > span:first-child { margin-right: auto; }
-.tab-group-label .tab-count { margin: 0 8px 0 0; }
+.chevron { width: 14px; height: 14px; transition: transform 0.15s ease; }
 .tab-group.open .chevron { transform: rotate(90deg); }
 .tab-group-pages { display: flex; flex-direction: column; gap: 2px; }
 .tab-group:not(.open) .tab-group-pages { display: none; }
@@ -462,7 +446,6 @@ table.static tbody tr:hover { background: none; }
     border-top: 1px solid rgb(255 255 255 / 0.08);
   }
   .tab, .tab-group .tab { padding: 0 12px; border-left: 0; border-bottom: 2px solid transparent; }
-  .tab-count { margin-left: 6px; }
   /* In the one-row menu the group's pages sit inline and the heading is dropped. */
   .tab-group, .tab-group-pages, .tab-group:not(.open) .tab-group-pages { display: contents; }
   .tab-group-label { display: none; }
