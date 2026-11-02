@@ -12,6 +12,7 @@ const state = {
   leads: [],
   orders: [],
   notes: [], // newest first; each has a contact_id or an athlete_id
+  dismissedNotes: new Set(), // ids of notes this user has hidden from the Dashboard
   users: [], // profiles, admins only
   loaded: false,
   role: undefined, // undefined = still loading, null = no profile, else "admin" | "factory" | "client"
@@ -132,7 +133,7 @@ async function loadData() {
     return;
   }
 
-  const [orgs, contacts, athletes, leads, orders, notes, users] = await Promise.all([
+  const [orgs, contacts, athletes, leads, orders, notes, dismissals, users] = await Promise.all([
     supabase
       .from("organizations")
       .select(
@@ -165,10 +166,19 @@ async function loadData() {
       .from("notes")
       .select("id, contact_id, athlete_id, body, created_at, author:profiles(email)")
       .order("created_at", { ascending: false }),
+    // Only this user's own dismissals are visible to them.
+    supabase.from("note_dismissals").select("note_id"),
     supabase.from("profiles").select("id, email, role, created_at").order("email"),
   ]);
   const error =
-    orgs.error || contacts.error || athletes.error || leads.error || orders.error || notes.error || users.error;
+    orgs.error ||
+    contacts.error ||
+    athletes.error ||
+    leads.error ||
+    orders.error ||
+    notes.error ||
+    dismissals.error ||
+    users.error;
   if (error) {
     notify("error", `Couldn't load data: ${error.message}`);
     return;
@@ -186,6 +196,7 @@ async function loadData() {
   state.leads = leads.data;
   state.orders = orders.data;
   state.notes = notes.data;
+  state.dismissedNotes = new Set(dismissals.data.map((d) => d.note_id));
   state.users = users.data;
   state.loaded = true;
   render();
@@ -532,6 +543,18 @@ async function addNote(form) {
   app.querySelector("[data-note-input]")?.focus();
 }
 
+// Hides a note from this user's Dashboard; the note stays on its contact or athlete page.
+async function dismissNote(id) {
+  state.dismissedNotes.add(id);
+  render();
+  const { error } = await supabase.from("note_dismissals").insert({ note_id: id });
+  // Already hidden (e.g. from another tab) is fine.
+  if (error && error.code !== "23505") {
+    state.dismissedNotes.delete(id);
+    notify("error", `Couldn't hide the note: ${error.message}`);
+  }
+}
+
 async function deleteNote(id) {
   if (!confirm("Delete this note? This can't be undone.")) return;
   const { data, error } = await supabase.from("notes").delete().eq("id", id).select("id");
@@ -675,7 +698,44 @@ function dashboardPage() {
       ${stat("Contacts", state.contacts.length, "#/contacts")}
       ${stat("Links", links, "#/organizations")}
       ${stat("Contacts without an organization", unlinked, "#/contacts")}
-    </div>`;
+    </div>
+    ${dashboardNotes()}`;
+}
+
+// Notes this user hasn't hidden yet, newest first, each with the contact or athlete it's about.
+function dashboardNotes() {
+  if (!state.loaded) return "";
+  const notes = state.notes.filter((n) => !state.dismissedNotes.has(n.id));
+  const subjectOf = (n) =>
+    n.contact_id
+      ? { kind: "Contact", href: `#/contacts/${n.contact_id}`, record: state.contacts.find((c) => c.id === n.contact_id) }
+      : { kind: "Athlete", href: `#/athletes/${n.athlete_id}`, record: state.athletes.find((a) => a.id === n.athlete_id) };
+  const items = notes
+    .map((n) => {
+      const { kind, href, record } = subjectOf(n);
+      return `
+      <li class="note">
+        <div class="note-meta">
+          <span class="status tone-accent">${kind}</span>
+          <a href="${href}" class="strong">${record ? esc(fullName(record)) : "Unknown"}</a>
+          <time datetime="${n.created_at}">${formatDateTime(n.created_at)}</time>
+          ${n.author ? `<span class="note-author">${esc(n.author.email)}</span>` : ""}
+          <button type="button" class="icon-btn" data-action="dismiss-note" data-id="${n.id}"
+            aria-label="Hide this note from the Dashboard" title="Hide from the Dashboard">×</button>
+        </div>
+        <p class="note-body">${esc(n.body)}</p>
+      </li>`;
+    })
+    .join("");
+  return `
+    <section class="card section dashboard-notes">
+      <h2>Notes <span class="count">${notes.length}</span></h2>
+      ${
+        notes.length
+          ? `<ol class="notes-list">${items}</ol>`
+          : `<p class="empty">No new notes. Notes added to contacts and athletes appear here until you hide them.</p>`
+      }
+    </section>`;
 }
 
 function usersPage() {
@@ -1544,6 +1604,9 @@ app.addEventListener("click", async (event) => {
       case "make-default":
         action.disabled = true;
         await makeDefault(action.dataset.org, action.dataset.contact);
+        break;
+      case "dismiss-note":
+        await dismissNote(action.dataset.id);
         break;
       case "delete-note":
         await deleteNote(action.dataset.id);

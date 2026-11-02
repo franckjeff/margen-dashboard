@@ -368,6 +368,9 @@ table.static tbody tr:hover { background: none; }
 .note-meta time { font: 500 0.68rem var(--heading); text-transform: uppercase; letter-spacing: 0.15em; color: var(--text); }
 .note-meta .icon-btn { margin-left: auto; width: 26px; height: 26px; font-size: 1.1rem; }
 .note-body { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dashboard-notes { margin-top: 20px; }
+.dashboard-notes .notes-list { margin-top: 0; }
+.dashboard-notes .empty { padding: 0; }
 
 .panel { padding: 22px; position: sticky; top: 16px; }
 .panel-head { display: flex; align-items: start; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
