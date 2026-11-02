@@ -81,14 +81,19 @@ const productionBadge = (status) =>
 const PAGES = [
   { name: "dashboard", label: "Dashboard", roles: ["admin", "factory", "client"] },
   // Consecutive pages with the same group sit under that heading in the menu.
-  { name: "customs", label: "Customs", roles: ["admin"], group: "Orders" },
+  // count names the state list whose length shows next to the page in the menu.
+  { name: "customs", label: "Customs", roles: ["admin"], group: "Orders", count: "orders" },
   { name: "shopify", label: "Shopify", roles: ["admin"], group: "Orders" },
-  { name: "athletes", label: "Athletes", roles: ["admin"] },
-  { name: "leads", label: "Leads", roles: ["admin"], group: "Clients" },
-  { name: "organizations", label: "Organizations", roles: ["admin"], group: "Clients" },
-  { name: "contacts", label: "Contacts", roles: ["admin"], group: "Clients" },
-  { name: "users", label: "Users", roles: ["admin"] },
+  { name: "athletes", label: "Athletes", roles: ["admin"], count: "athletes" },
+  { name: "leads", label: "Leads", roles: ["admin"], group: "Clients", count: "leads" },
+  { name: "organizations", label: "Organizations", roles: ["admin"], group: "Clients", count: "organizations" },
+  { name: "contacts", label: "Contacts", roles: ["admin"], group: "Clients", count: "contacts" },
+  { name: "users", label: "Users", roles: ["admin"], count: "users" },
 ];
+
+// Number of records behind a menu item, or null when it has none or data isn't loaded yet.
+const pageCount = (p) => (p.count && state.loaded ? state[p.count].length : null);
+const countBadge = (n) => (n === null ? "" : `<span class="tab-count">${n}</span>`);
 
 const visiblePages = () => PAGES.filter((p) => p.roles.includes(state.role));
 
@@ -651,8 +656,10 @@ function themeToggle() {
 }
 
 function shell(page, content) {
-  const tab = ({ name, label }) =>
-    `<a href="#/${name}" class="tab${page === name ? " active" : ""}"${page === name ? ' aria-current="page"' : ""}>${label}</a>`;
+  const tab = (p) =>
+    `<a href="#/${p.name}" class="tab${page === p.name ? " active" : ""}"${page === p.name ? ' aria-current="page"' : ""}>${
+      p.label
+    }${countBadge(pageCount(p))}</a>`;
   // Gather consecutive pages of the same group under one heading.
   const items = [];
   for (const p of visiblePages()) {
@@ -667,11 +674,14 @@ function shell(page, content) {
       const holdsPage = item.pages.some((p) => p.name === page);
       const open = state.menuGroups[item.group] ?? holdsPage;
       const id = `menu-${item.group.toLowerCase()}`;
+      // A closed group shows the total of its pages so the numbers stay in view.
+      const counts = item.pages.map(pageCount).filter((n) => n !== null);
+      const total = !open && counts.length ? counts.reduce((a, b) => a + b, 0) : null;
       return `
         <div class="tab-group${open ? " open" : ""}">
           <button type="button" class="tab-group-label${holdsPage ? " active" : ""}" data-action="toggle-group"
             data-group="${item.group}" aria-expanded="${open}" aria-controls="${id}">
-            ${item.group}${CHEVRON_ICON}
+            <span>${item.group}</span>${countBadge(total)}${CHEVRON_ICON}
           </button>
           <div class="tab-group-pages" id="${id}">${item.pages.map(tab).join("")}</div>
         </div>`;
