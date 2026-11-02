@@ -500,12 +500,20 @@ async function unlink(organization_id, contact_id) {
 
 // ---------- views ----------
 
+// The primary logo always sits on navy, as the brand guidelines show it.
+const logo = `<img src="assets/margen-logo.svg" alt="MARGEN" class="logo">`;
+const loginBrand = `
+  <div class="login-brand">
+    ${logo}
+    <p class="tagline">For the Marine Generation</p>
+  </div>`;
+
 function loginView() {
   const notice = state.notice?.type === "error" ? `<p class="notice error">${esc(state.notice.text)}</p>` : "";
   return `
     <main class="login">
+      ${loginBrand}
       <form class="card login-card" data-form="login">
-        <div class="brand">MARGEN</div>
         <h1>Sign in</h1>
         ${notice}
         <label>Email<input type="email" name="email" required autocomplete="username"></label>
@@ -520,8 +528,8 @@ function noAccessView() {
   const detail = state.notice?.type === "error" ? `<p class="notice error">${esc(state.notice.text)}</p>` : "";
   return `
     <main class="login">
+      ${loginBrand}
       <div class="card login-card">
-        <div class="brand">MARGEN</div>
         <h1>No access yet</h1>
         ${detail}
         <p class="muted">${esc(state.session.user.email)} doesn't have an access level. Ask an admin to set one up.</p>
@@ -545,7 +553,7 @@ function shell(page, content) {
     : "";
   return `
     <header class="topbar">
-      <div class="brand">MARGEN</div>
+      <a href="#/dashboard" class="brand" aria-label="MARGEN Dashboard home">${logo}</a>
       <nav class="tabs">${tabs}</nav>
       <div class="user">
         <span class="muted">${esc(state.session.user.email)}</span>

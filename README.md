@@ -19,7 +19,8 @@ Then open http://localhost:5173 and sign in with a Supabase account.
 |---|---|
 | `index.html` | Page shell |
 | `app.js` | The whole app: sign-in, routing, pages, data access |
-| `styles.css` | Styles, including dark mode |
+| `styles.css` | Styles following the MARGEN branding guidelines (navy, storm blue, green; Exo 2 and Open Sans), including dark mode |
+| `assets/` | MARGEN logo and favicon, taken from the brand's logo files |
 | `config.js` | Supabase project URL and publishable key (safe in the browser) |
 | `supabase/migrations/` | Every database change, in the order it was applied |
 
