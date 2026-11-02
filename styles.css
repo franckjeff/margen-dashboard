@@ -12,6 +12,8 @@
   --danger-soft: #fdecea;
   --success: #116b3a;
   --success-soft: #e6f4ec;
+  --warn: #8a5300;
+  --warn-soft: #fdf1dc;
   --radius: 10px;
   --shadow: 0 1px 2px rgb(16 24 40 / 0.06);
   color-scheme: light;
@@ -32,6 +34,8 @@
     --danger-soft: #3a1d1b;
     --success: #6fcf97;
     --success-soft: #16301f;
+    --warn: #f0b860;
+    --warn-soft: #3a2c14;
     --shadow: none;
     color-scheme: dark;
   }
@@ -185,6 +189,10 @@ legend { padding: 0; margin-bottom: 4px; font-size: 0.8rem; font-weight: 600; te
 }
 .status-new, .status-contacted, .status-qualified { background: var(--accent-soft); color: var(--accent); }
 .status-converted { background: var(--success-soft); color: var(--success); }
+.tone-accent { background: var(--accent-soft); color: var(--accent); }
+.tone-success { background: var(--success-soft); color: var(--success); }
+.tone-warn { background: var(--warn-soft); color: var(--warn); }
+.tone-muted { background: var(--surface-2); color: var(--muted); }
 .title-block h1 .status { font-size: 0.8rem; margin-left: 6px; }
 
 .inline-select { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }

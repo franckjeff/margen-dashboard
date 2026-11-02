@@ -52,6 +52,24 @@ const LEAD_STATUSES = { new: "New", contacted: "Contacted", qualified: "Qualifie
 const OPEN_LEAD_STATUSES = ["new", "contacted", "qualified"];
 const statusBadge = (status) => `<span class="status status-${status}">${LEAD_STATUSES[status]}</span>`;
 
+// Must match the check constraints on orders.order_status and orders.production_status.
+const ORDER_STATUSES = { received: "Received", accepted: "Accepted", on_hold: "On hold", cancelled: "Cancelled", closed: "Closed" };
+const PRODUCTION_STATUSES = {
+  job_sheet_approved: "Job sheet approved",
+  artwork_in_progress: "Artwork in progress",
+  in_printing_queue: "In printing queue",
+  sewing: "Sewing",
+  trimming: "Trimming",
+  shipped: "Shipped",
+};
+const ORDER_TONES = { received: "accent", accepted: "accent", on_hold: "warn", cancelled: "muted", closed: "success" };
+const orderBadge = (status) => `<span class="status tone-${ORDER_TONES[status]}">${ORDER_STATUSES[status]}</span>`;
+// An empty production status means the factory hasn't started.
+const productionBadge = (status) =>
+  status
+    ? `<span class="status tone-${status === "shipped" ? "success" : "accent"}">${PRODUCTION_STATUSES[status]}</span>`
+    : `<span class="muted small">Not started</span>`;
+
 // Menu order, and which roles see each page. The first visible page is the home page.
 // Hiding a page here is only cosmetic: the database's access rules are what protect the data.
 const PAGES = [
@@ -134,7 +152,9 @@ async function loadData() {
     // Newest orders first, with the linked organization's name.
     supabase
       .from("orders")
-      .select("id, margen_order_id, factory_order_id, organization_id, created_at, organization:organizations(id, name)")
+      .select(
+        "id, margen_order_id, factory_order_id, order_status, production_status, organization_id, created_at, organization:organizations(id, name)"
+      )
       .order("created_at", { ascending: false }),
     supabase.from("profiles").select("id, email, role, created_at").order("email"),
   ]);
@@ -181,9 +201,30 @@ async function saveOrder(form) {
     margen_order_id: values.margen_order_id.trim(),
     factory_order_id: values.factory_order_id.trim() || null,
     organization_id: values.organization_id || null,
+    order_status: values.order_status,
+    production_status: values.production_status || null,
   };
   if (!row.margen_order_id) return notify("error", "The order needs a Margen order ID.");
   await saveRow(form, "orders", row, `order ${row.margen_order_id}`);
+}
+
+// Quick status change from an order page; field is "order_status" or "production_status".
+async function setOrderField(id, field, value) {
+  const order = state.orders.find((o) => o.id === id);
+  const label = `order ${order.margen_order_id}`;
+  const { data, error } = await supabase
+    .from("orders")
+    .update({ [field]: value || null })
+    .eq("id", id)
+    .select("id");
+  if (error) return notify("error", `Couldn't change ${label}: ${error.message}`);
+  if (!data.length) return notify("error", `${label} wasn't changed. You may not have permission.`);
+  const text =
+    field === "order_status"
+      ? `${label} is now ${ORDER_STATUSES[value]}.`
+      : `${label} production: ${value ? PRODUCTION_STATUSES[value] : "Not started"}.`;
+  state.notice = { type: "success", text: text.charAt(0).toUpperCase() + text.slice(1) };
+  await loadData();
 }
 
 async function saveOrganization(form) {
@@ -580,8 +621,10 @@ function organizationOrders(org) {
       (o) => `
       <tr>
         <td><a href="#/customs/${o.id}" class="strong mono">${esc(o.margen_order_id)}</a></td>
-        <td class="mono">${esc(o.factory_order_id) || dash}</td>
-        <td class="muted num">${formatDate(o.created_at)}</td>
+        <td class="mono hide-sm">${esc(o.factory_order_id) || dash}</td>
+        <td>${orderBadge(o.order_status)}</td>
+        <td>${productionBadge(o.production_status)}</td>
+        <td class="muted num hide-sm">${formatDate(o.created_at)}</td>
       </tr>`
     )
     .join("");
@@ -728,6 +771,10 @@ function orderForm(order) {
       <label><span>Organization <span class="muted">(optional)</span></span>
         <select name="organization_id"><option value="">No organization</option>${options}</select>
       </label>
+      <div class="field-row">
+        <label>Order status<select name="order_status">${optionsFor(ORDER_STATUSES, order?.order_status ?? "received")}</select></label>
+        <label>Production status<select name="production_status">${optionsFor(PRODUCTION_STATUSES, order?.production_status ?? "", "Not started")}</select></label>
+      </div>
       ${formButtons(order ? "Save changes" : "Create order", back)}
     </form>`;
 }
@@ -749,11 +796,16 @@ function ordersPage(id, editing) {
     .map(
       (o) => `
       <tr data-href="#/customs/${o.id}"
-          data-search="${esc(`${o.margen_order_id} ${o.factory_order_id ?? ""} ${o.organization?.name ?? ""}`.toLowerCase())}">
+          data-search="${esc(
+            `${o.margen_order_id} ${o.factory_order_id ?? ""} ${o.organization?.name ?? ""} ${ORDER_STATUSES[o.order_status]} ${
+              o.production_status ? PRODUCTION_STATUSES[o.production_status] : "not started"
+            }`.toLowerCase()
+          )}">
         <td><a href="#/customs/${o.id}" class="strong mono">${esc(o.margen_order_id)}</a></td>
-        <td class="mono">${esc(o.factory_order_id) || dash}</td>
-        <td>${orderOrganization(o)}</td>
-        <td class="muted hide-sm">${formatDate(o.created_at)}</td>
+        <td class="mono hide-sm">${esc(o.factory_order_id) || dash}</td>
+        <td class="hide-sm">${orderOrganization(o)}</td>
+        <td>${orderBadge(o.order_status)}</td>
+        <td>${productionBadge(o.production_status)}</td>
       </tr>`
     )
     .join("");
@@ -764,7 +816,7 @@ function ordersPage(id, editing) {
     newHash: "#/customs/new",
     newLabel: "New order",
     placeholder: "Search orders",
-    head: `<th>Margen order ID</th><th>Factory order ID</th><th>Organization</th><th class="hide-sm">Added</th>`,
+    head: `<th>Margen order ID</th><th class="hide-sm">Factory order ID</th><th class="hide-sm">Organization</th><th>Order status</th><th>Production</th>`,
     rows,
     panel: id === "new" ? orderForm() : "",
   });
@@ -779,6 +831,8 @@ function orderPage(order, editing) {
         <div><dt>Margen order ID</dt><dd class="mono">${esc(order.margen_order_id)}</dd></div>
         <div><dt>Factory order ID</dt><dd class="mono">${esc(order.factory_order_id) || dash}</dd></div>
         <div><dt>Organization</dt><dd>${orderOrganization(order)}</dd></div>
+        <div><dt>Order status</dt><dd>${orderBadge(order.order_status)}</dd></div>
+        <div><dt>Production status</dt><dd>${productionBadge(order.production_status)}</dd></div>
         <div><dt>Added</dt><dd>${formatDate(order.created_at)}</dd></div>
       </dl>`;
 
@@ -792,7 +846,20 @@ function orderPage(order, editing) {
       ${
         editing
           ? ""
-          : `<a href="#/customs/${order.id}/edit" class="button">Edit</a>
+          : `<label class="inline-select">Order
+               <select data-order-field="order_status" data-order-id="${order.id}" aria-label="Order status">${optionsFor(
+                 ORDER_STATUSES,
+                 order.order_status
+               )}</select>
+             </label>
+             <label class="inline-select">Production
+               <select data-order-field="production_status" data-order-id="${order.id}" aria-label="Production status">${optionsFor(
+                 PRODUCTION_STATUSES,
+                 order.production_status ?? "",
+                 "Not started"
+               )}</select>
+             </label>
+             <a href="#/customs/${order.id}/edit" class="button">Edit</a>
              <button type="button" class="danger" data-action="delete" data-table="orders" data-id="${order.id}">Delete</button>`
       }
     </div>
@@ -801,8 +868,10 @@ function orderPage(order, editing) {
     </div>`;
 }
 
-function statusOptions(selected) {
-  return Object.entries(LEAD_STATUSES)
+// <option>s for a { value: label } map; emptyLabel adds a first option with an empty value.
+function optionsFor(labels, selected, emptyLabel) {
+  const entries = emptyLabel ? [["", emptyLabel], ...Object.entries(labels)] : Object.entries(labels);
+  return entries
     .map(([value, label]) => `<option value="${value}"${value === selected ? " selected" : ""}>${label}</option>`)
     .join("");
 }
@@ -826,7 +895,7 @@ function leadForm(lead) {
         ${field("country", "Country")}
       </div>
       ${field("source", "Source", 'placeholder="e.g. Referral, website, event"')}
-      <label>Status<select name="status">${statusOptions(lead?.status ?? "new")}</select></label>
+      <label>Status<select name="status">${optionsFor(LEAD_STATUSES, lead?.status ?? "new")}</select></label>
       <label><span>Notes <span class="muted">(optional)</span></span><textarea name="notes" rows="4">${esc(lead?.notes)}</textarea></label>
       ${formButtons(lead ? "Save changes" : "Create lead", back)}
     </form>`;
@@ -894,7 +963,7 @@ function leadPage(lead, editing) {
         editing
           ? ""
           : `<label class="inline-select">Status
-               <select data-lead-status-for="${lead.id}" aria-label="Lead status">${statusOptions(lead.status)}</select>
+               <select data-lead-status-for="${lead.id}" aria-label="Lead status">${optionsFor(LEAD_STATUSES, lead.status)}</select>
              </label>
              <a href="#/leads/${lead.id}/edit" class="button">Edit</a>
              <button type="button" class="danger" data-action="delete" data-table="leads" data-id="${lead.id}">Delete</button>`
@@ -1123,10 +1192,11 @@ app.addEventListener("click", async (event) => {
 });
 
 app.addEventListener("change", async (event) => {
-  const select = event.target.closest("select[data-role-for], select[data-lead-status-for]");
+  const select = event.target.closest("select[data-role-for], select[data-lead-status-for], select[data-order-field]");
   if (!select) return;
   select.disabled = true;
   if (select.dataset.roleFor) await setRole(select.dataset.roleFor, select.value);
+  else if (select.dataset.orderField) await setOrderField(select.dataset.orderId, select.dataset.orderField, select.value);
   else await setLeadStatus(select.dataset.leadStatusFor, select.value);
 });
 
