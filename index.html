@@ -10,6 +10,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600&family=Open+Sans:wght@400;600;700&display=swap">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // Apply the saved theme, or the system's, before the page paints (app.js handles the switch).
+    (function () {
+      var saved = null;
+      try { saved = localStorage.getItem("margen-theme"); } catch (e) {}
+      var dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    })();
+  </script>
 </head>
 <body>
   <div id="app"><p class="loading">Loading…</p></div>

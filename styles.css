@@ -30,27 +30,26 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #000c1c;
-    --surface: #002138;
-    --surface-2: #0a2d47;
-    --border: #16405e;
-    --text: #ffffff;
-    --muted: #9db2bd;
-    --accent: #7ef84d; /* green carries the accent on navy */
-    --accent-text: #000c1c;
-    --accent-soft: rgb(97 128 143 / 0.28);
-    --topbar: #000c1c;
-    --danger: #f2877d;
-    --danger-soft: #3a1d1b;
-    --success: #000c1c;
-    --success-soft: #7ef84d;
-    --warn: #f0b860;
-    --warn-soft: #3a2c14;
-    --shadow: none;
-    color-scheme: dark;
-  }
+/* data-theme is set before first paint by index.html: the saved choice, else the system setting. */
+:root[data-theme="dark"] {
+  --bg: #000c1c;
+  --surface: #002138;
+  --surface-2: #0a2d47;
+  --border: #16405e;
+  --text: #ffffff;
+  --muted: #9db2bd;
+  --accent: #7ef84d; /* green carries the accent on navy */
+  --accent-text: #000c1c;
+  --accent-soft: rgb(97 128 143 / 0.28);
+  --topbar: #000c1c;
+  --danger: #f2877d;
+  --danger-soft: #3a1d1b;
+  --success: #000c1c;
+  --success-soft: #7ef84d;
+  --warn: #f0b860;
+  --warn-soft: #3a2c14;
+  --shadow: none;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -209,6 +208,9 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 .user .muted { color: rgb(255 255 255 / 0.68); }
 .user .ghost { color: #ffffff; }
 .user .ghost:hover { background: rgb(255 255 255 / 0.1); border-color: transparent; }
+.theme-toggle { color: rgb(255 255 255 / 0.8); }
+.theme-toggle:hover { background: rgb(255 255 255 / 0.1); color: var(--green); }
+.theme-toggle svg { width: 18px; height: 18px; }
 
 .badge, .status, .role, .count {
   font-family: var(--heading);
