@@ -8,8 +8,10 @@ backed by the Supabase project **MARGEN DATA**.
 No build step or installs are needed, only Python to serve the files:
 
 ```bash
-python -m http.server 5173 --bind 127.0.0.1
+python serve.py 5173
 ```
+
+`serve.py` is a plain static server that turns off browser caching, so a reload always shows the latest code.
 
 Then open http://localhost:5173 and sign in with a Supabase account.
 
