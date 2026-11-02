@@ -82,9 +82,10 @@ const PAGES = [
   { name: "customs", label: "Customs", roles: ["admin"] },
   { name: "shopify", label: "Shopify", roles: ["admin"] },
   { name: "athletes", label: "Athletes", roles: ["admin"] },
-  { name: "leads", label: "Leads", roles: ["admin"] },
-  { name: "organizations", label: "Organizations", roles: ["admin"] },
-  { name: "contacts", label: "Contacts", roles: ["admin"] },
+  // Consecutive pages with the same group sit under that heading in the menu.
+  { name: "leads", label: "Leads", roles: ["admin"], group: "Clients" },
+  { name: "organizations", label: "Organizations", roles: ["admin"], group: "Clients" },
+  { name: "contacts", label: "Contacts", roles: ["admin"], group: "Clients" },
   { name: "users", label: "Users", roles: ["admin"] },
 ];
 
@@ -647,10 +648,23 @@ function themeToggle() {
 }
 
 function shell(page, content) {
-  const tabs = visiblePages()
-    .map(
-      ({ name, label }) =>
-        `<a href="#/${name}" class="tab${page === name ? " active" : ""}"${page === name ? ' aria-current="page"' : ""}>${label}</a>`
+  const tab = ({ name, label }) =>
+    `<a href="#/${name}" class="tab${page === name ? " active" : ""}"${page === name ? ' aria-current="page"' : ""}>${label}</a>`;
+  // Gather consecutive pages of the same group under one heading.
+  const items = [];
+  for (const p of visiblePages()) {
+    const last = items[items.length - 1];
+    if (p.group && last?.group === p.group) last.pages.push(p);
+    else items.push(p.group ? { group: p.group, pages: [p] } : p);
+  }
+  const tabs = items
+    .map((item) =>
+      item.group
+        ? `<div class="tab-group" role="group" aria-label="${item.group}">
+             <span class="tab-group-label${item.pages.some((p) => p.name === page) ? " active" : ""}">${item.group}</span>
+             ${item.pages.map(tab).join("")}
+           </div>`
+        : tab(item)
     )
     .join("");
   const notice = state.notice
