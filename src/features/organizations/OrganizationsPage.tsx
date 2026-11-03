@@ -362,7 +362,7 @@ function OrganizationOrders({ org }: { org: Organization }) {
             "Loading…"
           ) : (
             <>
-              No orders yet. <Link to="/customs/new">Add one in Customs</Link> and choose this organization.
+              No orders yet. <Link to="/customs/new">Add one in Orders</Link> and choose this organization.
             </>
           )}
         </p>

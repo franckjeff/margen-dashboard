@@ -23,7 +23,7 @@ import { messageOf } from "./lib/supabase";
 
 const Loading = () => <p className="loading">Loading…</p>;
 
-// :id is a record's id, or "new" (the list with its new-record panel), or "import" on Customs.
+// :id is a record's id, or "new" (the list with its new-record panel), or "import" on Orders.
 function RecordRoute({ render, editing = false }: { render: (id?: string, editing?: boolean) => ReactNode; editing?: boolean }) {
   const { id } = useParams();
   return <>{render(id, editing)}</>;
@@ -74,7 +74,6 @@ function AppRoutes() {
           <Route index element={<Navigate to={home} replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           {records("customs", (id, editing) => <OrdersPage id={id} editing={editing} />)}
-          <Route path="shopify" element={page("shopify", <Placeholder title="Shopify" />)} />
           {records("items", (id, editing) => <ItemsPage id={id} editing={editing} />)}
           {records("factories", (id, editing) => <FactoriesPage id={id} editing={editing} />)}
           {records("athletes", (id, editing) => <AthletesPage id={id} editing={editing} />)}
@@ -87,18 +86,5 @@ function AppRoutes() {
         </Route>
       </Routes>
     </HashRouter>
-  );
-}
-
-function Placeholder({ title }: { title: string }) {
-  return (
-    <>
-      <div className="page-head">
-        <h1>{title}</h1>
-      </div>
-      <section className="card">
-        <p className="empty">This section isn't set up yet.</p>
-      </section>
-    </>
   );
 }

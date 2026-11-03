@@ -169,7 +169,7 @@ function OrderForm({ order }: { order?: Order }) {
   );
 }
 
-// Orders live under the Customs menu (#/customs), but in the "orders" table.
+// The Orders page, under the Customs menu: its URL is #/customs, its data the "orders" table.
 // Factory users see the same pages without client details, and change only production and shipping;
 // the database only returns their factory's orders.
 export function OrdersPage({ id, editing = false }: { id?: string; editing?: boolean }) {
@@ -184,7 +184,7 @@ export function OrdersPage({ id, editing = false }: { id?: string; editing?: boo
       <QueryGate queries={[orders]}>
         {() => {
           const order = orders.data!.find((o) => o.id === id);
-          if (!order) return <Missing back="/customs" backLabel="Customs" what="order" />;
+          if (!order) return <Missing back="/customs" backLabel="Orders" what="order" />;
           return factoryView ? <FactoryOrderPage order={order} /> : <OrderPage order={order} editing={editing} />;
         }}
       </QueryGate>
@@ -195,7 +195,7 @@ export function OrdersPage({ id, editing = false }: { id?: string; editing?: boo
   const lines = orderItems.data ?? [];
   return (
     <ListPage
-      title="Customs"
+      title="Orders"
       count={all.length}
       newTo={factoryView ? undefined : "/customs/new"}
       newLabel="New order"
@@ -272,7 +272,7 @@ export function OrdersPage({ id, editing = false }: { id?: string; editing?: boo
   );
 }
 
-// Fields changed in place: from an order page's header, or in the factory's Customs list.
+// Fields changed in place: from an order page's header, or in the factory's Orders list.
 type QuickField = "order_status" | "production_status" | "factory_id" | "estimated_ship_date";
 const QUICK_CHANGES: Record<QuickField, (value: string) => TablesUpdate<"orders">> = {
   order_status: (value) => ({ order_status: value }),
@@ -320,7 +320,7 @@ function ProductionSelect({ order, setField }: { order: Order; setField: ReturnT
   );
 }
 
-// The factory's Production and Est. shipping cells in the Customs list, each saved as soon as it changes.
+// The factory's Production and Est. shipping cells in the Orders list, each saved as soon as it changes.
 function FactoryRowCells({ order }: { order: Order }) {
   const setField = useSetOrderField(order);
   const id = order.margen_order_id;
@@ -389,7 +389,7 @@ function OrderPage({ order, editing }: { order: Order; editing: boolean }) {
 
   return (
     <>
-      <BackLink to="/customs">Customs</BackLink>
+      <BackLink to="/customs">Orders</BackLink>
       <div className="page-head">
         <div className="title-block">
           <h1 className="mono">{order.margen_order_id}</h1>
@@ -501,7 +501,7 @@ function FactoryOrderPage({ order }: { order: Order }) {
   const setField = useSetOrderField(order);
   return (
     <>
-      <BackLink to="/customs">Customs</BackLink>
+      <BackLink to="/customs">Orders</BackLink>
       <div className="page-head">
         <div className="title-block">
           <h1 className="mono">{order.margen_order_id}</h1>

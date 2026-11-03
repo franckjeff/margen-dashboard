@@ -49,7 +49,6 @@ export const LEAD_TEXT_FIELDS = ["organization_name", "email", "phone", "state",
 export type PageName =
   | "dashboard"
   | "customs"
-  | "shopify"
   | "items"
   | "factories"
   | "athletes"
@@ -66,11 +65,10 @@ export type Page = { name: PageName; label: string; roles: Role[]; group?: strin
 export const PAGES: Page[] = [
   { name: "dashboard", label: "Dashboard", roles: ["admin", "factory", "client"] },
   // Consecutive pages with the same group sit under that heading in the menu.
-  // Factory users see only the orders assigned to their factory, read-only.
-  { name: "customs", label: "Customs", roles: ["admin", "factory"], group: "Orders" },
-  { name: "shopify", label: "Shopify", roles: ["admin"], group: "Orders" },
-  { name: "items", label: "Items", roles: ["admin"], group: "Orders" },
-  { name: "factories", label: "Factories", roles: ["admin"], group: "Orders" },
+  // Factory users see only the orders assigned to their factory.
+  { name: "customs", label: "Orders", roles: ["admin", "factory"], group: "Customs" },
+  { name: "items", label: "Items", roles: ["admin"], group: "Customs" },
+  { name: "factories", label: "Factories", roles: ["admin"], group: "Customs" },
   { name: "athletes", label: "Athletes", roles: ["admin"] },
   { name: "leads", label: "Leads", roles: ["admin"], group: "Clients" },
   { name: "organizations", label: "Organizations", roles: ["admin"], group: "Clients" },

@@ -279,7 +279,7 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 .title-block h1 .status { font-size: 0.7rem; margin-left: 6px; letter-spacing: 0.1em; }
 
 .inline-select { display: flex; align-items: center; gap: 8px; font: 500 0.7rem var(--heading); text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted); }
-/* A field inside a list row, e.g. the factory's Production menu in Customs. */
+/* A field inside a list row, e.g. the factory's Production menu in Orders. */
 td .cell-input { width: auto; min-width: 0; padding: 4px 8px; font-size: 0.85rem; }
 .inline-select select { width: auto; font: 400 0.9rem var(--body); text-transform: none; letter-spacing: 0; }
 

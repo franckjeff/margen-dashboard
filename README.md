@@ -40,7 +40,7 @@ Open http://localhost:5173 and sign in with a Supabase account. Saved code chang
 | `src/main.tsx`, `src/App.tsx` | Start-up and the page routes (hash URLs such as `#/customs/<id>`) |
 | `src/auth/` | Sign-in, the signed-in user and their role |
 | `src/data/` | Every Supabase read (`queries.ts`) and write (`mutations.ts`), with what each write refreshes |
-| `src/features/<area>/` | One folder per page: dashboard, orders (Customs), items, factories, organizations, contacts, athletes, leads, reports, users, notes |
+| `src/features/<area>/` | One folder per page: dashboard, orders, items, factories, organizations, contacts, athletes, leads, reports, users, notes |
 | `src/components/` | Shared pieces: layout and menu, list pages, notices, badges, icons |
 | `src/lib/` | Supabase client and database types, constants, formatting, theme, spreadsheets |
 | `src/styles.css` | Styles following the MARGEN branding guidelines (navy, storm blue, green; Exo 2 and Open Sans), including dark mode |

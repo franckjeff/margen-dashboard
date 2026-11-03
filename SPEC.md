@@ -23,7 +23,7 @@ Each user has a row in `profiles` with a `role`, a `first_name`, and, for factor
 | Role | What they can see |
 |---|---|
 | **admin** | Everything: all pages and all data, and can change roles. |
-| **factory** | Dashboard and Customs, showing only the orders assigned to the factory the account is linked to. They can change only the production status and the shipping details (see 5.6). |
+| **factory** | Dashboard and Orders, showing only the orders assigned to the factory the account is linked to. They can change only the production status and the shipping details (see 5.6). |
 | **client** | Dashboard only. Order and client views for clients are not built yet. |
 
 New accounts start as **client**. Row level security enforces these rules in the database. The menu is only a convenience.
@@ -35,11 +35,11 @@ Admins are the only users who can read the last sign-in data (see Users below).
 The side menu groups pages under headings:
 
 - **Dashboard**: all roles.
-- **Orders**: Customs (the orders list), Shopify (placeholder), Items, Factories. Factory users see only Customs.
+- **Customs**: Orders (the orders list), Items, Factories. Factory users see only Orders.
 - **Clients**: Leads, Organizations, Contacts.
 - **Athletes**, **Reports**, **Users**: admins only.
 
-Customs is the URL for the orders table, `#/customs`.
+The Orders page's URL is `#/customs`, kept from when the page itself was named Customs.
 
 ## 5. Pages
 
@@ -66,8 +66,8 @@ Customs is the URL for the orders table, `#/customs`.
 - Sales leads with a status: **New**, **Contacted**, **Qualified**, **Converted**, or **Lost**. The open statuses are New, Contacted, and Qualified.
 - List, create, view, and edit.
 
-### 5.6 Customs (orders)
-- **Order fields:** order IDs (MARGEN and factory IDs), organization, **factory** (or Not assigned), **order status** (Received, Accepted, On hold, Cancelled, Closed), and **production status** (Job sheet approved, Artwork in progress, In printing queue, Sewing, Trimming, Shipped), **shipping details** (estimated shipping date, actual shipping date, shipping method, and tracker: a tracking number or link, which opens in a new tab), plus the date added. The Customs list shows the estimated shipping date.
+### 5.6 Orders
+- **Order fields:** order IDs (MARGEN and factory IDs), organization, **factory** (or Not assigned), **order status** (Received, Accepted, On hold, Cancelled, Closed), and **production status** (Job sheet approved, Artwork in progress, In printing queue, Sewing, Trimming, Shipped), **shipping details** (estimated shipping date, actual shipping date, shipping method, and tracker: a tracking number or link, which opens in a new tab), plus the date added. The Orders list shows the estimated shipping date.
 - **Items on an order:** the items table is read-only until the user clicks **Edit**.
   - Each line is an item with a size and a quantity.
   - Adding a line that matches an existing item and size merges into that line.
@@ -76,7 +76,7 @@ Customs is the URL for the orders table, `#/customs`.
 - **Order history:** a list of every change to the order, showing who made it and when. Actions are created, updated, deleted, item added, item changed, and item removed. Empty fields are not logged as changes.
 - **Import from Excel:** a page at `#/customs/import`. It reads `.xlsx`, `.xls`, or `.csv` files. A template can be downloaded. Rows are checked before they are imported.
 
-**Factory view:** factory users see the same Customs list and order pages. The database returns only the orders assigned to their factory, with those orders' items. In the Customs list they can change each order's **Production** status and **Est. shipping** date right in the row; each change saves at once. On an order's page they can change the **Production** status (menu in the header) and all the **Shipping** details (form with a Save button). They can't change anything else, and the database refuses it if tried. They don't see the organization (client), the order history, or the Edit, Delete, Import, order status, and factory controls. Opening another factory's order shows "This order doesn't exist". Their changes appear in the order history admins see.
+**Factory view:** factory users see the same Orders list and order pages. The database returns only the orders assigned to their factory, with those orders' items. In the Orders list they can change each order's **Production** status and **Est. shipping** date right in the row; each change saves at once. On an order's page they can change the **Production** status (menu in the header) and all the **Shipping** details (form with a Save button). They can't change anything else, and the database refuses it if tried. They don't see the organization (client), the order history, or the Edit, Delete, Import, order status, and factory controls. Opening another factory's order shows "This order doesn't exist". Their changes appear in the order history admins see.
 
 ### 5.7 Items
 - Items are the garments: an **Item ID** (for example MEN-TANK or WMN-RACERBACK) and a **Name**.
@@ -100,16 +100,13 @@ Customs is the URL for the orders table, `#/customs`.
 - **Notes:** the factory page has the same notes timeline as contacts (Enter saves, Shift+Enter adds a line, delete with confirmation). Factory notes also appear on the Dashboard.
 - The list shows each factory's contact name, and search also matches the contact name and description.
 
-### 5.9 Shopify
-- Placeholder page. No functionality yet.
-
-### 5.10 Reports
+### 5.9 Reports
 Each report can be filtered and downloaded as an Excel file.
 
 - **Order report:** every order with its IDs, organization, factory, statuses, shipping details, pieces, and date added. The order detail report also has the shipping details. Filters: organization, factory (including Not assigned), order status, production status, and date added range.
 - **Order detail report:** every order with all its details. It has one row per item and size. Search by order ID (the MARGEN or factory ID), or leave it empty to get all orders.
 
-### 5.11 Users
+### 5.10 Users
 - Lists every account with its email, **first name** (editable inline), **access level** (admin, factory, client; changeable by admins), **factory** (for factory accounts: which factory's orders they see, or Not linked), **last signed in** (or "Never"), and the date it was added.
 - Last sign-in comes from the authentication records through the `user_last_sign_ins()` function. It returns data only to admins.
 
@@ -142,7 +139,7 @@ Security-definer functions live in the `private` schema, and `private.is_admin()
 
 ## 8. Known limitations and open items
 
-- **Not built yet:** client views of orders, the Shopify page, restricting sizes per item, lead conversion, and an Excel import for size-grid order sheets beyond the current one.
+- **Not built yet:** client views of orders, Shopify orders (the placeholder page was removed), restricting sizes per item, lead conversion, and an Excel import for size-grid order sheets beyond the current one.
 - **First names** must be set by each user on the Users page. They are not pre-filled.
 - **Supabase advisors:** the security advisor flags leaked password protection as not enabled. This is an account-level setting and is the admin's decision.
 - **Quotes** are fixed in the code, so changing them means editing `src/features/dashboard/welcome.ts`.

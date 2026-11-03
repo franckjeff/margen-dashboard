@@ -38,7 +38,7 @@ export function ImportPage() {
 
   return (
     <>
-      <BackLink to="/customs">Customs</BackLink>
+      <BackLink to="/customs">Orders</BackLink>
       <div className="page-head">
         <div className="title-block">
           <h1>Import orders</h1>
