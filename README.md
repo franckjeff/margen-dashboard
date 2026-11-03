@@ -23,10 +23,7 @@ Then open http://localhost:5173 and sign in with a Supabase account.
 | `index.html` | Page shell |
 | `app.js` | The whole app: sign-in, routing, pages, data access |
 | `styles.css` | Styles following the MARGEN branding guidelines (navy, storm blue, green; Exo 2 and Open Sans), including dark mode |
-| `assets/` | MARGEN logo and favicon, taken from the brand's logo files |
-| `assets/on-this-day/` | The Dashboard's daily "On this day" stories, one file per month, picked from Wikipedia to be uplifting |
-| `tools/build_on_this_day.py` | Builds those story files: `python tools/build_on_this_day.py 1 2` adds January and February (about 10 minutes a month) |
-| `config.js` | Supabase project URL and publishable key (safe in the browser) |
+| `assets/` | MARGEN logo and favicon, taken from the brand's logo files || `config.js` | Supabase project URL and publishable key (safe in the browser) |
 | `supabase/migrations/` | Every database change, in the order it was applied |
 
 ## Access levels

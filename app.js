@@ -19,9 +19,7 @@ const state = {
   users: [], // profiles, admins only
   loaded: false,
   role: undefined, // undefined = still loading, null = no profile, else "admin" | "factory" | "client"
-  firstName: null, // what the Dashboard greets the signed-in user by
-  story: undefined, // today's "On this day" story; undefined = not loaded yet, null = none
-  notice: null, // { type: "error" | "success", text }
+  firstName: null, // what the Dashboard greets the signed-in user by  notice: null, // { type: "error" | "success", text }
   keepNotice: false,
   importPreview: null, // { fileName, raw, rows } while an order spreadsheet is being checked
   menuGroups: {}, // menu group name -> open (true) or closed (false), once the user toggles it
@@ -966,12 +964,32 @@ const DAILY_LINES = [
   "Every order is someone's team getting ready to shine.",
   "Keep the good vibes flowing. They come back like the tide.",
 ];
-// Under the story: what to take from it.
-const STORY_TAKEAWAYS = [
-  "Every great achievement started as an ordinary day. Make today yours.",
-  "Someone once did this for the very first time. Your first is waiting too.",
-  "History is made by people who kept going. Keep going.",
-  "Big things start small. Start something today.",
+// Quote of the day about business and success, the same all day. Only quotes with a well-known source.
+const QUOTES = [
+  ["Stay hungry. Stay foolish.", "Steve Jobs"],
+  ["Great things in business are never done by one person. They're done by a team of people.", "Steve Jobs"],
+  ["The only way to do great work is to love what you do.", "Steve Jobs"],
+  ["Your most unhappy customers are your greatest source of learning.", "Bill Gates"],
+  ["Price is what you pay. Value is what you get.", "Warren Buffett"],
+  ["The biggest risk is not taking any risk.", "Mark Zuckerberg"],
+  ["If you are not embarrassed by the first version of your product, you've launched too late.", "Reid Hoffman"],
+  ["The best way to predict the future is to invent it.", "Alan Kay"],
+  ["Chase the vision, not the money; the money will end up following you.", "Tony Hsieh"],
+  ["Work hard, have fun, make history.", "Jeff Bezos"],
+  ["I never dreamed about success. I worked for it.", "Estée Lauder"],
+  ["Don't be afraid to give up the good to go for the great.", "John D. Rockefeller"],
+  ["Well done is better than well said.", "Benjamin Franklin"],
+  ["Energy and persistence conquer all things.", "Benjamin Franklin"],
+  ["Knowing is not enough; we must apply. Willing is not enough; we must do.", "Johann Wolfgang von Goethe"],
+  ["Talent wins games, but teamwork and intelligence win championships.", "Michael Jordan"],
+  ["You miss 100% of the shots you don't take.", "Wayne Gretzky"],
+  ["Start where you are. Use what you have. Do what you can.", "Arthur Ashe"],
+  ["Alone we can do so little; together we can do so much.", "Helen Keller"],
+  ["Ideas are easy. Implementation is hard.", "Guy Kawasaki"],
+  ["Surround yourself with only people who are going to lift you higher.", "Oprah Winfrey"],
+  ["Hard work beats talent when talent doesn't work hard.", "Tim Notke"],
+  ["Patience, persistence and perspiration make an unbeatable combination for success.", "Napoleon Hill"],
+  ["The best time to plant a tree was 20 years ago. The second best time is now.", "Proverb"],
 ];
 
 const dayOfYear = (date = new Date()) => Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
@@ -982,46 +1000,12 @@ function greeting() {
   return state.firstName ? `${part}, ${esc(state.firstName)}` : part;
 }
 
-// Today's story from assets/on-this-day/MM.json (built by tools/build_on_this_day.py).
-// Each day has a few stories; the year picks one, so the same date shows a different story next year.
-let storyRequested = false;
-async function loadStory() {
-  if (storyRequested) return;
-  storyRequested = true;
-  const today = new Date();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  try {
-    const response = await fetch(`assets/on-this-day/${month}.json`);
-    const stories = (await response.json())[`${month}-${day}`] ?? [];
-    state.story = stories.length ? stories[today.getFullYear() % stories.length] : null;
-  } catch {
-    state.story = null;
-  }
-  if (route().page === "dashboard") render();
-}
-
 function welcomeSection() {
   const nameHint =
     !state.firstName && state.role === "admin"
       ? `<p class="muted small">Add your first name on the <a href="#/users">Users</a> page and we'll greet you by name.</p>`
       : "";
-  const story = state.story;
-  const storyCard =
-    story === undefined
-      ? ""
-      : story
-        ? `<section class="card story">
-             <p class="eyebrow">On this day · ${esc(story.year)}</p>
-             <p class="story-text">${esc(story.text)}</p>
-             ${story.summary ? `<p class="muted">${esc(story.summary)}</p>` : ""}
-             <p class="story-takeaway">${STORY_TAKEAWAYS[dayOfYear() % STORY_TAKEAWAYS.length]}</p>
-             ${story.url ? `<a href="${esc(story.url)}" target="_blank" rel="noopener" class="small">Read the story on Wikipedia →</a>` : ""}
-           </section>`
-        : `<section class="card story">
-             <p class="eyebrow">On this day</p>
-             <p class="story-text">Today's story is still being written. Maybe by you.</p>
-           </section>`;
+  const [quote, author] = QUOTES[dayOfYear() % QUOTES.length];
   return `
     <div class="welcome-grid">
       <section class="card welcome">
@@ -1030,12 +1014,15 @@ function welcomeSection() {
         <p class="welcome-line">${DAILY_LINES[dayOfYear() % DAILY_LINES.length]}</p>
         ${nameHint}
       </section>
-      ${storyCard}
+      <figure class="card quote">
+        <p class="eyebrow">Quote of the day</p>
+        <blockquote>“${esc(quote)}”</blockquote>
+        <figcaption>${esc(author)}</figcaption>
+      </figure>
     </div>`;
 }
 
 function dashboardPage() {
-  loadStory();
   if (state.role !== "admin") {
     return `
       ${welcomeSection()}

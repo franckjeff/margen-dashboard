@@ -13,6 +13,3 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 .vscode/
-
-# Raw Wikipedia responses kept by tools/build_on_this_day.py
-tools/.on-this-day-cache/

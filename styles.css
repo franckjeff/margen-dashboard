@@ -296,14 +296,14 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 .welcome p { margin: 0; }
 .welcome h1 { margin: 0; }
 
-/* Dashboard greeting and "On this day" story, side by side above the numbers. */
+/* Dashboard greeting and quote of the day, side by side above the numbers. */
 .welcome-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); margin-bottom: 20px; }
 .eyebrow { margin: 0; font: 500 0.7rem var(--heading); text-transform: uppercase; letter-spacing: 0.25em; color: var(--muted); }
 .welcome-line { font-size: 1.05rem; }
-.story { padding: 24px; display: grid; gap: 10px; align-content: start; border-top: 3px solid var(--green); }
-.story p { margin: 0; }
-.story-text { font-weight: 600; font-size: 1.05rem; }
-.story-takeaway { padding-left: 12px; border-left: 3px solid var(--green); font-style: italic; }
+.quote { margin: 0; padding: 24px; display: grid; gap: 12px; align-content: start; border-top: 3px solid var(--green); }
+.quote blockquote { margin: 0; padding-left: 14px; border-left: 3px solid var(--green); font-size: 1.2rem; font-style: italic; line-height: 1.5; }
+.quote figcaption { color: var(--muted); font: 500 0.75rem var(--heading); text-transform: uppercase; letter-spacing: 0.2em; }
+.quote figcaption::before { content: "— "; }
 @media (max-width: 860px) {
   .welcome-grid { grid-template-columns: 1fr; }
 }
