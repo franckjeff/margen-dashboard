@@ -1508,7 +1508,7 @@ function auditTrail(orderId) {
     })
     .join("");
   return `
-    <h2>Audit trail <span class="count">${events.length}</span></h2>
+    <h2>Order history <span class="count">${events.length}</span></h2>
     ${events.length ? `<ol class="notes-list">${items}</ol>` : `<p class="empty">No changes recorded yet.</p>`}`;
 }
 
