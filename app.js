@@ -11,6 +11,7 @@ const state = {
   athletes: [],
   leads: [],
   orders: [],
+  orderEvents: [], // audit trail of every order change, newest first
   notes: [], // newest first; each has a contact_id or an athlete_id
   dismissedNotes: new Set(), // ids of notes this user has hidden from the Dashboard
   users: [], // profiles, admins only
@@ -138,7 +139,7 @@ async function loadData() {
     return;
   }
 
-  const [orgs, contacts, athletes, leads, orders, notes, dismissals, users] = await Promise.all([
+  const [orgs, contacts, athletes, leads, orders, orderEvents, notes, dismissals, users] = await Promise.all([
     supabase
       .from("organizations")
       .select(
@@ -166,6 +167,11 @@ async function loadData() {
         "id, margen_order_id, factory_order_id, order_status, production_status, organization_id, created_at, organization:organizations(id, name)"
       )
       .order("created_at", { ascending: false }),
+    // Written by a database trigger on every order change; newest first, with who made it.
+    supabase
+      .from("order_events")
+      .select("id, order_id, action, changes, changed_at, author:profiles(email)")
+      .order("changed_at", { ascending: false }),
     // Newest notes first, with who wrote them. The foreign key is named because notes also
     // reach profiles through note_dismissals, which makes a bare "profiles" ambiguous.
     supabase
@@ -182,6 +188,7 @@ async function loadData() {
     athletes.error ||
     leads.error ||
     orders.error ||
+    orderEvents.error ||
     notes.error ||
     dismissals.error ||
     users.error;
@@ -201,6 +208,7 @@ async function loadData() {
   state.athletes = athletes.data;
   state.leads = leads.data;
   state.orders = orders.data;
+  state.orderEvents = orderEvents.data;
   state.notes = notes.data;
   state.dismissedNotes = new Set(dismissals.data.map((d) => d.note_id));
   state.users = users.data;
@@ -1451,9 +1459,57 @@ function orderPage(order, editing) {
              <button type="button" class="danger" data-action="delete" data-table="orders" data-id="${order.id}">Delete</button>`
       }
     </div>
-    <div class="detail-grid single">
+    <div class="detail-grid">
       <section class="card section">${details}</section>
+      <section class="card section">${auditTrail(order.id)}</section>
     </div>`;
+}
+
+// Fields the order_events trigger records, in the order they're listed.
+const AUDIT_FIELDS = {
+  margen_order_id: "Margen order ID",
+  factory_order_id: "Factory order ID",
+  organization: "Organization",
+  order_status: "Order status",
+  production_status: "Production status",
+};
+const AUDIT_ACTIONS = { created: "Created", updated: "Changed", deleted: "Deleted" };
+
+function auditValue(field, value) {
+  if (field === "order_status") return ORDER_STATUSES[value] ?? value;
+  if (field === "production_status") return value ? PRODUCTION_STATUSES[value] ?? value : "Not started";
+  return value ?? "None";
+}
+
+function auditTrail(orderId) {
+  const events = state.orderEvents.filter((e) => e.order_id === orderId);
+  const items = events
+    .map((e) => {
+      const changes = Object.keys(AUDIT_FIELDS)
+        .filter((field) => field in e.changes)
+        .map((field) => {
+          const { from, to } = e.changes[field];
+          const value =
+            e.action === "created"
+              ? esc(auditValue(field, to))
+              : `${esc(auditValue(field, from))} <span class="muted">→</span> ${esc(auditValue(field, to))}`;
+          return `<li><span class="muted">${AUDIT_FIELDS[field]}:</span> ${value}</li>`;
+        })
+        .join("");
+      return `
+        <li class="note audit-event">
+          <div class="note-meta">
+            <time datetime="${e.changed_at}">${formatDateTime(e.changed_at)}</time>
+            <span class="note-author">${e.author ? esc(e.author.email) : "System"}</span>
+          </div>
+          <p class="note-body strong">${AUDIT_ACTIONS[e.action]}</p>
+          ${changes ? `<ul class="audit-changes">${changes}</ul>` : ""}
+        </li>`;
+    })
+    .join("");
+  return `
+    <h2>Audit trail <span class="count">${events.length}</span></h2>
+    ${events.length ? `<ol class="notes-list">${items}</ol>` : `<p class="empty">No changes recorded yet.</p>`}`;
 }
 
 // <option>s for a { value: label } map; emptyLabel adds a first option with an empty value.

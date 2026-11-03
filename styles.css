@@ -407,6 +407,8 @@ table.static tbody tr:hover { background: none; }
 .note-meta time { font: 500 0.68rem var(--heading); text-transform: uppercase; letter-spacing: 0.15em; color: var(--text); }
 .note-meta .icon-btn { margin-left: auto; width: 26px; height: 26px; font-size: 1.1rem; }
 .note-body { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.audit-event { border-left-color: var(--storm); }
+.audit-changes { list-style: none; margin: 4px 0 0; padding: 0; font-size: 0.9rem; overflow-wrap: anywhere; }
 .dashboard-notes { margin-top: 20px; }
 .dashboard-notes .notes-list { margin-top: 0; }
 .dashboard-notes .empty { padding: 0; }
