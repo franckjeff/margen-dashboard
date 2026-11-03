@@ -12,6 +12,8 @@ const state = {
   leads: [],
   orders: [],
   orderEvents: [], // audit trail of every order change, newest first
+  items: [], // garments, by name
+  orderItems: [], // order lines: { order_id, item_id, size, quantity }
   notes: [], // newest first; each has a contact_id or an athlete_id
   dismissedNotes: new Set(), // ids of notes this user has hidden from the Dashboard
   users: [], // profiles, admins only
@@ -71,6 +73,22 @@ const PRODUCTION_STATUSES = {
   trimming: "Trimming",
   shipped: "Shipped",
 };
+// Must match the check constraint on order_items.size. Adult sizes, then junior, in display order.
+const ADULT_SIZES = ["XS", "S", "M", "L", "XL", "2XL", "3XL"];
+const JUNIOR_SIZES = ["2", "4", "6", "8", "10", "12", "14", "16"];
+const SIZES = [...ADULT_SIZES, ...JUNIOR_SIZES];
+const sizeOptions = () =>
+  `<optgroup label="Adult">${ADULT_SIZES.map((s) => `<option>${s}</option>`).join("")}</optgroup>` +
+  `<optgroup label="Junior">${JUNIOR_SIZES.map((s) => `<option>${s}</option>`).join("")}</optgroup>`;
+// An order's lines with their item, sorted by item name then size.
+const orderLinesOf = (orderId) =>
+  state.orderItems
+    .filter((l) => l.order_id === orderId)
+    .map((l) => ({ ...l, item: state.items.find((i) => i.id === l.item_id) }))
+    .sort((a, b) => a.item.name.localeCompare(b.item.name) || SIZES.indexOf(a.size) - SIZES.indexOf(b.size));
+const piecesIn = (orderId) =>
+  state.orderItems.filter((l) => l.order_id === orderId).reduce((sum, l) => sum + l.quantity, 0);
+
 const ORDER_TONES = { received: "accent", accepted: "accent", on_hold: "warn", cancelled: "muted", closed: "success" };
 const orderBadge = (status) => `<span class="status tone-${ORDER_TONES[status]}">${ORDER_STATUSES[status]}</span>`;
 // An empty production status means the factory hasn't started.
@@ -86,6 +104,7 @@ const PAGES = [
   // Consecutive pages with the same group sit under that heading in the menu.
   { name: "customs", label: "Customs", roles: ["admin"], group: "Orders" },
   { name: "shopify", label: "Shopify", roles: ["admin"], group: "Orders" },
+  { name: "items", label: "Items", roles: ["admin"], group: "Orders" },
   { name: "athletes", label: "Athletes", roles: ["admin"] },
   { name: "leads", label: "Leads", roles: ["admin"], group: "Clients" },
   { name: "organizations", label: "Organizations", roles: ["admin"], group: "Clients" },
@@ -139,7 +158,7 @@ async function loadData() {
     return;
   }
 
-  const [orgs, contacts, athletes, leads, orders, orderEvents, notes, dismissals, users] = await Promise.all([
+  const [orgs, contacts, athletes, leads, orders, orderEvents, items, orderItems, notes, dismissals, users] = await Promise.all([
     supabase
       .from("organizations")
       .select(
@@ -172,6 +191,8 @@ async function loadData() {
       .from("order_events")
       .select("id, order_id, action, changes, changed_at, author:profiles(email)")
       .order("changed_at", { ascending: false }),
+    supabase.from("items").select("id, item_code, name, created_at").order("name"),
+    supabase.from("order_items").select("id, order_id, item_id, size, quantity"),
     // Newest notes first, with who wrote them. The foreign key is named because notes also
     // reach profiles through note_dismissals, which makes a bare "profiles" ambiguous.
     supabase
@@ -189,6 +210,8 @@ async function loadData() {
     leads.error ||
     orders.error ||
     orderEvents.error ||
+    items.error ||
+    orderItems.error ||
     notes.error ||
     dismissals.error ||
     users.error;
@@ -209,6 +232,8 @@ async function loadData() {
   state.leads = leads.data;
   state.orders = orders.data;
   state.orderEvents = orderEvents.data;
+  state.items = items.data;
+  state.orderItems = orderItems.data;
   state.notes = notes.data;
   state.dismissedNotes = new Set(dismissals.data.map((d) => d.note_id));
   state.users = users.data;
@@ -443,6 +468,7 @@ const REPORTS = [
       ["Organization", (o) => o.organization?.name ?? "", 30],
       ["Order status", (o) => ORDER_STATUSES[o.order_status], 14],
       ["Production status", (o) => (o.production_status ? PRODUCTION_STATUSES[o.production_status] : "Not started"), 20],
+      ["Pieces", (o) => piecesIn(o.id), 10],
       ["Added", (o) => new Date(o.created_at), 14],
     ],
   },
@@ -494,6 +520,60 @@ async function setOrderField(id, field, value) {
       ? `${label} is now ${ORDER_STATUSES[value]}.`
       : `${label} production: ${value ? PRODUCTION_STATUSES[value] : "Not started"}.`;
   state.notice = { type: "success", text: text.charAt(0).toUpperCase() + text.slice(1) };
+  await loadData();
+}
+
+async function saveItem(form) {
+  const values = Object.fromEntries(new FormData(form));
+  const row = { item_code: values.item_code.trim(), name: values.name.trim() };
+  if (!row.item_code || !row.name) return notify("error", "The item needs an ID and a name.");
+  await saveRow(form, "items", row, row.name);
+}
+
+// Adds an item in a size to an order; if the order already has that item and size, adds to its quantity.
+async function addOrderLine(form) {
+  const values = Object.fromEntries(new FormData(form));
+  const quantity = Number(values.quantity);
+  if (!Number.isInteger(quantity) || quantity < 1) return notify("error", "The quantity must be a whole number of 1 or more.");
+  const item = state.items.find((i) => i.id === values.item_id);
+  const existing = state.orderItems.find(
+    (l) => l.order_id === form.dataset.order && l.item_id === values.item_id && l.size === values.size
+  );
+  const { error } = existing
+    ? await supabase.from("order_items").update({ quantity: existing.quantity + quantity }).eq("id", existing.id)
+    : await supabase.from("order_items").insert({ order_id: form.dataset.order, item_id: values.item_id, size: values.size, quantity });
+  if (error) return notify("error", `Couldn't add ${item.name}: ${error.message}`);
+  state.notice = {
+    type: "success",
+    text: existing
+      ? `Added ${quantity} more ${item.name}, size ${values.size} (now ${existing.quantity + quantity}).`
+      : `Added ${quantity} × ${item.name}, size ${values.size}.`,
+  };
+  await loadData();
+  // Ready for the next line.
+  app.querySelector(`form[data-form="order-item"] select[name="item_id"]`)?.focus();
+}
+
+async function setLineQuantity(input) {
+  const line = state.orderItems.find((l) => l.id === input.dataset.lineId);
+  const quantity = Number(input.value);
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    return notify("error", "The quantity must be a whole number of 1 or more. To take an item off the order, use ×.");
+  }
+  const { error } = await supabase.from("order_items").update({ quantity }).eq("id", line.id);
+  if (error) return notify("error", `Couldn't change the quantity: ${error.message}`);
+  state.notice = { type: "success", text: `Quantity changed from ${line.quantity} to ${quantity}.` };
+  await loadData();
+}
+
+async function removeOrderLine(id) {
+  const line = state.orderItems.find((l) => l.id === id);
+  const item = state.items.find((i) => i.id === line.item_id);
+  if (!confirm(`Remove ${line.quantity} × ${item.name}, size ${line.size} from this order?`)) return;
+  const { data, error } = await supabase.from("order_items").delete().eq("id", id).select("id");
+  if (error) return notify("error", `Couldn't remove ${item.name}: ${error.message}`);
+  if (!data.length) return notify("error", `${item.name} wasn't removed. You may not have permission.`);
+  state.notice = { type: "success", text: `Removed ${item.name}, size ${line.size}.` };
   await loadData();
 }
 
@@ -552,7 +632,18 @@ async function deleteRow(table, id) {
   const record = state[table].find((r) => r.id === id);
   if (!record) return;
   const label =
-    table === "organizations" ? record.name : table === "orders" ? `order ${record.margen_order_id}` : fullName(record);
+    table === "organizations" || table === "items"
+      ? record.name
+      : table === "orders"
+        ? `order ${record.margen_order_id}`
+        : fullName(record);
+  // The database refuses to delete an item that orders use; say so before asking.
+  if (table === "items") {
+    const orders = new Set(state.orderItems.filter((l) => l.item_id === id).map((l) => l.order_id)).size;
+    if (orders) {
+      return notify("error", `${label} is on ${orders} order${orders === 1 ? "" : "s"}, so it can't be deleted. Remove it from those orders first.`);
+    }
+  }
   // Organizations and contacts are linked to each other; deleting one removes its links.
   const linked = { organizations: ["contacts", "contact"], contacts: ["organizations", "organization"] }[table];
   const links = linked ? record[linked[0]].length : 0;
@@ -562,7 +653,9 @@ async function deleteRow(table, id) {
     : "";
   const noteCount = state.notes.filter((n) => n.contact_id === id || n.athlete_id === id).length;
   const noteWarning = noteCount ? `\n\nIts ${noteCount} note${noteCount === 1 ? "" : "s"} will be deleted too.` : "";
-  if (!confirm(`Delete ${label}? This can't be undone.${warning}${noteWarning}`)) return;
+  const lineCount = table === "orders" ? state.orderItems.filter((l) => l.order_id === id).length : 0;
+  const lineWarning = lineCount ? `\n\nIts ${lineCount} item line${lineCount === 1 ? "" : "s"} will be deleted too.` : "";
+  if (!confirm(`Delete ${label}? This can't be undone.${warning}${noteWarning}${lineWarning}`)) return;
 
   const { data, error } = await supabase.from(table).delete().eq("id", id).select("id");
   if (error) return notify("error", `Couldn't delete ${label}: ${error.message}`);
@@ -1322,6 +1415,7 @@ function ordersPage(id, editing) {
         <td class="hide-sm">${orderOrganization(o)}</td>
         <td>${orderBadge(o.order_status)}</td>
         <td>${productionBadge(o.production_status)}</td>
+        <td class="num hide-sm">${piecesIn(o.id) || dash}</td>
       </tr>`
     )
     .join("");
@@ -1332,7 +1426,7 @@ function ordersPage(id, editing) {
     newHash: "#/customs/new",
     newLabel: "New order",
     placeholder: "Search orders",
-    head: `<th>Margen order ID</th><th class="hide-sm">Factory order ID</th><th class="hide-sm">Organization</th><th>Order status</th><th>Production</th>`,
+    head: `<th>Margen order ID</th><th class="hide-sm">Factory order ID</th><th class="hide-sm">Organization</th><th>Order status</th><th>Production</th><th class="num hide-sm">Pieces</th>`,
     rows,
     panel: id === "new" ? orderForm() : "",
     actions: `<a href="#/customs/import" class="button">Import from Excel</a>`,
@@ -1461,8 +1555,161 @@ function orderPage(order, editing) {
     </div>
     <div class="detail-grid">
       <section class="card section">${details}</section>
-      <section class="card section">${auditTrail(order.id)}</section>
+      <section class="card section">${orderLines(order)}</section>
+      <section class="card section span-all">${auditTrail(order.id)}</section>
     </div>`;
+}
+
+// What the order is made of: one line per item and size, with its quantity.
+function orderLines(order) {
+  const lines = orderLinesOf(order.id);
+  const total = lines.reduce((sum, l) => sum + l.quantity, 0);
+  const rows = lines
+    .map(
+      (l) => `
+      <tr>
+        <td><a href="#/items/${l.item.id}" class="strong">${esc(l.item.name)}</a></td>
+        <td>${esc(l.size)}</td>
+        <td class="num"><input type="number" class="qty" min="1" step="1" value="${l.quantity}" data-line-id="${l.id}"
+          aria-label="Quantity of ${esc(l.item.name)}, size ${esc(l.size)}"></td>
+        <td class="num"><button type="button" class="icon-btn" data-action="remove-line" data-id="${l.id}"
+          aria-label="Remove ${esc(l.item.name)}, size ${esc(l.size)}" title="Remove from order">×</button></td>
+      </tr>`
+    )
+    .join("");
+  const addForm = state.items.length
+    ? `<form data-form="order-item" data-order="${order.id}" class="line-form">
+         <select name="item_id" required aria-label="Item">
+           <option value="">Choose an item…</option>
+           ${state.items.map((i) => `<option value="${i.id}">${esc(i.name)}</option>`).join("")}
+         </select>
+         <select name="size" required aria-label="Size"><option value="">Size</option>${sizeOptions()}</select>
+         <input type="number" name="quantity" min="1" step="1" required placeholder="Qty" aria-label="Quantity" class="qty">
+         <button type="submit" class="primary">Add</button>
+       </form>`
+    : `<p class="muted small">No items yet. <a href="#/items/new">Add an item</a> first.</p>`;
+  return `
+    <h2>Items <span class="count">${total}</span></h2>
+    ${
+      rows
+        ? `<div class="table-wrap"><table class="static">
+             <thead><tr><th>Item</th><th>Size</th><th class="num">Qty</th><th><span class="sr-only">Remove</span></th></tr></thead>
+             <tbody>${rows}</tbody>
+             <tfoot><tr><td colspan="2">Total</td><td class="num">${total}</td><td></td></tr></tfoot>
+           </table></div>`
+        : `<p class="empty">No items on this order yet.</p>`
+    }
+    ${addForm}`;
+}
+
+function itemForm(item) {
+  const back = item ? `#/items/${item.id}` : "#/items";
+  return `
+    ${panelHead(item ? "Edit item" : "New item", back)}
+    <form data-form="item"${item ? ` data-id="${item.id}"` : ""} class="stack">
+      <label>Item ID<input name="item_code" required autofocus autocomplete="off" class="mono" value="${esc(item?.item_code)}" placeholder="e.g. WMN-RACERBACK"></label>
+      <label>Name<input name="name" required autocomplete="off" value="${esc(item?.name)}" placeholder="e.g. Women's Racerback"></label>
+      ${formButtons(item ? "Save changes" : "Create item", back)}
+    </form>`;
+}
+
+function itemsPage(id, editing) {
+  if (id && id !== "new") {
+    const item = state.items.find((i) => i.id === id);
+    if (item) return itemPage(item, editing);
+    return `
+      <a href="#/items" class="back">← Items</a>
+      <section class="card"><p class="empty">${state.loaded ? "This item doesn't exist or was deleted." : "Loading…"}</p></section>`;
+  }
+
+  const rows = state.items
+    .map((i) => {
+      const lines = state.orderItems.filter((l) => l.item_id === i.id);
+      const orders = new Set(lines.map((l) => l.order_id)).size;
+      const pieces = lines.reduce((sum, l) => sum + l.quantity, 0);
+      return `
+      <tr data-href="#/items/${i.id}" data-search="${esc(`${i.item_code} ${i.name}`.toLowerCase())}">
+        <td><a href="#/items/${i.id}" class="strong mono">${esc(i.item_code)}</a></td>
+        <td>${esc(i.name)}</td>
+        <td class="num hide-sm">${orders || dash}</td>
+        <td class="num">${pieces || dash}</td>
+      </tr>`;
+    })
+    .join("");
+
+  return listPage({
+    title: "Items",
+    count: state.items.length,
+    newHash: "#/items/new",
+    newLabel: "New item",
+    placeholder: "Search items",
+    head: `<th>Item ID</th><th>Name</th><th class="num hide-sm">Orders</th><th class="num">Pieces ordered</th>`,
+    rows,
+    panel: id === "new" ? itemForm() : "",
+  });
+}
+
+function itemPage(item, editing) {
+  const details = editing
+    ? itemForm(item)
+    : `
+      <h2>Details</h2>
+      <dl class="details">
+        <div><dt>Item ID</dt><dd class="mono">${esc(item.item_code)}</dd></div>
+        <div><dt>Name</dt><dd>${esc(item.name)}</dd></div>
+        <div><dt>Added</dt><dd>${formatDate(item.created_at)}</dd></div>
+      </dl>`;
+
+  return `
+    <a href="#/items" class="back">← Items</a>
+    <div class="page-head">
+      <div class="title-block">
+        <h1>${esc(item.name)}</h1>
+        <p class="muted mono">${esc(item.item_code)}</p>
+      </div>
+      ${
+        editing
+          ? ""
+          : `<a href="#/items/${item.id}/edit" class="button">Edit</a>
+             <button type="button" class="danger" data-action="delete" data-table="items" data-id="${item.id}">Delete</button>`
+      }
+    </div>
+    <div class="detail-grid">
+      <section class="card section">${details}</section>
+      <section class="card section">${itemOrders(item)}</section>
+    </div>`;
+}
+
+// The orders this item is on, with how many of each size.
+function itemOrders(item) {
+  const orders = state.orders
+    .map((o) => ({
+      order: o,
+      lines: state.orderItems
+        .filter((l) => l.order_id === o.id && l.item_id === item.id)
+        .sort((a, b) => SIZES.indexOf(a.size) - SIZES.indexOf(b.size)),
+    }))
+    .filter((o) => o.lines.length);
+  const rows = orders
+    .map(
+      ({ order, lines }) => `
+      <tr>
+        <td><a href="#/customs/${order.id}" class="strong mono">${esc(order.margen_order_id)}</a></td>
+        <td>${lines.map((l) => `${esc(l.size)}&nbsp;<span class="muted">×</span>&nbsp;${l.quantity}`).join(" · ")}</td>
+        <td class="num">${lines.reduce((sum, l) => sum + l.quantity, 0)}</td>
+      </tr>`
+    )
+    .join("");
+  return `
+    <h2>Orders <span class="count">${orders.length}</span></h2>
+    ${
+      rows
+        ? `<div class="table-wrap"><table class="static">
+             <thead><tr><th>Order</th><th>Sizes</th><th class="num">Pieces</th></tr></thead>
+             <tbody>${rows}</tbody>
+           </table></div>`
+        : `<p class="empty">Not on any order yet.</p>`
+    }`;
 }
 
 // Fields the order_events trigger records, in the order they're listed.
@@ -1473,7 +1720,26 @@ const AUDIT_FIELDS = {
   order_status: "Order status",
   production_status: "Production status",
 };
-const AUDIT_ACTIONS = { created: "Created", updated: "Changed", deleted: "Deleted" };
+const AUDIT_ACTIONS = {
+  created: "Created",
+  updated: "Changed",
+  deleted: "Deleted",
+  item_added: "Item added",
+  item_changed: "Item changed",
+  item_removed: "Item removed",
+};
+
+// Change lines for an item_added / item_changed / item_removed event.
+function auditLineChanges(e) {
+  const { item, size, quantity } = e.changes;
+  if (e.action !== "item_changed") {
+    const side = e.action === "item_added" ? "to" : "from";
+    return `<li>${esc(item[side])}, size ${esc(size[side])} <span class="muted">×</span> ${quantity[side]}</li>`;
+  }
+  const diff = (label, { from, to }) =>
+    from === to ? "" : `<li><span class="muted">${label}:</span> ${esc(from)} <span class="muted">→</span> ${esc(to)}</li>`;
+  return `<li>${esc(item.from)}, size ${esc(size.from)}</li>${diff("Item", item)}${diff("Size", size)}${diff("Quantity", quantity)}`;
+}
 
 function auditValue(field, value) {
   if (field === "order_status") return ORDER_STATUSES[value] ?? value;
@@ -1485,7 +1751,9 @@ function auditTrail(orderId) {
   const events = state.orderEvents.filter((e) => e.order_id === orderId);
   const items = events
     .map((e) => {
-      const changes = Object.keys(AUDIT_FIELDS)
+      const changes = e.action.startsWith("item_")
+        ? auditLineChanges(e)
+        : Object.keys(AUDIT_FIELDS)
         .filter((field) => field in e.changes)
         .map((field) => {
           const { from, to } = e.changes[field];
@@ -1754,6 +2022,7 @@ function render() {
     dashboard: () => dashboardPage(),
     customs: () => ordersPage(id, editing),
     shopify: () => placeholderPage("Shopify"),
+    items: () => itemsPage(id, editing),
     organizations: () => organizationsPage(id, editing),
     contacts: () => contactsPage(id, editing),
     athletes: () => athletesPage(id, editing),
@@ -1792,6 +2061,12 @@ app.addEventListener("submit", async (event) => {
       break;
     case "order":
       await saveOrder(form);
+      break;
+    case "item":
+      await saveItem(form);
+      break;
+    case "order-item":
+      await addOrderLine(form);
       break;
     case "lead":
       await saveLead(form);
@@ -1838,6 +2113,9 @@ app.addEventListener("click", async (event) => {
         break;
       case "delete-note":
         await deleteNote(action.dataset.id);
+        break;
+      case "remove-line":
+        await removeOrderLine(action.dataset.id);
         break;
       case "download-report":
         action.disabled = true;
@@ -1900,6 +2178,11 @@ app.addEventListener("change", async (event) => {
     if (search) search.value = query;
     applySearch();
     app.querySelector(`select[data-org-filter="${field}"]`)?.focus();
+    return;
+  }
+  if (event.target.matches("input[data-line-id]")) {
+    event.target.disabled = true;
+    await setLineQuantity(event.target);
     return;
   }
   if (event.target.matches("input[data-import-file]")) {

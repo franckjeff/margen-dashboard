@@ -1,6 +1,7 @@
 # MARGEN Dashboard
 
-Internal web app for MARGEN: organizations, contacts, athletes, leads and user access levels,
+Internal web app for MARGEN: organizations, contacts, athletes, leads, orders with their items
+and sizes, and user access levels,
 backed by the Supabase project **MARGEN DATA**.
 
 ## Run it locally
