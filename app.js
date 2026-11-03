@@ -426,7 +426,8 @@ async function importOrders() {
 
 // ---------- reports ----------
 
-// Each report: its filters (built from current data), which records match them, and the
+// Each report: its filters (built from current data), which records match them, optionally how
+// the records become spreadsheet rows (rows; one row per record if left out), and the
 // spreadsheet columns as [heading, value, width]. Add a new report by adding an entry here.
 const REPORTS = [
   {
@@ -472,6 +473,48 @@ const REPORTS = [
       ["Added", (o) => new Date(o.created_at), 14],
     ],
   },
+  {
+    id: "order_detail",
+    title: "Order detail report",
+    description:
+      "Orders with all their details and every item ordered: one row per item and size. Search for an order ID, or leave it empty for every order.",
+    noun: ["order", "orders"],
+    fileName: "margen-order-detail",
+    filters: () => [
+      {
+        name: "order",
+        label: "Order ID",
+        type: "search",
+        placeholder: "Margen or factory order ID",
+        suggestions: state.orders.map((o) => o.margen_order_id),
+      },
+    ],
+    // Matches any part of the Margen or factory order ID, ignoring case.
+    records: (f) => {
+      const query = (f.order ?? "").trim().toLowerCase();
+      return state.orders.filter(
+        (o) => o.margen_order_id.toLowerCase().includes(query) || (o.factory_order_id ?? "").toLowerCase().includes(query)
+      );
+    },
+    // One spreadsheet row per order line; an order without items still gets a row.
+    rows: (orders) =>
+      orders.flatMap((order) => {
+        const lines = orderLinesOf(order.id);
+        return lines.length ? lines.map((line) => ({ order, line })) : [{ order, line: null }];
+      }),
+    columns: [
+      ["Margen order ID", ({ order }) => order.margen_order_id, 22],
+      ["Factory order ID", ({ order }) => order.factory_order_id ?? "", 18],
+      ["Organization", ({ order }) => order.organization?.name ?? "", 30],
+      ["Order status", ({ order }) => ORDER_STATUSES[order.order_status], 14],
+      ["Production status", ({ order }) => (order.production_status ? PRODUCTION_STATUSES[order.production_status] : "Not started"), 20],
+      ["Added", ({ order }) => new Date(order.created_at), 14],
+      ["Item ID", ({ line }) => line?.item.item_code ?? "", 18],
+      ["Item", ({ line }) => line?.item.name ?? "", 26],
+      ["Size", ({ line }) => line?.size ?? "", 8],
+      ["Quantity", ({ line }) => line?.quantity ?? "", 10],
+    ],
+  },
 ];
 
 // Inclusive date range on the user's local calendar; from/to are "YYYY-MM-DD" or "".
@@ -488,10 +531,11 @@ const reportCountText = (report, n) => (n === 1 ? `1 ${report.noun[0]} matches` 
 async function downloadReport(id) {
   const report = REPORTS.find((r) => r.id === id);
   const records = report.records(reportFilters(report));
+  const rows = report.rows ? report.rows(records) : records;
   try {
     const XLSX = await loadSheetJS();
     const sheet = XLSX.utils.aoa_to_sheet(
-      [report.columns.map(([heading]) => heading), ...records.map((r) => report.columns.map(([, value]) => value(r)))],
+      [report.columns.map(([heading]) => heading), ...rows.map((r) => report.columns.map(([, value]) => value(r)))],
       { cellDates: true, dateNF: "yyyy-mm-dd" }
     );
     sheet["!cols"] = report.columns.map(([, , wch]) => ({ wch }));
@@ -959,6 +1003,10 @@ function reportsPage() {
       .map((f) =>
         f.type === "date"
           ? `<label>${f.label}<input type="date" name="${f.name}" value="${esc(values[f.name])}"></label>`
+          : f.type === "search"
+          ? `<label>${f.label}<input type="search" name="${f.name}" value="${esc(values[f.name])}" placeholder="${esc(f.placeholder)}"
+               autocomplete="off" list="${report.id}-${f.name}-options">
+               <datalist id="${report.id}-${f.name}-options">${f.suggestions.map((s) => `<option value="${esc(s)}">`).join("")}</datalist></label>`
           : `<label>${f.label}<select name="${f.name}">${f.options
               .map(([v, text]) => `<option value="${esc(v)}"${v === (values[f.name] ?? "") ? " selected" : ""}>${esc(text)}</option>`)
               .join("")}</select></label>`
@@ -2162,16 +2210,7 @@ app.addEventListener("click", async (event) => {
 });
 
 app.addEventListener("change", async (event) => {
-  const reportForm = event.target.closest("form[data-report]");
-  if (reportForm) {
-    // Update the match count and button in place, so focus stays in the filters.
-    const report = REPORTS.find((r) => r.id === reportForm.dataset.report);
-    reportFilters(report)[event.target.name] = event.target.value;
-    const n = report.records(reportFilters(report)).length;
-    app.querySelector(`[data-report-count="${report.id}"]`).textContent = reportCountText(report, n);
-    app.querySelector(`[data-action="download-report"][data-report="${report.id}"]`).disabled = !n;
-    return;
-  }
+  if (event.target.closest("form[data-report]")) return updateReportFilter(event.target);
   if (event.target.matches("select[data-org-filter]")) {
     const field = event.target.dataset.orgFilter;
     state.orgFilters[field] = event.target.value;
@@ -2227,8 +2266,19 @@ function applySearch() {
   if (noMatch) noMatch.hidden = rows.some((row) => !row.hidden);
 }
 
+// Updates a report's match count and button in place, so focus stays in the filters.
+function updateReportFilter(field) {
+  const report = REPORTS.find((r) => r.id === field.form.dataset.report);
+  reportFilters(report)[field.name] = field.value;
+  const n = report.records(reportFilters(report)).length;
+  app.querySelector(`[data-report-count="${report.id}"]`).textContent = reportCountText(report, n);
+  app.querySelector(`[data-action="download-report"][data-report="${report.id}"]`).disabled = !n;
+}
+
 app.addEventListener("input", (event) => {
   if (event.target.matches(".search")) applySearch();
+  // Typed report filters (order ID search) update the count as you type.
+  else if (event.target.matches("form[data-report] input[type=search]")) updateReportFilter(event.target);
 });
 
 // A notice is dropped on navigation, except the one that announced the navigation itself.
