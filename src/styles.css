@@ -279,6 +279,8 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 .title-block h1 .status { font-size: 0.7rem; margin-left: 6px; letter-spacing: 0.1em; }
 
 .inline-select { display: flex; align-items: center; gap: 8px; font: 500 0.7rem var(--heading); text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted); }
+/* A field inside a list row, e.g. the factory's Production menu in Customs. */
+td .cell-input { width: auto; min-width: 0; padding: 4px 8px; font-size: 0.85rem; }
 .inline-select select { width: auto; font: 400 0.9rem var(--body); text-transform: none; letter-spacing: 0; }
 
 .notes { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -331,6 +333,12 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 .detail-grid { display: grid; gap: 16px; grid-template-columns: 320px minmax(0, 1fr); align-items: start; }
 .detail-grid.single { grid-template-columns: minmax(0, 480px); }
 .span-all { grid-column: 1 / -1; }
+/* Order pages: full-width cards in a column, with the details reading across in as many columns as fit. */
+.detail-grid.stacked { grid-template-columns: minmax(0, 1fr); }
+.detail-grid.stacked form.stack { max-width: 760px; }
+.details.across { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 18px 28px; }
+@media (max-width: 600px) { .details.across { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; } }
+.shipping-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
 /* IDs keep their exact spelling: no caps or tracking. */
 .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.95em; text-transform: none; letter-spacing: 0; }
 h1.mono { font-size: 1.4rem; font-weight: 500; }

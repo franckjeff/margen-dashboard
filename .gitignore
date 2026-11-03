@@ -13,3 +13,8 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 .vscode/
+
+# Installed packages and build output
+node_modules/
+dist/
+*.tsbuildinfo
