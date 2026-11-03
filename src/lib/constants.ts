@@ -1,5 +1,6 @@
-export type Role = "admin" | "factory" | "client";
-export const ROLE_LABELS: Record<Role, string> = { admin: "Admin", factory: "Factory", client: "Client" };
+// Must match the check constraint on profiles.role.
+export type Role = "admin" | "factory" | "client" | "designer";
+export const ROLE_LABELS: Record<Role, string> = { admin: "Admin", factory: "Factory", client: "Client", designer: "Designer" };
 
 // Must match the check constraint on leads.status.
 export const LEAD_STATUSES: Record<string, string> = {
@@ -55,6 +56,7 @@ export type PageName =
   | "leads"
   | "organizations"
   | "contacts"
+  | "designs"
   | "reports"
   | "users";
 
@@ -63,16 +65,18 @@ export type Page = { name: PageName; label: string; roles: Role[]; group?: strin
 // Menu order, and which roles see each page. The first visible page is the home page.
 // Hiding a page here is only cosmetic: the database's access rules are what protect the data.
 export const PAGES: Page[] = [
-  { name: "dashboard", label: "Dashboard", roles: ["admin", "factory", "client"] },
+  { name: "dashboard", label: "Dashboard", roles: ["admin", "factory", "client", "designer"] },
   // Consecutive pages with the same group sit under that heading in the menu.
   // Factory users see only the orders assigned to their factory.
   { name: "customs", label: "Orders", roles: ["admin", "factory"], group: "Customs" },
   { name: "items", label: "Items", roles: ["admin"], group: "Customs" },
   { name: "factories", label: "Factories", roles: ["admin"], group: "Customs" },
-  { name: "athletes", label: "Athletes", roles: ["admin"] },
   { name: "leads", label: "Leads", roles: ["admin"], group: "Clients" },
   { name: "organizations", label: "Organizations", roles: ["admin"], group: "Clients" },
   { name: "contacts", label: "Contacts", roles: ["admin"], group: "Clients" },
+  // Designers see only this page and the Dashboard.
+  { name: "designs", label: "Designs", roles: ["admin", "designer"] },
+  { name: "athletes", label: "Athletes", roles: ["admin"] },
   { name: "reports", label: "Reports", roles: ["admin"] },
   { name: "users", label: "Users", roles: ["admin"] },
 ];

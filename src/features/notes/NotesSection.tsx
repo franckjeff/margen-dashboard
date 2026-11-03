@@ -4,8 +4,8 @@ import { expectRows, useDbAction } from "../../data/mutations";
 import { useNotes, type Note } from "../../data/queries";
 import { supabase, unwrap } from "../../lib/supabase";
 
-type SubjectColumn = "contact_id" | "athlete_id" | "factory_id";
-type Subject = { contact_id: string } | { athlete_id: string } | { factory_id: string };
+type SubjectColumn = "contact_id" | "athlete_id" | "factory_id" | "organization_id";
+type Subject = { contact_id: string } | { athlete_id: string } | { factory_id: string } | { organization_id: string };
 
 export function useDeleteNote() {
   return useDbAction({
@@ -29,7 +29,7 @@ export function NoteMeta({ note, before, after }: { note: Note; before?: ReactNo
   );
 }
 
-// Notes timeline for a contact, athlete or factory, newest first, with a box to add one.
+// Notes timeline for a contact, organization, athlete or factory, newest first, with a box to add one.
 export function NotesSection({ subject }: { subject: Subject }) {
   const notes = useNotes();
   const input = useRef<HTMLTextAreaElement>(null);

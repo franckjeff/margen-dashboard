@@ -435,7 +435,9 @@ table.static tbody tr:hover { background: none; }
 .note-body { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .audit-event { border-left-color: var(--storm); }
 .audit-changes { list-style: none; margin: 4px 0 0; padding: 0; font-size: 0.9rem; overflow-wrap: anywhere; }
-.dashboard-notes { margin-top: 20px; }
+.dashboard-notes, .scrapbook { margin-top: 20px; }
+.scrapbook-text { min-height: 220px; line-height: 1.5; }
+.scrapbook p { margin: 8px 0 0; }
 .dashboard-notes .notes-list { margin-top: 0; }
 .dashboard-notes .empty { padding: 0; }
 

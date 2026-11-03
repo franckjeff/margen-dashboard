@@ -152,7 +152,8 @@ export function UsersPage() {
       <p className="muted small hint">
         New users are added in Supabase (Authentication → Users) and start as Client. You can't change your own level, and there must
         always be at least one Admin. The first name is how the Dashboard greets each person. A Factory account sees only the
-        orders of the factory it's linked to, and can't change anything.
+        orders of the factory it's linked to, and can change only their production status and shipping details. A Designer
+        account sees only the Dashboard and Designs.
       </p>
     </>
   );

@@ -40,7 +40,7 @@ Open http://localhost:5173 and sign in with a Supabase account. Saved code chang
 | `src/main.tsx`, `src/App.tsx` | Start-up and the page routes (hash URLs such as `#/customs/<id>`) |
 | `src/auth/` | Sign-in, the signed-in user and their role |
 | `src/data/` | Every Supabase read (`queries.ts`) and write (`mutations.ts`), with what each write refreshes |
-| `src/features/<area>/` | One folder per page: dashboard, orders, items, factories, organizations, contacts, athletes, leads, reports, users, notes |
+| `src/features/<area>/` | One folder per page: dashboard, orders, items, factories, organizations, contacts, designs, athletes, leads, reports, users, notes |
 | `src/components/` | Shared pieces: layout and menu, list pages, notices, badges, icons |
 | `src/lib/` | Supabase client and database types, constants, formatting, theme, spreadsheets |
 | `src/styles.css` | Styles following the MARGEN branding guidelines (navy, storm blue, green; Exo 2 and Open Sans), including dark mode |
@@ -57,9 +57,20 @@ Open http://localhost:5173 and sign in with a Supabase account. Saved code chang
 
 ## Access levels
 
-Each account has a role in `public.profiles`: **admin**, **factory** or **client**.
-New accounts start as client. Only admins can see or change data; the database's
-row level security enforces this, not just the app's menus. Admins change roles on the Users page.
+Each account has a role in `public.profiles`: **admin**, **factory**, **client** or **designer**.
+New accounts start as client. The database's row level security enforces what each role can do,
+not just the app's menus.
+
+- **Admin:** sees and changes everything.
+- **Factory:** sees only the orders assigned to its factory, with their items, and can change only
+  their production status and shipping details. It never sees the client organizations.
+- **Client:** sees the Dashboard only for now.
+- **Designer:** sees only the Dashboard and the Designs page (not built yet), and no database tables.
+
+Admins change roles on the Users page, and link each factory account to its factory there.
+
+Every role has a **Scrapbook** on its Dashboard: free text that saves itself as you type.
+Each person sees only their own; not even admins can read anyone else's.
 
 ## Database changes
 

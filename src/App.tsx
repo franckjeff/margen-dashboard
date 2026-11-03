@@ -9,6 +9,7 @@ import { visiblePages, type PageName } from "./lib/constants";
 // Each page's code is downloaded the first time it's opened, so the app starts fast however many pages it has.
 const AthletesPage = lazy(() => import("./features/athletes/AthletesPage").then((m) => ({ default: m.AthletesPage })));
 const ContactsPage = lazy(() => import("./features/contacts/ContactsPage").then((m) => ({ default: m.ContactsPage })));
+const DesignsPage = lazy(() => import("./features/designs/DesignsPage").then((m) => ({ default: m.DesignsPage })));
 const DashboardPage = lazy(() => import("./features/dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const FactoriesPage = lazy(() => import("./features/factories/FactoriesPage").then((m) => ({ default: m.FactoriesPage })));
 const ItemsPage = lazy(() => import("./features/items/ItemsPage").then((m) => ({ default: m.ItemsPage })));
@@ -72,7 +73,7 @@ function AppRoutes() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Navigate to={home} replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="dashboard" element={page("dashboard", <DashboardPage />)} />
           {records("customs", (id, editing) => <OrdersPage id={id} editing={editing} />)}
           {records("items", (id, editing) => <ItemsPage id={id} editing={editing} />)}
           {records("factories", (id, editing) => <FactoriesPage id={id} editing={editing} />)}
@@ -80,6 +81,7 @@ function AppRoutes() {
           {records("leads", (id, editing) => <LeadsPage id={id} editing={editing} />)}
           {records("organizations", (id, editing) => <OrganizationsPage id={id} editing={editing} />)}
           {records("contacts", (id, editing) => <ContactsPage id={id} editing={editing} />)}
+          <Route path="designs" element={page("designs", <DesignsPage />)} />
           <Route path="reports" element={page("reports", <ReportsPage />)} />
           <Route path="users" element={page("users", <UsersPage />)} />
           <Route path="*" element={<Navigate to={home} replace />} />

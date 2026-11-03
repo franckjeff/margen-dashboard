@@ -212,6 +212,7 @@ export type Database = {
           created_by: string | null;
           factory_id: string | null;
           id: string;
+          organization_id: string | null;
         };
         Insert: {
           athlete_id?: string | null;
@@ -221,6 +222,7 @@ export type Database = {
           created_by?: string | null;
           factory_id?: string | null;
           id?: string;
+          organization_id?: string | null;
         };
         Update: {
           athlete_id?: string | null;
@@ -230,6 +232,7 @@ export type Database = {
           created_by?: string | null;
           factory_id?: string | null;
           id?: string;
+          organization_id?: string | null;
         };
         Relationships: [
           {
@@ -251,6 +254,13 @@ export type Database = {
             columns: ["factory_id"];
             isOneToOne: false;
             referencedRelation: "factories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notes_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
           {
@@ -493,6 +503,32 @@ export type Database = {
             columns: ["factory_id"];
             isOneToOne: false;
             referencedRelation: "factories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      scrapbooks: {
+        Row: {
+          body: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          body?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          body?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "scrapbooks_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];

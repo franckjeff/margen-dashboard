@@ -16,10 +16,11 @@ import {
   loadingState,
 } from "../../components/ui";
 import { useDeleteRecord, useSaveRecord } from "../../data/mutations";
-import { useContacts, useOrders, useOrganizations, type Organization } from "../../data/queries";
+import { useContacts, useNotes, useOrders, useOrganizations, type Organization } from "../../data/queries";
 import { contactLocation, formatDate, fullName, place, plural } from "../../lib/format";
 import { deleteMessage, formValues, orNull } from "../../lib/forms";
 import { useUiState } from "../../lib/uiState";
+import { NotesSection } from "../notes/NotesSection";
 import { isBusyWith, useLinkActions } from "./links";
 
 function OrganizationForm({ org }: { org?: Organization }) {
@@ -165,13 +166,16 @@ export function OrganizationsPage({ id, editing = false }: { id?: string; editin
 // Full page for one organization. Each section is its own card, so more can be added later.
 function OrganizationPage({ org, editing }: { org: Organization; editing: boolean }) {
   const remove = useDeleteRecord("organizations");
+  const notes = useNotes();
   const defaultContact = org.contacts.find((c) => c.is_default);
 
   const confirmDelete = () => {
     // Organizations and contacts are linked to each other; deleting one removes its links.
     const n = org.contacts.length;
     const links = n > 0 && `Its ${plural(n, "contact link")} will be removed too. The contacts themselves are kept.`;
-    if (confirm(deleteMessage(org.name, [links]))) remove.mutate({ id: org.id, label: org.name });
+    const noteCount = (notes.data ?? []).filter((note) => note.organization_id === org.id).length;
+    const noteLine = noteCount > 0 && `Its ${plural(noteCount, "note")} will be deleted too.`;
+    if (confirm(deleteMessage(org.name, [links, noteLine]))) remove.mutate({ id: org.id, label: org.name });
   };
 
   return (
@@ -232,6 +236,9 @@ function OrganizationPage({ org, editing }: { org: Organization; editing: boolea
         </section>
         <section className="card section span-all">
           <OrganizationOrders org={org} />
+        </section>
+        <section className="card section span-all">
+          <NotesSection subject={{ organization_id: org.id }} />
         </section>
       </div>
     </>

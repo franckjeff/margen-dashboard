@@ -22,6 +22,7 @@ export const keys = {
   orderItems: ["orderItems"] as const,
   notes: ["notes"] as const,
   dismissals: ["dismissals"] as const,
+  scrapbook: ["scrapbook"] as const,
   users: ["users"] as const,
 };
 
@@ -44,7 +45,7 @@ export type OrderEvent = Pick<Tables<"order_events">, "id" | "order_id" | "actio
   changes: Record<string, { from?: unknown; to?: unknown }>;
   author: { email: string | null } | null;
 };
-export type Note = Pick<Tables<"notes">, "id" | "contact_id" | "athlete_id" | "factory_id" | "body" | "created_at"> & {
+export type Note = Pick<Tables<"notes">, "id" | "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "body" | "created_at"> & {
   author: { email: string | null } | null;
 };
 export type User = Pick<Tables<"profiles">, "id" | "email" | "first_name" | "factory_id" | "created_at"> & {
@@ -203,13 +204,27 @@ export function useNotes() {
       unwrap(
         await supabase
           .from("notes")
-          .select("id, contact_id, athlete_id, factory_id, body, created_at, author:profiles!notes_created_by_fkey(email)")
+          .select("id, contact_id, athlete_id, factory_id, organization_id, body, created_at, author:profiles!notes_created_by_fkey(email)")
           .order("created_at", { ascending: false }),
       ),
   });
 }
 
 // Ids of notes this user has hidden from the Dashboard. Only their own dismissals are visible to them.
+export type Scrapbook = { body: string; updated_at: string };
+
+// The signed-in user's scrapbook, or null before they first write in it. Nobody else's is visible to them.
+export function useScrapbook() {
+  return useQuery({
+    queryKey: keys.scrapbook,
+    queryFn: async (): Promise<Scrapbook | null> => {
+      const { data, error } = await supabase.from("scrapbooks").select("body, updated_at").maybeSingle();
+      if (error) throw new DbError(error);
+      return data;
+    },
+  });
+}
+
 export function useDismissals() {
   return useQuery({
     queryKey: keys.dismissals,

@@ -18,6 +18,7 @@ import { OPEN_LEAD_STATUSES, OPEN_ORDER_STATUSES, ROLE_LABELS } from "../../lib/
 import { fullName } from "../../lib/format";
 import { DbError, messageOf, supabase } from "../../lib/supabase";
 import { NoteMeta } from "../notes/NotesSection";
+import { Scrapbook } from "./Scrapbook";
 import { dailyLine, greeting, quoteOfTheDay } from "./welcome";
 
 function Welcome() {
@@ -51,6 +52,7 @@ export function DashboardPage() {
       <>
         <Welcome />
         <FactoryStats />
+        <Scrapbook />
       </>
     );
   }
@@ -59,6 +61,7 @@ export function DashboardPage() {
       <>
         <Welcome />
         <p className="muted">You're signed in with a {ROLE_LABELS[role]} account. More will appear here soon.</p>
+        <Scrapbook />
       </>
     );
   }
@@ -66,6 +69,7 @@ export function DashboardPage() {
     <>
       <Welcome />
       <AdminStats />
+      <Scrapbook />
       <DashboardNotes />
     </>
   );
@@ -129,17 +133,18 @@ function AdminStats() {
   );
 }
 
-// Notes this user hasn't hidden yet, newest first, each with the contact, athlete or factory it's about.
+// Notes this user hasn't hidden yet, newest first, each with the contact, organization, athlete or factory it's about.
 function DashboardNotes() {
   const notes = useNotes();
   const dismissals = useDismissals();
   const contacts = useContacts();
   const athletes = useAthletes();
   const factories = useFactories();
+  const organizations = useOrganizations();
   const queryClient = useQueryClient();
   const { notify } = useNotice();
 
-  // Hides a note from this user's Dashboard at once; the note stays on its contact, athlete or factory page.
+  // Hides a note from this user's Dashboard at once; the note stays on the page it was added to.
   const dismiss = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("note_dismissals").insert({ note_id: id });
@@ -153,7 +158,7 @@ function DashboardNotes() {
     },
   });
 
-  const waiting = loadingState([notes, dismissals, contacts, athletes, factories]);
+  const waiting = loadingState([notes, dismissals, contacts, athletes, factories, organizations]);
   if (waiting) return <section className="card section dashboard-notes">{waiting}</section>;
 
   const visible = notes.data!.filter((n) => !dismissals.data!.has(n.id));
@@ -161,6 +166,10 @@ function DashboardNotes() {
     if (n.contact_id) {
       const contact = contacts.data!.find((c) => c.id === n.contact_id);
       return { kind: "Contact", to: `/contacts/${n.contact_id}`, name: contact && fullName(contact) };
+    }
+    if (n.organization_id) {
+      const organization = organizations.data!.find((o) => o.id === n.organization_id);
+      return { kind: "Organization", to: `/organizations/${n.organization_id}`, name: organization?.name };
     }
     if (n.factory_id) {
       return { kind: "Factory", to: `/factories/${n.factory_id}`, name: factories.data!.find((f) => f.id === n.factory_id)?.name };
@@ -208,7 +217,7 @@ function DashboardNotes() {
           })}
         </ol>
       ) : (
-        <p className="empty">No new notes. Notes added to contacts and athletes appear here until you hide them.</p>
+        <p className="empty">No new notes. Notes added to contacts, organizations, athletes and factories appear here until you hide them.</p>
       )}
     </section>
   );

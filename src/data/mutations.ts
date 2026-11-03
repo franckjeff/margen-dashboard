@@ -11,7 +11,7 @@ type TableName = keyof Database["public"]["Tables"];
 // (an order shows its organization's and factory's names, an item its piece counts, an order its history),
 // so those are refetched too. Add a line here when a new table or embed is added.
 const INVALIDATES: Record<TableName, readonly (readonly string[])[]> = {
-  organizations: [keys.organizations, keys.contacts, keys.orders],
+  organizations: [keys.organizations, keys.contacts, keys.orders, keys.notes],
   contacts: [keys.contacts, keys.organizations, keys.notes],
   organization_contacts: [keys.organizations, keys.contacts],
   athletes: [keys.athletes, keys.notes],
@@ -23,6 +23,7 @@ const INVALIDATES: Record<TableName, readonly (readonly string[])[]> = {
   factories: [keys.factories, keys.orders, keys.notes],
   notes: [keys.notes],
   note_dismissals: [keys.dismissals],
+  scrapbooks: [keys.scrapbook],
   profiles: [keys.users, ["profile"]],
 };
 

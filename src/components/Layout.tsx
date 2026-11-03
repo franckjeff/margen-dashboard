@@ -30,8 +30,9 @@ export function Layout() {
   }, [pathname, navigated]);
 
   // Gather consecutive pages of the same group under one heading.
+  const pages = visiblePages(role);
   const entries: MenuEntry[] = [];
-  for (const p of visiblePages(role)) {
+  for (const p of pages) {
     const last = entries[entries.length - 1];
     if (p.group && last && "pages" in last && last.group === p.group) last.pages.push(p);
     else entries.push(p.group ? { group: p.group, pages: [p] } : p);
@@ -48,7 +49,7 @@ export function Layout() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <Link to="/dashboard" className="brand" aria-label="MARGEN Dashboard home">
+        <Link to={`/${pages[0].name}`} className="brand" aria-label="MARGEN Dashboard home">
           <Logo />
         </Link>
         <nav className="tabs" aria-label="Main menu">
