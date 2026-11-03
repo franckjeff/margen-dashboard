@@ -388,7 +388,11 @@ h1.mono { font-size: 1.4rem; font-weight: 500; }
 
 .list { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--border); }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+/* Cells stay on one line; a wide table scrolls sideways instead. */
+td { font-size: 0.85rem; white-space: nowrap; }
+td.wrap { white-space: normal; }
+td.mono { font-size: 0.8rem; }
 th {
   font: 500 0.68rem var(--heading);
   text-transform: uppercase;

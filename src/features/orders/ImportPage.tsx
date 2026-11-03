@@ -208,7 +208,7 @@ function ImportPreview({
                 <td className="hide-sm">
                   <OrDash>{r.production_status}</OrDash>
                 </td>
-                <td>{result(r)}</td>
+                <td className="wrap">{result(r)}</td>
               </tr>
             ))}
           </tbody>
