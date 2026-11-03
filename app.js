@@ -1555,13 +1555,14 @@ function orderPage(order, editing) {
     </div>
     <div class="detail-grid">
       <section class="card section">${details}</section>
-      <section class="card section">${orderLines(order)}</section>
+      <section class="card section">${orderLines(order, editing)}</section>
       <section class="card section span-all">${auditTrail(order.id)}</section>
     </div>`;
 }
 
 // What the order is made of: one line per item and size, with its quantity.
-function orderLines(order) {
+// Read-only unless the order is being edited (#/customs/<id>/edit).
+function orderLines(order, editing) {
   const lines = orderLinesOf(order.id);
   const total = lines.reduce((sum, l) => sum + l.quantity, 0);
   const rows = lines
@@ -1570,13 +1571,30 @@ function orderLines(order) {
       <tr>
         <td><a href="#/items/${l.item.id}" class="strong">${esc(l.item.name)}</a></td>
         <td>${esc(l.size)}</td>
-        <td class="num"><input type="number" class="qty" min="1" step="1" value="${l.quantity}" data-line-id="${l.id}"
-          aria-label="Quantity of ${esc(l.item.name)}, size ${esc(l.size)}"></td>
-        <td class="num"><button type="button" class="icon-btn" data-action="remove-line" data-id="${l.id}"
-          aria-label="Remove ${esc(l.item.name)}, size ${esc(l.size)}" title="Remove from order">×</button></td>
+        ${
+          editing
+            ? `<td class="num"><input type="number" class="qty" min="1" step="1" value="${l.quantity}" data-line-id="${l.id}"
+                 aria-label="Quantity of ${esc(l.item.name)}, size ${esc(l.size)}"></td>
+               <td class="num"><button type="button" class="icon-btn" data-action="remove-line" data-id="${l.id}"
+                 aria-label="Remove ${esc(l.item.name)}, size ${esc(l.size)}" title="Remove from order">×</button></td>`
+            : `<td class="num">${l.quantity}</td>`
+        }
       </tr>`
     )
     .join("");
+  const table = `
+    <div class="table-wrap${editing ? " editing" : ""}"><table class="static">
+      <thead><tr><th>Item</th><th>Size</th><th class="num">Qty</th>${editing ? `<th><span class="sr-only">Remove</span></th>` : ""}</tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td colspan="2">Total</td><td class="num">${total}</td>${editing ? "<td></td>" : ""}</tr></tfoot>
+    </table></div>`;
+
+  if (!editing) {
+    return `
+      <h2>Items <span class="count">${total}</span></h2>
+      ${rows ? table : `<p class="empty">No items on this order yet. Click Edit to add some.</p>`}`;
+  }
+
   const addForm = state.items.length
     ? `<form data-form="order-item" data-order="${order.id}" class="line-form">
          <select name="item_id" required aria-label="Item">
@@ -1590,16 +1608,9 @@ function orderLines(order) {
     : `<p class="muted small">No items yet. <a href="#/items/new">Add an item</a> first.</p>`;
   return `
     <h2>Items <span class="count">${total}</span></h2>
-    ${
-      rows
-        ? `<div class="table-wrap"><table class="static">
-             <thead><tr><th>Item</th><th>Size</th><th class="num">Qty</th><th><span class="sr-only">Remove</span></th></tr></thead>
-             <tbody>${rows}</tbody>
-             <tfoot><tr><td colspan="2">Total</td><td class="num">${total}</td><td></td></tr></tfoot>
-           </table></div>`
-        : `<p class="empty">No items on this order yet.</p>`
-    }
-    ${addForm}`;
+    ${rows ? table : `<p class="empty">No items on this order yet.</p>`}
+    ${addForm}
+    <p class="muted small">Item changes are saved as you make them.</p>`;
 }
 
 function itemForm(item) {

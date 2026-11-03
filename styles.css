@@ -427,7 +427,7 @@ input.qty { width: 76px; padding: 4px 8px; text-align: right; }
 .table-wrap td input.qty { margin: -4px 0; }
 .table-wrap thead th { padding: 8px 12px; }
 .table-wrap tfoot td { padding: 8px 12px; border-top: 1px solid var(--border); font-weight: 600; }
-.table-wrap tfoot td.num { padding-right: 21px; }
+.table-wrap.editing tfoot td.num { padding-right: 21px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ---------- small screens ---------- */
