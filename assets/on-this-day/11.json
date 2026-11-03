@@ -1,0 +1,685 @@
+{
+ "11-01": [
+  {
+   "year": 1520,
+   "text": "The Strait of Magellan, the passage immediately south of mainland South America connecting the Pacific and the Atlantic Oceans, is first discovered and navigated by European explorer Ferdinand Magellan during the first recorded circumnavigation voyage.",
+   "title": "Strait of Magellan",
+   "summary": "The Strait of Magellan, also called the Straits of Magellan, is a navigable sea route in southern Chile separating mainland South America to the north and the Tierra del Fuego archipelago to the south.",
+   "url": "https://en.wikipedia.org/wiki/Strait_of_Magellan"
+  },
+  {
+   "year": 1848,
+   "text": "In Boston, Massachusetts, the first medical school for women, Boston Female Medical School (which later merged with the Boston University School of Medicine), opens.",
+   "title": "Boston",
+   "summary": "Boston is the capital and most populous city of the U.S. state of Massachusetts. It serves as a cultural and financial center of New England, a region of the Northeastern United States.",
+   "url": "https://en.wikipedia.org/wiki/Boston"
+  },
+  {
+   "year": 1972,
+   "text": "Elvis on Tour, a concert film that documented Elvis Presley's tour throughout the United States, opened.",
+   "title": "Elvis on Tour",
+   "summary": "Elvis on Tour is a 1972 American concert film starring Elvis Presley during his fifteen-city spring tour earlier that year. It was written, produced, directed by Pierre Adidge and Robert Abel and released by Metro-Goldwyn-Mayer (MGM).",
+   "url": "https://en.wikipedia.org/wiki/Elvis_on_Tour"
+  }
+ ],
+ "11-02": [
+  {
+   "year": 1959,
+   "text": "The first section of the M1 motorway, the first inter-urban motorway in the United Kingdom, is opened between the present junctions 5 and 18, along with the M10 motorway and M45 motorway.",
+   "title": "M1 motorway",
+   "summary": "The M1 motorway connects London to Leeds, where it joins the A1(M) near Aberford, to connect to Newcastle. It was the first inter-urban motorway to be completed in the UK; the first motorway in the country was the Preston Bypass, which later became part of the M6.",
+   "url": "https://en.wikipedia.org/wiki/M1_motorway"
+  },
+  {
+   "year": 2000,
+   "text": "As members of Expedition 1, American astronaut William Shepherd and Russian cosmonauts Sergei Krikalev and Yuri Gidzenko became the first resident crew to arrive at the International Space Station.",
+   "title": "Expedition 1",
+   "summary": "Expedition 1 was the first long-duration expedition to the International Space Station (ISS). The three-person crew stayed aboard the station for 136 days, from 2 November 2000 to 19 March 2001. It was the beginning of an uninterrupted human presence on the station which continues as of 2026.",
+   "url": "https://en.wikipedia.org/wiki/Expedition_1"
+  },
+  {
+   "year": 2008,
+   "text": "Lewis Hamilton overtook Timo Glock in the final corners of the Brazilian Grand Prix to become the Formula One World Drivers' Champion by one point.",
+   "title": "Lewis Hamilton",
+   "summary": "Sir Lewis Carl Davidson Hamilton is a British racing driver who competes in Formula One for Ferrari. Hamilton has won a joint-record seven Formula One World Drivers' Championship titles—tied with Michael Schumacher—and holds the records for most wins (106), pole positions (105), and podium finishes (209), among others.",
+   "url": "https://en.wikipedia.org/wiki/Lewis_Hamilton"
+  }
+ ],
+ "11-03": [
+  {
+   "year": 1986,
+   "text": "The Compact of Free Association becomes law, granting the Federated States of Micronesia and the Marshall Islands independence from the United States.",
+   "title": "Compact of Free Association",
+   "summary": "The Compacts of Free Association (COFA) are international agreements establishing and governing the relationships of free association between the United States and the three Pacific Island sovereign states: Federated States of Micronesia (FSM), the Republic of the Marshall Islands (RMI), and the Republic of Palau.",
+   "url": "https://en.wikipedia.org/wiki/Compact_of_Free_Association"
+  },
+  {
+   "year": 1954,
+   "text": "The first film featuring the giant monster Godzilla was released nationwide in Japan.",
+   "title": "Godzilla (1954 film)",
+   "summary": "Godzilla is a 1954 Japanese epic kaiju film directed and co-written by Ishirō Honda, with special effects by Eiji Tsuburaya. Produced and distributed by Toho, it is the first film in the Godzilla franchise.",
+   "url": "https://en.wikipedia.org/wiki/Godzilla_(1954_film)"
+  },
+  {
+   "year": 1973,
+   "text": "Mariner program: NASA launches the Mariner 10 toward Mercury. On March 29, 1974, it becomes the first space probe to reach that planet.",
+   "title": "Mariner program",
+   "summary": "The Mariner program was conducted by the American space agency NASA to explore other planets.",
+   "url": "https://en.wikipedia.org/wiki/Mariner_program"
+  }
+ ],
+ "11-04": [
+  {
+   "year": 1922,
+   "text": "The tomb of Tutankhamun was discovered by a team led by British Egyptologist Howard Carter.",
+   "title": "Tomb of Tutankhamun",
+   "summary": "The tomb of Tutankhamun, a pharaoh of the Eighteenth Dynasty of ancient Egypt, is located in the Valley of the Kings. The tomb, also known by its tomb number KV62, consists of four chambers and an entrance staircase and corridor.",
+   "url": "https://en.wikipedia.org/wiki/Tomb_of_Tutankhamun"
+  },
+  {
+   "year": 1783,
+   "text": "Wolfgang Amadeus Mozart's Symphony No. 36 is performed for the first time in Linz, Austria.",
+   "title": "Wolfgang Amadeus Mozart",
+   "summary": "Wolfgang Amadeus Mozart was a Classical composer and musician. He completed more than 800 works in his life—including outstanding examples of most of the genres of his time: symphonies, concertos, chamber music, opera and choral music. He is regarded as one of the greatest composers in the history of Western music.",
+   "url": "https://en.wikipedia.org/wiki/Wolfgang_Amadeus_Mozart"
+  },
+  {
+   "year": 1847,
+   "text": "Sir James Young Simpson, a Scottish medical doctor, discovers the anaesthetic properties of chloroform.",
+   "title": "James Young Simpson",
+   "summary": "Sir James Young Simpson, 1st Baronet was a Scottish obstetrician and a significant figure in the history of medicine. He was the first physician to demonstrate the anaesthetic properties of chloroform in humans and helped to popularize its use in medicine.",
+   "url": "https://en.wikipedia.org/wiki/James_Young_Simpson"
+  }
+ ],
+ "11-05": [
+  {
+   "year": 2013,
+   "text": "The Indian Space Research Organisation launched the Mars Orbiter Mission, India's first interplanetary probe.",
+   "title": "ISRO",
+   "summary": "The Indian Space Research Organisation is the national space agency of India, headquartered in Bengaluru, Karnataka.",
+   "url": "https://en.wikipedia.org/wiki/ISRO"
+  },
+  {
+   "year": 1499,
+   "text": "The Catholicon, written in 1464 by Jehan Lagadeuc in Tréguier, is published; this is the first Breton dictionary as well as the first French dictionary.",
+   "title": "Catholicon (trilingual dictionary)",
+   "summary": "The Catholicon is a 15th-century dictionary written in Breton, French, and Latin. It is the first Breton dictionary and also the first French dictionary. It contains six thousand entries and was compiled in 1464 by Jehan Lagadeuc, a man from Plougonven who was probably a priest.",
+   "url": "https://en.wikipedia.org/wiki/Catholicon_(trilingual_dictionary)"
+  },
+  {
+   "year": 2007,
+   "text": "China's first lunar satellite, Chang'e 1, goes into orbit around the Moon.",
+   "title": "Chang'e 1",
+   "summary": "Chang'e 1 was an uncrewed Chinese lunar-orbiting spacecraft, part of the first phase of the Chinese Lunar Exploration Program. The spacecraft was named after the Chinese Moon goddess, Chang'e.",
+   "url": "https://en.wikipedia.org/wiki/Chang'e_1"
+  }
+ ],
+ "11-06": [
+  {
+   "year": 1856,
+   "text": "The first story from the collection Scenes of Clerical Life by the English author George Eliot was submitted for publication.",
+   "title": "Scenes of Clerical Life",
+   "summary": "Scenes of Clerical Life is an 1858 collection of three short stories, published in book form, by George Eliot; it was Eliot's first published work of fiction and the first of her works to be released under her famous pseudonym.",
+   "url": "https://en.wikipedia.org/wiki/Scenes_of_Clerical_Life"
+  },
+  {
+   "year": 1947,
+   "text": "Meet the Press, the longest running television program in history, makes its debut on NBC Television.",
+   "title": "Meet the Press",
+   "summary": "Meet the Press, also known as Meet the Press with Kristen Welker, is a weekly American television Sunday morning talk show broadcast on NBC. It is the longest-running program on American television, though its format has changed since the debut episode on November 6, 1947.",
+   "url": "https://en.wikipedia.org/wiki/Meet_the_Press"
+  }
+ ],
+ "11-07": [
+  {
+   "year": 1885,
+   "text": "The completion of Canada's first transcontinental railway is symbolized by the Last Spike ceremony at Craigellachie, British Columbia.",
+   "title": "Last spike (Canadian Pacific Railway)",
+   "summary": "A ceremonial final spike was driven into the Canadian Pacific Railway (CPR) at Craigellachie, British Columbia, at 9:22 am on November 7, 1885.",
+   "url": "https://en.wikipedia.org/wiki/Last_spike_(Canadian_Pacific_Railway)"
+  },
+  {
+   "year": 1987,
+   "text": "Singapore's first Mass Rapid Transit line opened, with train services running between Yio Chu Kang and Toa Payoh.",
+   "title": "Mass Rapid Transit (Singapore)",
+   "summary": "The Mass Rapid Transit (MRT) is a rapid transit system in Singapore and the island country's principal mode of railway transportation. After two decades of planning, the system commenced operations in November 1987 with an initial 6 km (3.7 mi) stretch consisting of five stations.",
+   "url": "https://en.wikipedia.org/wiki/Mass_Rapid_Transit_(Singapore)"
+  },
+  {
+   "year": 1994,
+   "text": "WXYC, the student radio station of the University of North Carolina at Chapel Hill, launches the world's first internet radio broadcast.",
+   "title": "WXYC",
+   "summary": "WXYC is an American radio station broadcasting a college radio format. Licensed to Chapel Hill, North Carolina, United States, the station is non-commercial and run by students of the University of North Carolina at Chapel Hill. The station is owned by Student Educational Broadcasting, Inc.",
+   "url": "https://en.wikipedia.org/wiki/WXYC"
+  }
+ ],
+ "11-08": [
+  {
+   "year": 1291,
+   "text": "The Republic of Venice enacts a law confining most of Venice's glassmaking industry to the \"island of Murano\".",
+   "title": "Republic of Venice",
+   "summary": "The Republic of Venice, officially the Most Serene Republic of Venice and traditionally known as La Serenissima, was a maritime republic with its capital in Venice, on the northeastern coast of Italy.",
+   "url": "https://en.wikipedia.org/wiki/Republic_of_Venice"
+  },
+  {
+   "year": 1602,
+   "text": "The Bodleian Library at the University of Oxford is opened to the public.",
+   "title": "Bodleian Library",
+   "summary": "The Bodleian Library is the main research library of the University of Oxford. Founded in 1602 by Sir Thomas Bodley, it is one of the oldest libraries in Europe. With over 13 million printed items, it is the second-largest library in Britain after the British Library.",
+   "url": "https://en.wikipedia.org/wiki/Bodleian_Library"
+  },
+  {
+   "year": 1920,
+   "text": "Rupert Bear, illustrated by Mary Tourtel makes his first appearance in print.",
+   "title": "Rupert Bear",
+   "summary": "Rupert Bear, also known as Rupert the Bear or simply Rupert, is an English children's comic strip character and franchise created by Herbert Tourtel and illustrated by his wife, the artist Mary Tourtel, first appearing in the Daily Express newspaper on 8 November 1920.",
+   "url": "https://en.wikipedia.org/wiki/Rupert_Bear"
+  }
+ ],
+ "11-09": [
+  {
+   "year": 1928,
+   "text": "The Great Mecca Feast, the first documentary film on the Hajj, premiered in the Netherlands.",
+   "title": "The Great Mecca Feast",
+   "summary": "The Great Mecca Feast is a 1928 silent documentary film by George Krugers. Divided into four acts, it opens with a group of Muslim men from the Dutch East Indies beginning the Hajj pilgrimage, then showcases elements of everyday life and worship in the Hejaz region of the Arabian Peninsula – including the Hajj itself.",
+   "url": "https://en.wikipedia.org/wiki/The_Great_Mecca_Feast"
+  },
+  {
+   "year": 2023,
+   "text": "U.S. surgeons at NYU Langone Health announce the world's first whole eye transplant.",
+   "title": "NYU Langone Health",
+   "summary": "NYU Langone Health is an integrated academic health system located in New York and Florida.",
+   "url": "https://en.wikipedia.org/wiki/NYU_Langone_Health"
+  },
+  {
+   "year": 2019,
+   "text": "The Alabama Crimson Tide and LSU Tigers football teams, both with undefeated records thus far that season, played in a \"Game of the Century\".",
+   "title": "Alabama Crimson Tide football",
+   "summary": "The Alabama Crimson Tide football program represents the University of Alabama in American football. It is part of the wider Crimson Tide athletics program and competes in the Southeastern Conference (SEC), a conference of the NCAA's Football Bowl Subdivision (FBS).",
+   "url": "https://en.wikipedia.org/wiki/Alabama_Crimson_Tide_football"
+  }
+ ],
+ "11-10": [
+  {
+   "year": 1951,
+   "text": "With the rollout of the North American Numbering Plan, direct-dial coast-to-coast telephone service begins in the United States.",
+   "title": "North American Numbering Plan",
+   "summary": "The North American Numbering Plan (NANP) is an integrated telephone numbering plan for twenty-five regions in twenty countries, primarily in North America and the Caribbean. This group is historically known as World Numbering Zone 1 and has the country code 1.",
+   "url": "https://en.wikipedia.org/wiki/North_American_Numbering_Plan"
+  },
+  {
+   "year": 1969,
+   "text": "The children's television series Sesame Street premiered in the United States.",
+   "title": "Sesame Street",
+   "summary": "Sesame Street is an American educational children's television series that combines live-action, sketch comedy, animation, and puppetry. It is produced by Sesame Workshop and was created by Joan Ganz Cooney and Lloyd Morrisett.",
+   "url": "https://en.wikipedia.org/wiki/Sesame_Street"
+  },
+  {
+   "year": 1970,
+   "text": "Luna 17: uncrewed space mission launched by the Soviet Union.",
+   "title": "Luna 17",
+   "summary": "Luna 17 was an uncrewed space mission of the Luna program, also called Lunik 17. It deployed the first robotic rover onto the surface of the Moon.",
+   "url": "https://en.wikipedia.org/wiki/Luna_17"
+  }
+ ],
+ "11-11": [
+  {
+   "year": 2002,
+   "text": "Russian mathematician Grigori Perelman posts the first of three preprint texts with his proof of the Poincaré conjecture. It remains the only of the Millennium Prize Problems in mathematics to be solved. He later refused both the prize money from Clay Mathematics Institute as well as the Fields Medal for his work.",
+   "title": "Grigori Perelman",
+   "summary": "Grigori Yakovlevich Perelman is a Russian mathematician and geometer who is known for his contributions to the fields of geometric analysis, Riemannian geometry, and geometric topology.",
+   "url": "https://en.wikipedia.org/wiki/Grigori_Perelman"
+  },
+  {
+   "year": 1982,
+   "text": "Space Shuttle Columbia launches from the Kennedy Space Center on STS-5, the first operational mission of the Space Shuttle program.",
+   "title": "Space Shuttle Columbia",
+   "summary": "Space Shuttle Columbia (OV-102) was a Space Shuttle orbiter manufactured by Rockwell International and operated by NASA.",
+   "url": "https://en.wikipedia.org/wiki/Space_Shuttle_Columbia"
+  },
+  {
+   "year": 1675,
+   "text": "Gottfried Leibniz demonstrates integral calculus for the first time to find the area under the graph of y = ƒ(x).",
+   "title": "Gottfried Wilhelm Leibniz",
+   "summary": "Gottfried Wilhelm Leibniz was a German polymath active as a mathematician, philosopher, scientist, and diplomat. Alongside Isaac Newton, he is widely credited with the invention of calculus.",
+   "url": "https://en.wikipedia.org/wiki/Gottfried_Wilhelm_Leibniz"
+  }
+ ],
+ "11-12": [
+  {
+   "year": 1958,
+   "text": "A team of rock climbers led by Warren Harding completes the first ascent of The Nose on El Capitan in Yosemite Valley.",
+   "title": "Warren Harding (climber)",
+   "summary": "Warren Harding was an American rock climber. He was the leader of the first team to climb El Capitan, Yosemite Valley, in 1958. Harding made many first ascents in Yosemite, some 28 in all, including The Wall of Early Morning Light.",
+   "url": "https://en.wikipedia.org/wiki/Warren_Harding_(climber)"
+  },
+  {
+   "year": 1973,
+   "text": "The first episode of Last of the Summer Wine, the longest-running television sitcom in history, premiered on the BBC.",
+   "title": "Last of the Summer Wine",
+   "summary": "Last of the Summer Wine is a British sitcom set in Yorkshire created and written by Roy Clarke and originally broadcast by the BBC from 1973 to 2010. It premiered as an episode of Comedy Playhouse on 4 January 1973, and the first series of episodes followed on 12 November 1973. Alan J. W.",
+   "url": "https://en.wikipedia.org/wiki/Last_of_the_Summer_Wine"
+  },
+  {
+   "year": 2014,
+   "text": "The European Space Agency's lander Philae touched down on 67P/Churyumov–Gerasimenko, becoming the first spacecraft to land on a comet.",
+   "title": "European Space Agency",
+   "summary": "The European Space Agency is a 23-member international organisation devoted to space exploration. It has its headquarters in Paris and a staff of around 3,000 people globally as of 2025. ESA was founded in 1975 in the context of European integration. Its 2026 annual budget was around €8.3 billion.",
+   "url": "https://en.wikipedia.org/wiki/European_Space_Agency"
+  }
+ ],
+ "11-13": [
+  {
+   "year": 1945,
+   "text": "FC Dynamo Moscow opened their exhibition tour of the United Kingdom with a 3–3 draw against Chelsea, breaking the attendance record for a British club football match.",
+   "title": "FC Dynamo Moscow",
+   "summary": "FC Dynamo Moscow is a Russian professional football club based in Moscow. Dynamo returned to the Russian Premier League for the 2017–18 season after one season in the second-tier Russian Football National League.",
+   "url": "https://en.wikipedia.org/wiki/FC_Dynamo_Moscow"
+  },
+  {
+   "year": 1940,
+   "text": "Walt Disney's Fantasia, the first commercial film shown with stereophonic sound, premiered at the Broadway Theatre in New York City.",
+   "title": "Walt Disney",
+   "summary": "Walter Elias Disney was an American animator, film producer, voice actor, and entrepreneur. A pioneer of the American animation industry, he introduced several developments in the production of cartoons. As a film producer, he holds the record for most Academy Awards won (22) and nominations (59) by an individual.",
+   "url": "https://en.wikipedia.org/wiki/Walt_Disney"
+  },
+  {
+   "year": 1996,
+   "text": "As part of the Great Internet Mersenne Prime Search (GIMPS) project, Joel Armengaud discovers the project's first Mersenne prime number,",
+   "title": "Great Internet Mersenne Prime Search",
+   "summary": "The Great Internet Mersenne Prime Search (GIMPS) is a collaborative project of volunteers who use freely available software to search for Mersenne prime numbers.",
+   "url": "https://en.wikipedia.org/wiki/Great_Internet_Mersenne_Prime_Search"
+  }
+ ],
+ "11-14": [
+  {
+   "year": 1851,
+   "text": "Moby-Dick, an epic novel by American writer Herman Melville, was first published in the United States.",
+   "title": "Moby-Dick",
+   "summary": "Moby-Dick; or, The Whale is an 1851 epic novel by American writer Herman Melville. The book centers on the sailor Ishmael's narrative of the maniacal quest of Ahab, captain of the whaling ship Pequod, for vengeance against Moby Dick, the giant white sperm whale that bit off his leg on the ship's previous voyage.",
+   "url": "https://en.wikipedia.org/wiki/Moby-Dick"
+  },
+  {
+   "year": 1680,
+   "text": "German astronomer Gottfried Kirch discovered the Great Comet of 1680, the first comet to be discovered by telescope.",
+   "title": "Gottfried Kirch",
+   "summary": "Gottfried Kirch was a German astronomer and the first \"Astronomer Royal\" in Berlin and, as such, director of the nascent Berlin Observatory.",
+   "url": "https://en.wikipedia.org/wiki/Gottfried_Kirch"
+  },
+  {
+   "year": 1952,
+   "text": "The New Musical Express publishes the first regular UK Singles Chart.",
+   "title": "NME",
+   "summary": "New Musical Express (NME) is a British music, film, gaming and culture website, and bimonthly magazine.",
+   "url": "https://en.wikipedia.org/wiki/NME"
+  }
+ ],
+ "11-15": [
+  {
+   "year": 2020,
+   "text": "Lewis Hamilton wins the Turkish Grand Prix and secures his seventh drivers' title, equalling the all-time record held by Michael Schumacher.",
+   "title": "Lewis Hamilton",
+   "summary": "Sir Lewis Carl Davidson Hamilton is a British racing driver who competes in Formula One for Ferrari. Hamilton has won a joint-record seven Formula One World Drivers' Championship titles—tied with Michael Schumacher—and holds the records for most wins (106), pole positions (105), and podium finishes (209), among others.",
+   "url": "https://en.wikipedia.org/wiki/Lewis_Hamilton"
+  },
+  {
+   "year": 1859,
+   "text": "Sponsored by Greek businessman Evangelos Zappas, the first modern revival of the Olympic Games took place in Athens.",
+   "title": "Evangelos Zappas",
+   "summary": "Evangelos or Evangelis Zappas was a Greek philanthropist and businessman who is recognized today as one of the founders of the modern Olympic Games, which were held in 1859, 1870, 1875, and 1888 and preceded the Olympic Games that came under the auspices of the International Olympic Committee.",
+   "url": "https://en.wikipedia.org/wiki/Evangelos_Zappas"
+  },
+  {
+   "year": 1966,
+   "text": "Project Gemini: Gemini 12 completes the program's final mission, when it splashes down safely in the Atlantic Ocean.",
+   "title": "Project Gemini",
+   "summary": "Project Gemini was the second United States human spaceflight program to fly. It was conducted after the first American crewed space program, Project Mercury, while the Apollo program was still in early development. Gemini was conceived in 1961 and concluded in 1966. The Gemini spacecraft carried a two-astronaut crew.",
+   "url": "https://en.wikipedia.org/wiki/Project_Gemini"
+  }
+ ],
+ "11-16": [
+  {
+   "year": 1965,
+   "text": "Venera program: The Soviet Union launches the Venera 3 space probe toward Venus, which will be the first spacecraft to reach the surface of another planet.",
+   "title": "Venera program",
+   "summary": "The Venera program was a series of space probes developed by the Soviet Union between 1961 and 1984 to gather information about the planet Venus. A total of eighteen probes were sent, including two related Vega probes.",
+   "url": "https://en.wikipedia.org/wiki/Venera_program"
+  },
+  {
+   "year": 1979,
+   "text": "The first line of Bucharest Metro (Line M1) is opened from Timpuri Noi to Semănătoarea in Bucharest, Romania.",
+   "title": "Bucharest Metro",
+   "summary": "The Bucharest Metro is an underground rapid transit system that serves Bucharest, the capital of Romania. It first opened for service on 16 November 1979. The network is run by Metrorex.",
+   "url": "https://en.wikipedia.org/wiki/Bucharest_Metro"
+  },
+  {
+   "year": 2022,
+   "text": "Artemis Program: NASA launches Artemis 1 on the first flight of the Space Launch System, the start of the program's future missions to the moon.",
+   "title": "Artemis program",
+   "summary": "The Artemis program is a Moon exploration program led by the United States' National Aeronautics and Space Administration (NASA), aimed at returning humans to the Moon for the first time since the Apollo program and building a permanent lunar base.",
+   "url": "https://en.wikipedia.org/wiki/Artemis_program"
+  }
+ ],
+ "11-17": [
+  {
+   "year": 1970,
+   "text": "Luna programme: The Soviet Union lands Lunokhod 1 on Mare Imbrium (Sea of Rains) on the Moon. This is the first roving remote-controlled robot to land on another world and is released by the orbiting Luna 17 spacecraft.",
+   "title": "Luna programme",
+   "summary": "The Luna programme, sometimes called Lunik by western media, was a series of robotic spacecraft missions sent to the Moon by the Soviet Union between 1959 and 1976.",
+   "url": "https://en.wikipedia.org/wiki/Luna_programme"
+  },
+  {
+   "year": 1869,
+   "text": "In Egypt, the Suez Canal, linking the Mediterranean Sea with the Red Sea, is inaugurated.",
+   "title": "Egypt",
+   "summary": "Egypt, officially the Arab Republic of Egypt, is a country spanning the northeast corner of Africa and southwest corner of Asia via the Sinai Peninsula.",
+   "url": "https://en.wikipedia.org/wiki/Egypt"
+  },
+  {
+   "year": 1896,
+   "text": "The Western Pennsylvania Hockey League, which later became the first ice hockey league to openly trade and hire players, began play at Pittsburgh's Schenley Park Casino.",
+   "title": "Western Pennsylvania Hockey League",
+   "summary": "The Western Pennsylvania Hockey League (WPHL) was an originally amateur and later professional ice hockey league founded in 1896 and existing through 1909. Based in Pittsburgh, Pennsylvania, the league became the pre-eminent ice hockey league in the United States.",
+   "url": "https://en.wikipedia.org/wiki/Western_Pennsylvania_Hockey_League"
+  }
+ ],
+ "11-18": [
+  {
+   "year": 2003,
+   "text": "With its ruling in Goodridge v. Department of Public Health, the Massachusetts Supreme Judicial Court made the state the first in the U.S. to legalize same-sex marriage.",
+   "title": "Goodridge v. Department of Public Health",
+   "summary": "Goodridge v. Dept. of Public Health, 798 N.E.2d 941, is a landmark Massachusetts Supreme Judicial Court case in which the Court held that the Massachusetts Constitution requires the state to legally recognize same-sex marriage. The November 18, 2003, decision was the first by a U.S.",
+   "url": "https://en.wikipedia.org/wiki/Goodridge_v._Department_of_Public_Health"
+  },
+  {
+   "year": 1865,
+   "text": "\"The Celebrated Jumping Frog of Calaveras County\" was published, becoming the first great success of American author Mark Twain.",
+   "title": "The Celebrated Jumping Frog of Calaveras County",
+   "summary": "\"The Celebrated Jumping Frog of Calaveras County\" is an 1865 short story by Mark Twain. It was his first great success as a writer and brought him national attention. The story has also been published as \"Jim Smiley and His Jumping Frog\" and \"The Notorious Jumping Frog of Calaveras County\".",
+   "url": "https://en.wikipedia.org/wiki/The_Celebrated_Jumping_Frog_of_Calaveras_County"
+  },
+  {
+   "year": 1977,
+   "text": "Solomon Islands ratified the adoption of a new flag.",
+   "title": "Flag of Solomon Islands",
+   "summary": "The flag of Solomon Islands consists of a thin yellow diagonal stripe from the lower hoist-side corner, with a blue upper triangle and green lower triangle, and the canton charged with five white stars.",
+   "url": "https://en.wikipedia.org/wiki/Flag_of_Solomon_Islands"
+  }
+ ],
+ "11-19": [
+  {
+   "year": 1967,
+   "text": "The establishment of TVB, the first wireless commercial television station in Hong Kong.",
+   "title": "TVB",
+   "summary": "TVB Limited is a Hong Kong television network that began broadcasting on 19 November 1967. It operates four free-to-air terrestrial television channels, with TVB Jade as its main Cantonese service, and TVB Pearl as its main English service.",
+   "url": "https://en.wikipedia.org/wiki/TVB"
+  },
+  {
+   "year": 1999,
+   "text": "John Carpenter becomes the first person to win the top prize in the TV game show Who Wants to Be a Millionaire?",
+   "title": "John Carpenter (game show contestant)",
+   "summary": "John Carpenter is an American game show contestant and Internal Revenue Service agent. He is the seventeenth highest-earning American game show contestant of all time.",
+   "url": "https://en.wikipedia.org/wiki/John_Carpenter_(game_show_contestant)"
+  },
+  {
+   "year": 1816,
+   "text": "Warsaw University is established.",
+   "title": "University of Warsaw",
+   "summary": "The University of Warsaw is a public research university in Warsaw, Poland. Established on November 19, 1816, it is the largest institution of higher learning in the country, offering 37 different fields of study as well as 100 specializations in humanities, technical, and natural sciences.",
+   "url": "https://en.wikipedia.org/wiki/University_of_Warsaw"
+  }
+ ],
+ "11-20": [
+  {
+   "year": 1789,
+   "text": "New Jersey becomes the first U.S. state to ratify the Bill of Rights.",
+   "title": "New Jersey",
+   "summary": "New Jersey is a state located in both the Mid-Atlantic and Northeastern regions of the United States.",
+   "url": "https://en.wikipedia.org/wiki/New_Jersey"
+  },
+  {
+   "year": 1998,
+   "text": "The first space station module component, Zarya, for the International Space Station is launched from the Baikonur Cosmodrome in Kazakhstan.",
+   "title": "Zarya (ISS module)",
+   "summary": "Zarya, also known as the Functional Cargo Block, is the first module of the International Space Station (ISS). Launched on 20 November 1998 atop a Proton-K rocket, the module would serve as the ISS's primary source of power, propulsion, and guidance during its early years.",
+   "url": "https://en.wikipedia.org/wiki/Zarya_(ISS_module)"
+  },
+  {
+   "year": 1985,
+   "text": "Windows 1.0, the first version of Microsoft Windows available to the public, was released.",
+   "title": "Windows 1.0",
+   "summary": "Windows 1.0 is the first major release of Microsoft Windows, a family of graphical user shells and operating systems for personal computers developed by Microsoft.",
+   "url": "https://en.wikipedia.org/wiki/Windows_1.0"
+  }
+ ],
+ "11-21": [
+  {
+   "year": 1961,
+   "text": "La Ronde, the first revolving restaurant in the United States, was inaugurated.",
+   "title": "La Ronde (restaurant)",
+   "summary": "La Ronde was a restaurant in Honolulu, Hawaii. Built in 1961 and designed by John Graham, it was the first revolving restaurant in the United States and the third of its kind in the world. The restaurant is now closed.",
+   "url": "https://en.wikipedia.org/wiki/La_Ronde_(restaurant)"
+  },
+  {
+   "year": 1977,
+   "text": "\"God Defend New Zealand\" became New Zealand's second national anthem, on equal standing with \"God Save the King\", which had been the traditional anthem since 1840.",
+   "title": "God Defend New Zealand",
+   "summary": "\"God Defend New Zealand\" is one of two national anthems of New Zealand, the other being \"God Save the King\". Legally the two have equal status, but \"God Defend New Zealand\" is more commonly used. Originally written as a poem, it was set to music as part of a competition in 1876.",
+   "url": "https://en.wikipedia.org/wiki/God_Defend_New_Zealand"
+  },
+  {
+   "year": 1969,
+   "text": "The first permanent ARPANET link is established between UCLA and SRI.",
+   "title": "ARPANET",
+   "summary": "The Advanced Research Projects Agency Network (ARPANET) was the first wide-area packet-switched network with distributed control and one of the first computer networks to implement the TCP/IP protocol suite. Both technologies became the technical foundation of the Internet.",
+   "url": "https://en.wikipedia.org/wiki/ARPANET"
+  }
+ ],
+ "11-22": [
+  {
+   "year": 1995,
+   "text": "Toy Story, the first feature film created using only computer-generated imagery, was released in theaters in the United States.",
+   "title": "Toy Story",
+   "summary": "Toy Story is a 1995 American animated adventure comedy film directed by John Lasseter, and written by Joss Whedon, Andrew Stanton, Joel Cohen, and Alec Sokolow.",
+   "url": "https://en.wikipedia.org/wiki/Toy_Story"
+  },
+  {
+   "year": 1797,
+   "text": "The Geisel School of Medicine, the fourth oldest medical school in the United States, was founded by the physician Nathan Smith.",
+   "title": "Geisel School of Medicine",
+   "summary": "The Geisel School of Medicine is the medical school of Dartmouth College located in Hanover, New Hampshire. The fourth oldest medical school in the United States, it was founded in 1797 by New England physician Nathan Smith as the Dartmouth Medical School. It is one of the seven Ivy League medical schools.",
+   "url": "https://en.wikipedia.org/wiki/Geisel_School_of_Medicine"
+  },
+  {
+   "year": 1935,
+   "text": "The China Clipper inaugurates the first commercial transpacific air service, connecting Alameda, California with Manila.",
+   "title": "China Clipper",
+   "summary": "China Clipper (NC14716) was the first of three Martin M-130 four-engine flying boats built for Pan American Airways and was used to inaugurate the first commercial transpacific airmail service from San Francisco to Manila on November 22, 1935. Built at a cost of $417,000 by the Glenn L.",
+   "url": "https://en.wikipedia.org/wiki/China_Clipper"
+  }
+ ],
+ "11-23": [
+  {
+   "year": 1955,
+   "text": "The Cocos Islands are transferred from the control of the United Kingdom to that of Australia.",
+   "title": "Cocos (Keeling) Islands",
+   "summary": "The Cocos (Keeling) Islands, officially the Territory of Cocos (Keeling) Islands, are an Australian external territory located in the Indian Ocean, comprising a small archipelago approximately midway between Australia and Sri Lanka and relatively close to the Indonesian island of Sumatra.",
+   "url": "https://en.wikipedia.org/wiki/Cocos_(Keeling)_Islands"
+  },
+  {
+   "year": 2015,
+   "text": "Blue Origin's New Shepard space vehicle became the first rocket to successfully fly to space and then return to Earth for a controlled, vertical landing.",
+   "title": "Blue Origin",
+   "summary": "Blue Origin Enterprises, L.P. is a private American space technology company headquartered in Kent, Washington. The company operates the suborbital New Shepard rocket and the heavy-lift New Glenn rocket.",
+   "url": "https://en.wikipedia.org/wiki/Blue_Origin"
+  },
+  {
+   "year": 1963,
+   "text": "The first episode of Doctor Who, the world's longest-running science fiction television show, was broadcast on BBC television, starring William Hartnell as the first incarnation of the title role.",
+   "title": "An Unearthly Child",
+   "summary": "An Unearthly Child is the first serial of the British science fiction television series Doctor Who. It was first broadcast on BBC TV in four weekly parts from 23 November to 14 December 1963.",
+   "url": "https://en.wikipedia.org/wiki/An_Unearthly_Child"
+  }
+ ],
+ "11-24": [
+  {
+   "year": 1642,
+   "text": "Abel Tasman becomes the first European to discover the island Van Diemen's Land (later renamed Tasmania).",
+   "title": "Abel Tasman",
+   "summary": "Abel Janszoon Tasman was a Dutch seafarer and explorer, best known for his voyages of 1642 and 1644 in the service of the Dutch East India Company (VOC). He was the first European to reach New Zealand, which he named Staten Landt. He also discovered and was the eponym of Tasmania.",
+   "url": "https://en.wikipedia.org/wiki/Abel_Tasman"
+  },
+  {
+   "year": 1859,
+   "text": "British naturalist Charles Darwin's On the Origin of Species was first published, and sold out its initial print run on the first day.",
+   "title": "Charles Darwin",
+   "summary": "Charles Robert Darwin was an English naturalist, geologist, and biologist, widely known for his contributions to evolutionary biology. His proposition that all species have descended from a common ancestor is now accepted and considered a fundamental scientific concept.",
+   "url": "https://en.wikipedia.org/wiki/Charles_Darwin"
+  },
+  {
+   "year": 1974,
+   "text": "Donald Johanson and Tom Gray discover the 40% complete Australopithecus afarensis skeleton, nicknamed \"Lucy\" (after The Beatles song \"Lucy in the Sky with Diamonds\"), in the Awash Valley of Ethiopia's Afar Depression.",
+   "title": "Donald Johanson",
+   "summary": "Donald Carl Johanson is an American paleoanthropologist. He is best known for discovering the fossil of a female hominin australopithecine known as \"Lucy\" in the Afar Triangle region of Hadar, Ethiopia.",
+   "url": "https://en.wikipedia.org/wiki/Donald_Johanson"
+  }
+ ],
+ "11-25": [
+  {
+   "year": 1885,
+   "text": "Banff National Park, the oldest national park in Canada, was established as the Banff Hot Springs Reserve.",
+   "title": "Banff National Park",
+   "summary": "Banff National Park is Canada's first national park, established in 1885 as Rocky Mountains Park.",
+   "url": "https://en.wikipedia.org/wiki/Banff_National_Park"
+  },
+  {
+   "year": 1901,
+   "text": "Gustav Mahler's Symphony No. 4 premiered in Munich.",
+   "title": "Gustav Mahler",
+   "summary": "Gustav Mahler was an Austro-Bohemian Romantic composer, and one of the leading conductors of his generation. As a composer he acted as a bridge between the 19th-century tradition and the modernism of the early 20th century.",
+   "url": "https://en.wikipedia.org/wiki/Gustav_Mahler"
+  },
+  {
+   "year": 2013,
+   "text": "English-Irish boy band One Direction released their third studio album Midnight Memories which debuted at number one on the Billboard 200 and became the best-selling album of 2013.",
+   "title": "One Direction",
+   "summary": "One Direction, often shortened to 1D, were an English–Irish pop boy band formed in London in 2010. The group consisted of Niall Horan, Liam Payne, Harry Styles, Louis Tomlinson and Zayn Malik.",
+   "url": "https://en.wikipedia.org/wiki/One_Direction"
+  }
+ ],
+ "11-26": [
+  {
+   "year": 1778,
+   "text": "In the Hawaiian Islands, Captain James Cook becomes the first European to visit Maui.",
+   "title": "Hawaiian Islands",
+   "summary": "The Hawaiian Islands are an archipelago of eight major volcanic islands, several atolls, and numerous smaller islets in the North Pacific Ocean, extending some 1,500 miles from the island of Hawaiʻi in the south to northernmost Kure Atoll.",
+   "url": "https://en.wikipedia.org/wiki/Hawaiian_Islands"
+  },
+  {
+   "year": 2008,
+   "text": "The ocean liner Queen Elizabeth 2, now out of service, docks in Dubai.",
+   "title": "Queen Elizabeth 2",
+   "summary": "Queen Elizabeth 2 (QE2) is a retired British ocean liner. Built by John Brown & Company on the River Clyde in Scotland for the Cunard Line, the ship was operated as a transatlantic liner and cruise ship from 1969 to 2008. She was laid up until converted into a floating hotel in Dubai.",
+   "url": "https://en.wikipedia.org/wiki/Queen_Elizabeth_2"
+  },
+  {
+   "year": 1842,
+   "text": "The University of Notre Dame was founded by Edward Sorin of the Congregation of Holy Cross as an all-male institution in the U.S. state of Indiana.",
+   "title": "University of Notre Dame",
+   "summary": "The University of Notre Dame du Lac is a private Catholic research university in Notre Dame, Indiana, United States. The university was founded in 1842 by members of the Congregation of Holy Cross, a Catholic religious order of priests and brothers.",
+   "url": "https://en.wikipedia.org/wiki/University_of_Notre_Dame"
+  }
+ ],
+ "11-27": [
+  {
+   "year": 2009,
+   "text": "Lady Gaga performed the first concert of The Monster Ball Tour, which became the highest-grossing tour in history for a debut headlining artist.",
+   "title": "Lady Gaga",
+   "summary": "Stefani Joanne Angelina Germanotta, known professionally as Lady Gaga, is an American singer, songwriter, and actress. An influential figure in popular music, she is known for her image reinventions, flamboyant fashion, and versatility across the entertainment industry.",
+   "url": "https://en.wikipedia.org/wiki/Lady_Gaga"
+  },
+  {
+   "year": 1985,
+   "text": "Space Shuttle program: Atlantis launches on STS-61-B, with Rodolfo Neri Vela becoming the first Mexican astronaut.",
+   "title": "Space Shuttle program",
+   "summary": "The Space Shuttle program was the fourth human spaceflight program carried out by the U.S. National Aeronautics and Space Administration (NASA), which accomplished routine transportation for Earth-to-orbit crew and cargo from 1981 to 2011.",
+   "url": "https://en.wikipedia.org/wiki/Space_Shuttle_program"
+  },
+  {
+   "year": 2001,
+   "text": "Astronomers announced the detection of sodium in the atmosphere of the extrasolar planet HD 209458 b, the first exoplanet atmosphere to be measured.",
+   "title": "Sodium",
+   "summary": "Sodium is a chemical element; it has symbol Na and atomic number 11. It is a soft, silvery-white, highly reactive metal. Sodium is an alkali metal, being in group 1 of the periodic table. Its only stable isotope is 23Na. The free metal does not occur in nature and must be prepared from compounds.",
+   "url": "https://en.wikipedia.org/wiki/Sodium"
+  }
+ ],
+ "11-28": [
+  {
+   "year": 1520,
+   "text": "After 38 days, an expedition under the command of Ferdinand Magellan completes the first passage through the Strait of Magellan and enters the Pacific Ocean.",
+   "title": "Ferdinand Magellan",
+   "summary": "Ferdinand Magellan was a Portuguese explorer best known for planning and leading the 1519–1522 Spanish expedition to the East Indies.",
+   "url": "https://en.wikipedia.org/wiki/Ferdinand_Magellan"
+  },
+  {
+   "year": 1843,
+   "text": "Ka Lā Hui (Hawaiian Independence Day): The Kingdom of Hawaii is officially recognized by the United Kingdom and France as an independent nation.",
+   "title": "Hawaiian Kingdom",
+   "summary": "The Hawaiian Kingdom, also known as the Kingdom of Hawaiʻi, was an archipelagic country from 1795 to 1893, which eventually encompassed all of the inhabited Hawaiian Islands.",
+   "url": "https://en.wikipedia.org/wiki/Hawaiian_Kingdom"
+  },
+  {
+   "year": 1925,
+   "text": "Grand Ole Opry, the longest-running radio broadcast in the United States, first aired on WSM in Nashville, Tennessee.",
+   "title": "Grand Ole Opry",
+   "summary": "The Grand Ole Opry is a regular live country-music radio broadcast originating from Nashville, Tennessee, on WSM, held between two and five nights per week, depending on the time of year. It was founded on November 28, 1925, by George D. Hay as the WSM Barn Dance, taking its current name in 1927.",
+   "url": "https://en.wikipedia.org/wiki/Grand_Ole_Opry"
+  }
+ ],
+ "11-29": [
+  {
+   "year": 1972,
+   "text": "Atari announced the release of Pong, one of the first video games to achieve widespread popularity in both the arcade and home-console markets.",
+   "title": "Atari, Inc.",
+   "summary": "Atari, Inc. was an American video game developer and home computer company founded in 1972 by Nolan Bushnell and Ted Dabney. Atari was a key player in the formation of the video arcade and video game industry.",
+   "url": "https://en.wikipedia.org/wiki/Atari%2C_Inc."
+  },
+  {
+   "year": 1961,
+   "text": "Enos, a chimpanzee, is launched into space. The spacecraft orbits the Earth twice and splashes down off the coast of Puerto Rico.",
+   "title": "Enos (chimpanzee)",
+   "summary": "Enos was a chimpanzee launched into space by NASA on November 29, 1961, following his predecessor Ham. He was the only chimpanzee to orbit the Earth and the third hominid and primate to do so after cosmonauts Yuri Gagarin and Gherman Titov.",
+   "url": "https://en.wikipedia.org/wiki/Enos_(chimpanzee)"
+  },
+  {
+   "year": 1777,
+   "text": "San Jose, California, is founded as Pueblo de San José de Guadalupe by José Joaquín Moraga. It is the first civilian settlement, or pueblo, in Alta California.",
+   "title": "San Jose, California",
+   "summary": "San Jose, officially the City of San Jose, is the most populous city in the San Francisco Bay Area and Northern California, and the 13th-most populous in the United States, with an estimated 989,814 residents as of 2025.",
+   "url": "https://en.wikipedia.org/wiki/San_Jose%2C_California"
+  }
+ ],
+ "11-30": [
+  {
+   "year": 1936,
+   "text": "English mathematician Alan Turing published the first details of the Turing machine, an abstract device that can simulate the logic of any computer algorithm by manipulating symbols.",
+   "title": "Alan Turing",
+   "summary": "Alan Mathison Turing was an English mathematician and logician widely regarded as the father of theoretical computer science.",
+   "url": "https://en.wikipedia.org/wiki/Alan_Turing"
+  },
+  {
+   "year": 1872,
+   "text": "The first international football match took place at Hamilton Crescent, Glasgow, between Scotland and England.",
+   "title": "1872 Scotland v England football match",
+   "summary": "The 1872 association football match between the national teams of Scotland and England is officially recognised by FIFA as the first international. It took place on 30 November 1872 at Hamilton Crescent, the West of Scotland Cricket Club's ground in Partick, Glasgow.",
+   "url": "https://en.wikipedia.org/wiki/1872_Scotland_v_England_football_match"
+  },
+  {
+   "year": 1934,
+   "text": "Flying Scotsman became the first steam locomotive officially to exceed 100 miles per hour (161 km/h).",
+   "title": "LNER Class A3 4472 Flying Scotsman",
+   "summary": "No. 4472 Flying Scotsman is an LNER Class A3 4-6-2 \"Pacific\" type steam locomotive built in 1923 for the London and North Eastern Railway (LNER) at Doncaster Works to a design by Sir Nigel Gresley.",
+   "url": "https://en.wikipedia.org/wiki/LNER_Class_A3_4472_Flying_Scotsman"
+  }
+ ]
+}

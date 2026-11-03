@@ -19,6 +19,8 @@ const state = {
   users: [], // profiles, admins only
   loaded: false,
   role: undefined, // undefined = still loading, null = no profile, else "admin" | "factory" | "client"
+  firstName: null, // what the Dashboard greets the signed-in user by
+  story: undefined, // today's "On this day" story; undefined = not loaded yet, null = none
   notice: null, // { type: "error" | "success", text }
   keepNotice: false,
   importPreview: null, // { fileName, raw, rows } while an order spreadsheet is being checked
@@ -145,10 +147,11 @@ async function loadData() {
   if (state.role === undefined) {
     const { data, error } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, first_name")
       .eq("id", state.session.user.id)
       .maybeSingle();
     state.role = data?.role ?? null;
+    state.firstName = data?.first_name ?? null;
     if (error) return notify("error", `Couldn't load your account: ${error.message}`);
   }
   // Only admins can read organizations, contacts, athletes, leads and orders.
@@ -201,7 +204,7 @@ async function loadData() {
       .order("created_at", { ascending: false }),
     // Only this user's own dismissals are visible to them.
     supabase.from("note_dismissals").select("note_id"),
-    supabase.from("profiles").select("id, email, role, created_at").order("email"),
+    supabase.from("profiles").select("id, email, first_name, role, created_at").order("email"),
     // Sign-in times live in Supabase's auth records; this database function returns them to admins only.
     supabase.rpc("user_last_sign_ins"),
   ]);
@@ -241,6 +244,8 @@ async function loadData() {
   state.dismissedNotes = new Set(dismissals.data.map((d) => d.note_id));
   const lastSignIn = new Map(signIns.data.map((s) => [s.id, s.last_sign_in_at]));
   state.users = users.data.map((u) => ({ ...u, last_sign_in_at: lastSignIn.get(u.id) ?? null }));
+  // Pick up a name an admin just gave this user.
+  state.firstName = state.users.find((u) => u.id === state.session.user.id)?.first_name ?? state.firstName;
   state.loaded = true;
   render();
 }
@@ -723,6 +728,16 @@ async function setRole(id, role) {
   await loadData();
 }
 
+async function setFirstName(id, value) {
+  const user = state.users.find((u) => u.id === id);
+  const first_name = value.trim() || null;
+  const { data, error } = await supabase.from("profiles").update({ first_name }).eq("id", id).select("id");
+  if (error) return notify("error", `Couldn't change ${user.email}: ${error.message}`);
+  if (!data.length) return notify("error", `${user.email} wasn't changed. You may not have permission.`);
+  state.notice = { type: "success", text: first_name ? `${user.email} is now called ${first_name}.` : `Removed ${user.email}'s name.` };
+  await loadData();
+}
+
 async function link(organization_id, contact_id) {
   const { error } = await supabase.from("organization_contacts").insert({ organization_id, contact_id });
   if (error) return notify("error", `Couldn't link them: ${error.message}`);
@@ -932,14 +947,99 @@ function shell(page, content) {
     </div>`;
 }
 
+// ---------- dashboard welcome ----------
+
+// One line a day, the same all day, to start on a good note.
+const DAILY_LINES = [
+  "Every wave is a chance to ride again. Let's make today a great one.",
+  "Small strokes, steady rhythm, long distance. You've got this.",
+  "The ocean rewards those who show up. Thanks for showing up today.",
+  "Great crews are built one good day at a time. Let's have one.",
+  "Eyes on the horizon, paddle in the water. Onward!",
+  "Today's effort is tomorrow's momentum.",
+  "Your work helps athletes chase their dreams. That matters.",
+  "Start strong, finish proud.",
+  "Good energy is contagious. Spread some today.",
+  "Progress, not perfection. Let's move forward together.",
+  "The tide is with you today. Make it count.",
+  "Breathe in, paddle on. It's going to be a good day.",
+  "Every order is someone's team getting ready to shine.",
+  "Keep the good vibes flowing. They come back like the tide.",
+];
+// Under the story: what to take from it.
+const STORY_TAKEAWAYS = [
+  "Every great achievement started as an ordinary day. Make today yours.",
+  "Someone once did this for the very first time. Your first is waiting too.",
+  "History is made by people who kept going. Keep going.",
+  "Big things start small. Start something today.",
+];
+
+const dayOfYear = (date = new Date()) => Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
+
+function greeting() {
+  const hour = new Date().getHours();
+  const part = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  return state.firstName ? `${part}, ${esc(state.firstName)}` : part;
+}
+
+// Today's story from assets/on-this-day/MM.json (built by tools/build_on_this_day.py).
+// Each day has a few stories; the year picks one, so the same date shows a different story next year.
+let storyRequested = false;
+async function loadStory() {
+  if (storyRequested) return;
+  storyRequested = true;
+  const today = new Date();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  try {
+    const response = await fetch(`assets/on-this-day/${month}.json`);
+    const stories = (await response.json())[`${month}-${day}`] ?? [];
+    state.story = stories.length ? stories[today.getFullYear() % stories.length] : null;
+  } catch {
+    state.story = null;
+  }
+  if (route().page === "dashboard") render();
+}
+
+function welcomeSection() {
+  const nameHint =
+    !state.firstName && state.role === "admin"
+      ? `<p class="muted small">Add your first name on the <a href="#/users">Users</a> page and we'll greet you by name.</p>`
+      : "";
+  const story = state.story;
+  const storyCard =
+    story === undefined
+      ? ""
+      : story
+        ? `<section class="card story">
+             <p class="eyebrow">On this day · ${esc(story.year)}</p>
+             <p class="story-text">${esc(story.text)}</p>
+             ${story.summary ? `<p class="muted">${esc(story.summary)}</p>` : ""}
+             <p class="story-takeaway">${STORY_TAKEAWAYS[dayOfYear() % STORY_TAKEAWAYS.length]}</p>
+             ${story.url ? `<a href="${esc(story.url)}" target="_blank" rel="noopener" class="small">Read the story on Wikipedia →</a>` : ""}
+           </section>`
+        : `<section class="card story">
+             <p class="eyebrow">On this day</p>
+             <p class="story-text">Today's story is still being written. Maybe by you.</p>
+           </section>`;
+  return `
+    <div class="welcome-grid">
+      <section class="card welcome">
+        <p class="eyebrow">Welcome back</p>
+        <h1>${greeting()}</h1>
+        <p class="welcome-line">${DAILY_LINES[dayOfYear() % DAILY_LINES.length]}</p>
+        ${nameHint}
+      </section>
+      ${storyCard}
+    </div>`;
+}
+
 function dashboardPage() {
+  loadStory();
   if (state.role !== "admin") {
     return `
-      <div class="page-head"><h1>Dashboard</h1></div>
-      <section class="card welcome">
-        <h2>Welcome</h2>
-        <p class="muted">You're signed in with a ${ROLE_LABELS[state.role]} account. More will appear here soon.</p>
-      </section>`;
+      ${welcomeSection()}
+      <p class="muted">You're signed in with a ${ROLE_LABELS[state.role]} account. More will appear here soon.</p>`;
   }
   const unlinked = state.contacts.filter((c) => !c.organizations.length).length;
   const links = state.organizations.reduce((sum, o) => sum + o.contacts.length, 0);
@@ -949,7 +1049,7 @@ function dashboardPage() {
       <span class="stat-value">${state.loaded ? value : "…"}</span>
     </a>`;
   return `
-    <div class="page-head"><h1>Dashboard</h1></div>
+    ${welcomeSection()}
     <div class="stats">
       ${stat("Orders", state.orders.length, "#/customs")}
       ${stat("Open leads", state.leads.filter((l) => OPEN_LEAD_STATUSES.includes(l.status)).length, "#/leads")}
@@ -1050,8 +1150,10 @@ function usersPage() {
   const rows = state.users
     .map(
       (u) => `
-      <tr data-search="${esc(`${u.email} ${ROLE_LABELS[u.role]}`.toLowerCase())}">
+      <tr data-search="${esc(`${u.email} ${u.first_name ?? ""} ${ROLE_LABELS[u.role]}`.toLowerCase())}">
         <td><span class="strong">${esc(u.email) || dash}</span>${u.id === me ? ` <span class="muted small">(you)</span>` : ""}</td>
+        <td><input class="name-input" data-name-for="${u.id}" value="${esc(u.first_name)}" placeholder="Add a name"
+          autocomplete="off" aria-label="First name for ${esc(u.email)}"></td>
         <td class="role-cell">${roleSelect(u)}</td>
         <td>${
           u.last_sign_in_at
@@ -1064,7 +1166,7 @@ function usersPage() {
     .join("");
   const body = !state.loaded
     ? `<p class="empty">Loading…</p>`
-    : `<table class="static"><thead><tr><th>Email</th><th>Access level</th><th>Last signed in</th><th class="hide-sm">Added</th></tr></thead><tbody>${rows}</tbody></table>
+    : `<table class="static"><thead><tr><th>Email</th><th>First name</th><th>Access level</th><th>Last signed in</th><th class="hide-sm">Added</th></tr></thead><tbody>${rows}</tbody></table>
        <p class="empty no-match" hidden>No matches.</p>`;
   return `
     <div class="page-head">
@@ -1073,7 +1175,8 @@ function usersPage() {
     </div>
     <section class="card list">${body}</section>
     <p class="muted small hint">New users are added in Supabase (Authentication → Users) and start as Client.
-      You can't change your own level, and there must always be at least one Admin.</p>`;
+      You can't change your own level, and there must always be at least one Admin.
+      The first name is how the Dashboard greets each person.</p>`;
 }
 
 function placeholderPage(title) {
@@ -2239,6 +2342,11 @@ app.addEventListener("change", async (event) => {
     app.querySelector(`select[data-org-filter="${field}"]`)?.focus();
     return;
   }
+  if (event.target.matches("input[data-name-for]")) {
+    event.target.disabled = true;
+    await setFirstName(event.target.dataset.nameFor, event.target.value);
+    return;
+  }
   if (event.target.matches("input[data-line-id]")) {
     event.target.disabled = true;
     await setLineQuantity(event.target);
@@ -2304,6 +2412,7 @@ supabase.auth.onAuthStateChange((event, session) => {
   state.session = session;
   if (userChanged) {
     state.role = undefined;
+    state.firstName = null;
     state.organizations = [];
     state.contacts = [];
     state.importPreview = null;
