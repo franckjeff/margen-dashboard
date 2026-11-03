@@ -158,7 +158,7 @@ async function loadData() {
     return;
   }
 
-  const [orgs, contacts, athletes, leads, orders, orderEvents, items, orderItems, notes, dismissals, users] = await Promise.all([
+  const [orgs, contacts, athletes, leads, orders, orderEvents, items, orderItems, notes, dismissals, users, signIns] = await Promise.all([
     supabase
       .from("organizations")
       .select(
@@ -202,6 +202,8 @@ async function loadData() {
     // Only this user's own dismissals are visible to them.
     supabase.from("note_dismissals").select("note_id"),
     supabase.from("profiles").select("id, email, role, created_at").order("email"),
+    // Sign-in times live in Supabase's auth records; this database function returns them to admins only.
+    supabase.rpc("user_last_sign_ins"),
   ]);
   const error =
     orgs.error ||
@@ -214,7 +216,8 @@ async function loadData() {
     orderItems.error ||
     notes.error ||
     dismissals.error ||
-    users.error;
+    users.error ||
+    signIns.error;
   if (error) {
     notify("error", `Couldn't load data: ${error.message}`);
     return;
@@ -236,7 +239,8 @@ async function loadData() {
   state.orderItems = orderItems.data;
   state.notes = notes.data;
   state.dismissedNotes = new Set(dismissals.data.map((d) => d.note_id));
-  state.users = users.data;
+  const lastSignIn = new Map(signIns.data.map((s) => [s.id, s.last_sign_in_at]));
+  state.users = users.data.map((u) => ({ ...u, last_sign_in_at: lastSignIn.get(u.id) ?? null }));
   state.loaded = true;
   render();
 }
@@ -1049,13 +1053,18 @@ function usersPage() {
       <tr data-search="${esc(`${u.email} ${ROLE_LABELS[u.role]}`.toLowerCase())}">
         <td><span class="strong">${esc(u.email) || dash}</span>${u.id === me ? ` <span class="muted small">(you)</span>` : ""}</td>
         <td class="role-cell">${roleSelect(u)}</td>
+        <td>${
+          u.last_sign_in_at
+            ? `<time datetime="${u.last_sign_in_at}">${formatDateTime(u.last_sign_in_at)}</time>`
+            : `<span class="muted">Never</span>`
+        }</td>
         <td class="muted hide-sm">${formatDate(u.created_at)}</td>
       </tr>`
     )
     .join("");
   const body = !state.loaded
     ? `<p class="empty">Loading…</p>`
-    : `<table class="static"><thead><tr><th>Email</th><th>Access level</th><th class="hide-sm">Added</th></tr></thead><tbody>${rows}</tbody></table>
+    : `<table class="static"><thead><tr><th>Email</th><th>Access level</th><th>Last signed in</th><th class="hide-sm">Added</th></tr></thead><tbody>${rows}</tbody></table>
        <p class="empty no-match" hidden>No matches.</p>`;
   return `
     <div class="page-head">
