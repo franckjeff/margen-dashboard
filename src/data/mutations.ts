@@ -27,6 +27,7 @@ const INVALIDATES: Record<TableName, readonly (readonly string[])[]> = {
   order_requests: [keys.orderRequests],
   order_request_lines: [keys.orderRequests],
   profiles: [keys.users, ["profile"]],
+  app_errors: [keys.appErrors],
 };
 
 export const invalidate = (queryClient: QueryClient, table: TableName) =>

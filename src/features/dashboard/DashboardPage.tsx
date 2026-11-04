@@ -19,6 +19,7 @@ import { OPEN_LEAD_STATUSES, OPEN_ORDER_STATUSES, ROLE_LABELS } from "../../lib/
 import { fullName } from "../../lib/format";
 import { DbError, messageOf, supabase } from "../../lib/supabase";
 import { NoteMeta } from "../notes/NotesSection";
+import { AppErrors } from "./AppErrors";
 import { Scrapbook } from "./Scrapbook";
 import { dailyLine, greeting, quoteOfTheDay } from "./welcome";
 
@@ -72,6 +73,7 @@ export function DashboardPage() {
       <AdminStats />
       <Scrapbook />
       <DashboardNotes />
+      <AppErrors />
     </>
   );
 }

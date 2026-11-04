@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_errors: {
+        Row: {
+          count: number
+          created_at: string
+          detail: string | null
+          id: string
+          kind: string
+          last_seen_at: string
+          message: string
+          page: string | null
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+          user_role: string | null
+        }
+        Insert: {
+          count?: number
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind: string
+          last_seen_at?: string
+          message: string
+          page?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Update: {
+          count?: number
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind?: string
+          last_seen_at?: string
+          message?: string
+          page?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Relationships: []
+      }
       athletes: {
         Row: {
           country: string | null
@@ -634,6 +679,16 @@ export type Database = {
           request_id: string
         }
         Returns: string
+      }
+      log_app_error: {
+        Args: {
+          detail: string
+          kind: string
+          message: string
+          page: string
+          user_agent: string
+        }
+        Returns: undefined
       }
       order_entry_items: {
         Args: never

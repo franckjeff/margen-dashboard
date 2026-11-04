@@ -24,6 +24,7 @@ export const keys = {
   dismissals: ["dismissals"] as const,
   scrapbook: ["scrapbook"] as const,
   orderRequests: ["orderRequests"] as const,
+  appErrors: ["appErrors"] as const,
   users: ["users"] as const,
 };
 
@@ -226,6 +227,17 @@ export function useOrderRequests() {
           .select("*, lines:order_request_lines(id, item_id, size, quantity, item:items(name))")
           .order("created_at", { ascending: false }),
       ),
+  });
+}
+
+export type AppError = Tables<"app_errors">;
+
+// Errors users hit in the last 90 days, most recent first. Only admins can read them.
+export function useAppErrors() {
+  return useQuery({
+    queryKey: keys.appErrors,
+    queryFn: async (): Promise<AppError[]> =>
+      unwrap(await supabase.from("app_errors").select("*").order("last_seen_at", { ascending: false }).limit(200)),
   });
 }
 

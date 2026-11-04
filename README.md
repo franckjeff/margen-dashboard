@@ -78,17 +78,28 @@ through the `submit_order_request` database function, which limits how many requ
 Every role has a **Scrapbook** on its Dashboard: free text that saves itself as you type.
 Each person sees only their own; not even admins can read anyone else's.
 
+## App errors
+
+When a page crashes, the user sees "Something went wrong on this page" with a Reload button, and
+the menu keeps working. Crashes, failed database calls and other errors are logged to the
+`app_errors` table (by `src/lib/errorLog.ts`), and admins see them at the bottom of the Dashboard.
+Errors the user can fix themselves, like a duplicate Margen order ID, aren't logged. Repeats are
+counted rather than stored again, floods are capped, and entries are removed after 90 days.
+
 ## Database changes
 
-Every schema change follows the same four steps:
+Every schema change follows the same steps:
 
 1. Write it as a new file in `supabase/migrations/` named `<timestamp>_<description>.sql`.
-2. Apply it to the Supabase project, in the same order as the files.
-3. Make sure the file's timestamp is the version Supabase recorded for it (Database → Migrations in the
+2. Apply it to the **MARGEN TEST** project first, run the access tests there, then apply it to
+   **MARGEN DATA** (live). Both get the files in the same order.
+3. Make sure the file's timestamp is the version Supabase recorded for it on the live project (Database → Migrations in the
    dashboard, or `npx supabase migration list`). Some tools record the time the migration ran rather
    than the file's name, so rename the file if they differ. The Supabase CLI matches migrations by this
    number, and a mismatch would make it try to run old migrations again.
 4. Regenerate the types with `npm run db:types`, then run `npm run build`.
+5. If the change affects who can see or change something, update `supabase/tests/access_rules.sql`
+   and run it (see Access tests below).
 
 `src/lib/database.types.ts` is generated: never edit it by hand. It's how TypeScript checks every
 database call, so a hand edit with a mistake would hide real errors until someone opens the page.
@@ -96,3 +107,25 @@ After regenerating, the build points at any code that no longer matches the data
 
 Postgres doesn't record whether a function argument may be left empty, so the generated types list every
 argument as required. Give an optional argument a `default null` so it becomes optional in the types.
+
+## Test database
+
+**MARGEN TEST** (project `qutuktsinfzkvvvatgwj`, free) is a copy of the live database's structure,
+built from the files in `supabase/migrations/` and recorded under the same versions. It holds no client
+data. Use it to try database changes and to run the access tests, so mistakes never reach client data.
+Keep it in step: every migration goes to MARGEN TEST before MARGEN DATA.
+
+On the Free plan, Supabase pauses a project after a week with no activity. If MARGEN TEST is paused,
+restore it from the Supabase dashboard; nothing is lost.
+
+## Access tests
+
+`supabase/tests/access_rules.sql` checks the access rules above automatically: 177 checks of what
+admins, factories, clients, designers and visitors who aren't signed in can see and change, table by
+table, plus the public and admin-only database functions. To run it, open the **MARGEN TEST** project,
+paste the whole file into the SQL editor and click Run.
+
+It always ends with an error, on purpose: that is how everything it did is undone, including the test
+users and records it creates. The error message is the result: `ACCESS TESTS PASSED: 177 checks`, or
+`ACCESS TESTS FAILED` followed by each check that failed. It's also safe to run on the live database,
+which is worth doing once after each change goes live.

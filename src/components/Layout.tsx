@@ -6,6 +6,7 @@ import { ROLE_LABELS, visiblePages, type Page } from "../lib/constants";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
 import { useUiState } from "../lib/uiState";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { ChevronIcon, MoonIcon, SunIcon } from "./icons";
 import { NoticeBar, useNotice } from "./Notice";
 
@@ -94,9 +95,12 @@ export function Layout() {
       <main className="page">
         <NoticeBar />
         {/* Shown while a page's code downloads the first time it's opened. */}
-        <Suspense fallback={<p className="empty">Loading…</p>}>
-          <Outlet />
-        </Suspense>
+        {/* Moving to another page clears the crash message. */}
+        <ErrorBoundary resetOn={pathname}>
+          <Suspense fallback={<p className="empty">Loading…</p>}>
+            <Outlet />
+          </Suspense>
+        </ErrorBoundary>
       </main>
     </div>
   );

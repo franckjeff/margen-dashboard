@@ -477,6 +477,20 @@ table.static tbody tr:hover { background: none; }
 .dashboard-notes .notes-list { margin-top: 0; }
 .dashboard-notes .empty { padding: 0; }
 
+/* App errors (admins' Dashboard) and the safety net shown when a page crashes. */
+.app-errors { margin-top: 20px; }
+.app-errors .empty { padding: 0; }
+.section-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.section-title h2 { margin: 0; }
+.app-error { border-left-color: var(--storm); }
+.app-error.kind-crash { border-left-color: var(--warn); }
+.app-error .note-meta a { overflow-wrap: anywhere; }
+.app-error details { margin-top: 6px; }
+.app-error summary { cursor: pointer; }
+.error-detail { margin: 6px 0 0; padding: 10px; max-height: 240px; overflow: auto; font-size: 0.75rem; background: var(--surface); border-radius: var(--radius); white-space: pre-wrap; overflow-wrap: anywhere; }
+.crash { max-width: 640px; }
+.crash-whole { margin: 48px auto; }
+
 .panel { padding: 22px; position: sticky; top: 16px; }
 .panel-head { display: flex; align-items: start; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
 
