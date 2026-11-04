@@ -10,7 +10,8 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:types": "npx --yes supabase@2 gen types typescript --project-id bndicnojuvuknmmpgjgw --schema public > src/lib/database.types.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

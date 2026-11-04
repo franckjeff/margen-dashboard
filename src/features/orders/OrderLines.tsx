@@ -1,10 +1,9 @@
 import { useRef } from "react";
 import { Link } from "react-router";
 import { useNotice } from "../../components/Notice";
-import { Count } from "../../components/ui";
+import { Count, SizeOptions } from "../../components/ui";
 import { expectRows, useDbAction } from "../../data/mutations";
 import { useItems, useOrderItems, type Order } from "../../data/queries";
-import { ADULT_SIZES, JUNIOR_SIZES } from "../../lib/constants";
 import { supabase, unwrap } from "../../lib/supabase";
 import { orderLinesOf, parseQuantity, type LineWithItem } from "./lines";
 
@@ -227,16 +226,7 @@ function AddLineForm({ order }: { order: Order }) {
       </select>
       <select name="size" required aria-label="Size" defaultValue="">
         <option value="">Size</option>
-        <optgroup label="Adult">
-          {ADULT_SIZES.map((s) => (
-            <option key={s}>{s}</option>
-          ))}
-        </optgroup>
-        <optgroup label="Junior">
-          {JUNIOR_SIZES.map((s) => (
-            <option key={s}>{s}</option>
-          ))}
-        </optgroup>
+        <SizeOptions />
       </select>
       <input type="number" name="quantity" min={1} step={1} required placeholder="Qty" aria-label="Quantity" className="qty" />
       <button type="submit" className="primary" disabled={add.isPending}>

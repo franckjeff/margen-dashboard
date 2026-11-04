@@ -1,7 +1,7 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { LEAD_STATUSES, ORDER_STATUSES, ORDER_TONES, PRODUCTION_STATUSES } from "../lib/constants";
+import { ADULT_SIZES, JUNIOR_SIZES, LEAD_STATUSES, ORDER_STATUSES, ORDER_TONES, PRODUCTION_STATUSES } from "../lib/constants";
 import { formatDateTime } from "../lib/format";
 import { messageOf } from "../lib/supabase";
 
@@ -87,6 +87,22 @@ export function Options({ labels, emptyLabel }: { labels: Record<string, string>
     </>
   );
 }
+
+// A size menu's choices: adult sizes, then junior.
+export const SizeOptions = () => (
+  <>
+    <optgroup label="Adult">
+      {ADULT_SIZES.map((s) => (
+        <option key={s}>{s}</option>
+      ))}
+    </optgroup>
+    <optgroup label="Junior">
+      {JUNIOR_SIZES.map((s) => (
+        <option key={s}>{s}</option>
+      ))}
+    </optgroup>
+  </>
+);
 
 export const LeadBadge = ({ status }: { status: string }) => (
   <span className={`status status-${status}`}>{LEAD_STATUSES[status]}</span>

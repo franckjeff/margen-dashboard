@@ -1,4 +1,4 @@
-import { lazy, type ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { HashRouter, Navigate, Route, Routes, useParams } from "react-router";
 import { SignedInProvider, useSession, useSignedIn } from "./auth/AuthProvider";
 import { LoginPage, NoAccess } from "./auth/LoginPage";
@@ -12,6 +12,10 @@ const ContactsPage = lazy(() => import("./features/contacts/ContactsPage").then(
 const DesignsPage = lazy(() => import("./features/designs/DesignsPage").then((m) => ({ default: m.DesignsPage })));
 const DashboardPage = lazy(() => import("./features/dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const FactoriesPage = lazy(() => import("./features/factories/FactoriesPage").then((m) => ({ default: m.FactoriesPage })));
+const OrderEntryPage = lazy(() => import("./features/orderEntry/OrderEntryPage").then((m) => ({ default: m.OrderEntryPage })));
+const OrderRequestsPage = lazy(() =>
+  import("./features/orderRequests/OrderRequestsPage").then((m) => ({ default: m.OrderRequestsPage })),
+);
 const ItemsPage = lazy(() => import("./features/items/ItemsPage").then((m) => ({ default: m.ItemsPage })));
 const LeadsPage = lazy(() => import("./features/leads/LeadsPage").then((m) => ({ default: m.LeadsPage })));
 const OrdersPage = lazy(() => import("./features/orders/OrdersPage").then((m) => ({ default: m.OrdersPage })));
@@ -30,7 +34,28 @@ function RecordRoute({ render, editing = false }: { render: (id?: string, editin
   return <>{render(id, editing)}</>;
 }
 
+// Hash URLs (#/customs/<id>) work on any static host with no server set-up, and keep every
+// link from the previous version of the app working.
 export function App() {
+  return (
+    <HashRouter>
+      <Routes>
+        {/* The public Order Entry page: no sign-in needed. */}
+        <Route
+          path="order"
+          element={
+            <Suspense fallback={<Loading />}>
+              <OrderEntryPage />
+            </Suspense>
+          }
+        />
+        <Route path="*" element={<SignInGate />} />
+      </Routes>
+    </HashRouter>
+  );
+}
+
+function SignInGate() {
   const session = useSession();
   if (session === undefined) return <Loading />;
   if (!session) return <LoginPage />;
@@ -51,8 +76,6 @@ function SignedIn({ session }: { session: NonNullable<ReturnType<typeof useSessi
   );
 }
 
-// Hash URLs (#/customs/<id>) work on any static host with no server set-up, and keep every
-// link from the previous version of the app working.
 function AppRoutes() {
   const { role } = useSignedIn();
   const home = `/${visiblePages(role)[0].name}`;
@@ -69,24 +92,23 @@ function AppRoutes() {
   );
 
   return (
-    <HashRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route index element={<Navigate to={home} replace />} />
-          <Route path="dashboard" element={page("dashboard", <DashboardPage />)} />
-          {records("customs", (id, editing) => <OrdersPage id={id} editing={editing} />)}
-          {records("items", (id, editing) => <ItemsPage id={id} editing={editing} />)}
-          {records("factories", (id, editing) => <FactoriesPage id={id} editing={editing} />)}
-          {records("athletes", (id, editing) => <AthletesPage id={id} editing={editing} />)}
-          {records("leads", (id, editing) => <LeadsPage id={id} editing={editing} />)}
-          {records("organizations", (id, editing) => <OrganizationsPage id={id} editing={editing} />)}
-          {records("contacts", (id, editing) => <ContactsPage id={id} editing={editing} />)}
-          <Route path="designs" element={page("designs", <DesignsPage />)} />
-          <Route path="reports" element={page("reports", <ReportsPage />)} />
-          <Route path="users" element={page("users", <UsersPage />)} />
-          <Route path="*" element={<Navigate to={home} replace />} />
-        </Route>
-      </Routes>
-    </HashRouter>
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Navigate to={home} replace />} />
+        <Route path="dashboard" element={page("dashboard", <DashboardPage />)} />
+        {records("customs", (id, editing) => <OrdersPage id={id} editing={editing} />)}
+        {records("items", (id, editing) => <ItemsPage id={id} editing={editing} />)}
+        {records("factories", (id, editing) => <FactoriesPage id={id} editing={editing} />)}
+        {records("order-requests", (id) => <OrderRequestsPage id={id} />)}
+        {records("athletes", (id, editing) => <AthletesPage id={id} editing={editing} />)}
+        {records("leads", (id, editing) => <LeadsPage id={id} editing={editing} />)}
+        {records("organizations", (id, editing) => <OrganizationsPage id={id} editing={editing} />)}
+        {records("contacts", (id, editing) => <ContactsPage id={id} editing={editing} />)}
+        <Route path="designs" element={page("designs", <DesignsPage />)} />
+        <Route path="reports" element={page("reports", <ReportsPage />)} />
+        <Route path="users" element={page("users", <UsersPage />)} />
+        <Route path="*" element={<Navigate to={home} replace />} />
+      </Route>
+    </Routes>
   );
 }

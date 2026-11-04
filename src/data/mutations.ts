@@ -16,14 +16,16 @@ const INVALIDATES: Record<TableName, readonly (readonly string[])[]> = {
   organization_contacts: [keys.organizations, keys.contacts],
   athletes: [keys.athletes, keys.notes],
   leads: [keys.leads],
-  orders: [keys.orders, keys.orderItems, keys.orderEvents],
+  orders: [keys.orders, keys.orderItems, keys.orderEvents, keys.orderRequests],
   order_items: [keys.orderItems, keys.orderEvents],
   order_events: [keys.orderEvents],
-  items: [keys.items, keys.orderItems],
+  items: [keys.items, keys.orderItems, keys.orderRequests],
   factories: [keys.factories, keys.orders, keys.notes],
   notes: [keys.notes],
   note_dismissals: [keys.dismissals],
   scrapbooks: [keys.scrapbook],
+  order_requests: [keys.orderRequests],
+  order_request_lines: [keys.orderRequests],
   profiles: [keys.users, ["profile"]],
 };
 
@@ -38,7 +40,7 @@ export function expectRows(rows: unknown[], message: string) {
 }
 
 // Tables edited through a record's own form, and the menu page each one lives under.
-export type RecordTable = "organizations" | "contacts" | "athletes" | "leads" | "orders" | "items" | "factories";
+export type RecordTable = "organizations" | "contacts" | "athletes" | "leads" | "orders" | "items" | "factories" | "order_requests";
 const ROUTES: Record<RecordTable, string> = {
   organizations: "organizations",
   contacts: "contacts",
@@ -47,6 +49,7 @@ const ROUTES: Record<RecordTable, string> = {
   orders: "customs",
   items: "items",
   factories: "factories",
+  order_requests: "order-requests",
 };
 export const routeFor = (table: RecordTable) => `/${ROUTES[table]}`;
 

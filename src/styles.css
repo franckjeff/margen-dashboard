@@ -172,6 +172,42 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 .login-card { width: 100%; max-width: 360px; width: min(360px, calc(100vw - 32px)); padding: 28px; display: grid; gap: 14px; }
 .login-card .notice { margin: 0; padding: 8px 12px; }
 
+/* ---------- public order entry (#/order) ---------- */
+
+.public-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 18px max(16px, calc((100vw - 760px) / 2));
+  background: var(--navy);
+}
+.public-main { max-width: 760px; margin: 0 auto; padding: 28px 16px 48px; }
+.public-main h1 { margin-bottom: 6px; }
+.public-main .section h2 { margin-bottom: 4px; }
+.public-upload { display: grid; gap: 10px; }
+.public-upload p { margin: 0; }
+.public-upload .notice { display: block; margin: 0; padding: 10px 14px; }
+.public-upload .notice p { margin: 0 0 4px; }
+.public-upload .notice ul { margin: 0; padding-left: 18px; }
+.public-send { justify-self: start; padding: 12px 32px; }
+.public-done { display: grid; gap: 14px; justify-items: start; }
+/* Reads as a link inside a sentence. */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  white-space: normal;
+}
+.link-button:hover { background: none; }
+/* The bot trap: off screen, so people never see or fill it in. */
+.trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
 /* ---------- shell ---------- */
 
 /* Navy sidebar on the left: logo, menu, then the signed-in user at the bottom.

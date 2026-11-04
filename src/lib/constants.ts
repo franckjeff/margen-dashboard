@@ -50,6 +50,7 @@ export const LEAD_TEXT_FIELDS = ["organization_name", "email", "phone", "state",
 export type PageName =
   | "dashboard"
   | "customs"
+  | "order-requests"
   | "items"
   | "factories"
   | "athletes"
@@ -69,6 +70,8 @@ export const PAGES: Page[] = [
   // Consecutive pages with the same group sit under that heading in the menu.
   // Factory users see only the orders assigned to their factory.
   { name: "customs", label: "Orders", roles: ["admin", "factory"], group: "Customs" },
+  // Orders sent from the public Order Entry page (#/order), waiting to be turned into orders.
+  { name: "order-requests", label: "Order requests", roles: ["admin"], group: "Customs" },
   { name: "items", label: "Items", roles: ["admin"], group: "Customs" },
   { name: "factories", label: "Factories", roles: ["admin"], group: "Customs" },
   { name: "leads", label: "Leads", roles: ["admin"], group: "Clients" },

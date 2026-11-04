@@ -23,6 +23,7 @@ export const keys = {
   notes: ["notes"] as const,
   dismissals: ["dismissals"] as const,
   scrapbook: ["scrapbook"] as const,
+  orderRequests: ["orderRequests"] as const,
   users: ["users"] as const,
 };
 
@@ -211,6 +212,23 @@ export function useNotes() {
 }
 
 // Ids of notes this user has hidden from the Dashboard. Only their own dismissals are visible to them.
+export type OrderRequestLine = Pick<Tables<"order_request_lines">, "id" | "item_id" | "size" | "quantity"> & { item: { name: string } | null };
+export type OrderRequest = Tables<"order_requests"> & { lines: OrderRequestLine[] };
+
+// Order requests sent from the public Order Entry page, newest first, with their lines. Admins only.
+export function useOrderRequests() {
+  return useQuery({
+    queryKey: keys.orderRequests,
+    queryFn: async (): Promise<OrderRequest[]> =>
+      unwrap(
+        await supabase
+          .from("order_requests")
+          .select("*, lines:order_request_lines(id, item_id, size, quantity, item:items(name))")
+          .order("created_at", { ascending: false }),
+      ),
+  });
+}
+
 export type Scrapbook = { body: string; updated_at: string };
 
 // The signed-in user's scrapbook, or null before they first write in it. Nobody else's is visible to them.

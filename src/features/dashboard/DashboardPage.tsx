@@ -11,6 +11,7 @@ import {
   useFactories,
   useLeads,
   useNotes,
+  useOrderRequests,
   useOrders,
   useOrganizations,
 } from "../../data/queries";
@@ -114,6 +115,7 @@ function AdminStats() {
   const athletes = useAthletes();
   const organizations = useOrganizations();
   const contacts = useContacts();
+  const requests = useOrderRequests();
   const stat = (label: string, value: number | undefined, to: string) => (
     <Link to={to} className="card stat">
       <span className="stat-label">{label}</span>
@@ -123,6 +125,7 @@ function AdminStats() {
   return (
     <div className="stats">
       {stat("Orders", orders.data?.length, "/customs")}
+      {stat("New order requests", requests.data?.filter((r) => r.status === "new").length, "/order-requests")}
       {stat("Open leads", leads.data?.filter((l) => OPEN_LEAD_STATUSES.includes(l.status)).length, "/leads")}
       {stat("Athletes", athletes.data?.length, "/athletes")}
       {stat("Organizations", organizations.data?.length, "/organizations")}
