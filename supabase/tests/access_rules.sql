@@ -1,7 +1,7 @@
 -- Access-rule tests: checks what each kind of user can and can't see or change, table by table.
 --
 -- How to run: paste this whole file into the SQL editor of the MARGEN TEST project and run it
--- (it's also safe on MARGEN DATA, the live project). It always ends with
+-- (it's also safe on MARGEN PROD, the live project). It always ends with
 -- an error, on purpose, so that nothing it does is kept: the test users and records it creates,
 -- and every change it tries, are all undone. Read the result in the error message:
 --   "ACCESS TESTS PASSED: 177 checks"  or  "ACCESS TESTS FAILED: 2 of 177 checks" followed by each failure.

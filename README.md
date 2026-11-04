@@ -2,7 +2,7 @@
 
 Internal web app for MARGEN: organizations, contacts, athletes, leads, orders with their items
 and sizes, the factories that make them, and user access levels,
-backed by the Supabase project **MARGEN DATA**.
+backed by the Supabase project **MARGEN PROD**.
 
 Built with React, TypeScript and Vite. TanStack Query caches the data, and React Router handles pages.
 
@@ -92,7 +92,7 @@ Every schema change follows the same steps:
 
 1. Write it as a new file in `supabase/migrations/` named `<timestamp>_<description>.sql`.
 2. Apply it to the **MARGEN TEST** project first, run the access tests there, then apply it to
-   **MARGEN DATA** (live). Both get the files in the same order.
+   **MARGEN PROD** (live). Both get the files in the same order.
 3. Make sure the file's timestamp is the version Supabase recorded for it on the live project (Database → Migrations in the
    dashboard, or `npx supabase migration list`). Some tools record the time the migration ran rather
    than the file's name, so rename the file if they differ. The Supabase CLI matches migrations by this
@@ -113,7 +113,7 @@ argument as required. Give an optional argument a `default null` so it becomes o
 **MARGEN TEST** (project `qutuktsinfzkvvvatgwj`, free) is a copy of the live database's structure,
 built from the files in `supabase/migrations/` and recorded under the same versions. It holds no client
 data. Use it to try database changes and to run the access tests, so mistakes never reach client data.
-Keep it in step: every migration goes to MARGEN TEST before MARGEN DATA.
+Keep it in step: every migration goes to MARGEN TEST before MARGEN PROD.
 
 On the Free plan, Supabase pauses a project after a week with no activity. If MARGEN TEST is paused,
 restore it from the Supabase dashboard; nothing is lost.
