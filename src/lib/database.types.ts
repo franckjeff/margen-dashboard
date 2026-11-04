@@ -613,6 +613,7 @@ export type Database = {
           factory_id: string | null
           first_name: string | null
           id: string
+          organization_id: string | null
           role: string
         }
         Insert: {
@@ -621,6 +622,7 @@ export type Database = {
           factory_id?: string | null
           first_name?: string | null
           id: string
+          organization_id?: string | null
           role?: string
         }
         Update: {
@@ -629,6 +631,7 @@ export type Database = {
           factory_id?: string | null
           first_name?: string | null
           id?: string
+          organization_id?: string | null
           role?: string
         }
         Relationships: [
@@ -637,6 +640,13 @@ export type Database = {
             columns: ["factory_id"]
             isOneToOne: false
             referencedRelation: "factories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]

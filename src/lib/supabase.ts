@@ -2,7 +2,9 @@ import { createClient, type PostgrestError } from "@supabase/supabase-js";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "../config";
 import type { Database } from "./database.types";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+// PKCE: a password-reset link comes back as ?code=… rather than in the # part of the address,
+// which the app's #/ page links use.
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, { auth: { flowType: "pkce" } });
 
 // A database error as a thrown Error that keeps Postgres's code (e.g. "23505" for a duplicate).
 export class DbError extends Error {

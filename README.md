@@ -48,6 +48,7 @@ Open http://localhost:5173 and sign in with a Supabase account. Saved code chang
 | `src/assets/`, `public/` | MARGEN logo and favicon, taken from the brand's logo files |
 | `src/config.ts` | Supabase project URL and publishable key (safe in the browser) |
 | `supabase/migrations/` | Every database change, in the order it was applied |
+| `supabase/functions/` | Server-side functions that need the project's secret key (creating accounts) |
 
 ## Adding a page
 
@@ -65,10 +66,20 @@ not just the app's menus.
 - **Admin:** sees and changes everything.
 - **Factory:** sees only the orders assigned to its factory, with their items, and can change only
   their production status and shipping details. It never sees the client organizations.
-- **Client:** sees the Dashboard only for now.
+- **Client:** sees only its organization's orders, with their status, shipping details and items,
+  and can't change anything. It never sees factories or the order history.
 - **Designer:** sees only the Dashboard and the Designs page (not built yet), and no database tables.
 
-Admins change roles on the Users page, and link each factory account to its factory there.
+Admins change roles on the Users page, and link each factory account to its factory and each client account to its organization there.
+
+Admins add accounts with **Add user** on the Users page: email, access level, first name, and the factory
+or organization to link. That calls the `create-user` function (`supabase/functions/create-user`), which
+runs on Supabase's servers because creating accounts needs the secret key, and refuses anyone who isn't
+an admin. The app sends no email when it adds an account: either set a temporary password and give it to
+the person, or leave it empty and they choose one with "Forgot your password?" on the sign-in page.
+
+The function checks who is calling itself, so it's deployed with "Verify JWT" turned off
+(`npx supabase functions deploy create-user --no-verify-jwt`). Deploy it to MARGEN TEST first, then MARGEN PROD.
 
 Clients send orders without signing in from the public **Order Entry** page, `#/order`: they pick
 items and sizes, or upload the order template the page offers. Requests land on the admins' Order requests page,
@@ -120,12 +131,12 @@ restore it from the Supabase dashboard; nothing is lost.
 
 ## Access tests
 
-`supabase/tests/access_rules.sql` checks the access rules above automatically: 177 checks of what
+`supabase/tests/access_rules.sql` checks the access rules above automatically: 208 checks of what
 admins, factories, clients, designers and visitors who aren't signed in can see and change, table by
 table, plus the public and admin-only database functions. To run it, open the **MARGEN TEST** project,
 paste the whole file into the SQL editor and click Run.
 
 It always ends with an error, on purpose: that is how everything it did is undone, including the test
-users and records it creates. The error message is the result: `ACCESS TESTS PASSED: 177 checks`, or
+users and records it creates. The error message is the result: `ACCESS TESTS PASSED: 208 checks`, or
 `ACCESS TESTS FAILED` followed by each check that failed. It's also safe to run on the live database,
 which is worth doing once after each change goes live.

@@ -171,13 +171,15 @@ function OrderForm({ order }: { order?: Order }) {
 
 // The Orders page, under the Customs menu: its URL is #/customs, its data the "orders" table.
 // Factory users see the same pages without client details, and change only production and shipping;
-// the database only returns their factory's orders.
+// client users see them read only, without factory details. The database only returns each one's own orders.
 export function OrdersPage({ id, editing = false }: { id?: string; editing?: boolean }) {
   const orders = useOrders();
   const orderItems = useOrderItems();
-  const factoryView = useSignedIn().role !== "admin";
+  const { role } = useSignedIn();
+  const adminView = role === "admin";
+  const factoryView = role === "factory";
 
-  if (factoryView && (id === "import" || id === "new" || editing)) return <Navigate to={id === "import" || id === "new" ? "/customs" : `/customs/${id}`} replace />;
+  if (!adminView && (id === "import" || id === "new" || editing)) return <Navigate to={id === "import" || id === "new" ? "/customs" : `/customs/${id}`} replace />;
   if (id === "import") return <ImportPage />;
   if (id && id !== "new") {
     return (
@@ -185,7 +187,8 @@ export function OrdersPage({ id, editing = false }: { id?: string; editing?: boo
         {() => {
           const order = orders.data!.find((o) => o.id === id);
           if (!order) return <Missing back="/customs" backLabel="Orders" what="order" />;
-          return factoryView ? <FactoryOrderPage order={order} /> : <OrderPage order={order} editing={editing} />;
+          if (adminView) return <OrderPage order={order} editing={editing} />;
+          return factoryView ? <FactoryOrderPage order={order} /> : <ClientOrderPage order={order} />;
         }}
       </QueryGate>
     );
@@ -197,13 +200,13 @@ export function OrdersPage({ id, editing = false }: { id?: string; editing?: boo
     <ListPage
       title="Orders"
       count={all.length}
-      newTo={factoryView ? undefined : "/customs/new"}
+      newTo={adminView ? "/customs/new" : undefined}
       newLabel="New order"
       placeholder="Search orders"
       loading={loadingState([orders, orderItems])}
-      empty={factoryView ? "No orders are assigned to your factory yet." : undefined}
+      empty={factoryView ? "No orders are assigned to your factory yet." : adminView ? undefined : "You don't have any orders yet."}
       actions={
-        !factoryView && (
+        adminView && (
           <Link to="/customs/import" className="button">
             Import from Excel
           </Link>
@@ -212,12 +215,12 @@ export function OrdersPage({ id, editing = false }: { id?: string; editing?: boo
       head={
         <>
           <th>Margen order ID</th>
-          <th className="hide-sm">Factory order ID</th>
-          {!factoryView && <th className="hide-sm">Organization</th>}
-          {!factoryView && <th className="hide-sm">Factory</th>}
+          {role !== "client" && <th className="hide-sm">Factory order ID</th>}
+          {adminView && <th className="hide-sm">Organization</th>}
+          {adminView && <th className="hide-sm">Factory</th>}
           <th>Order status</th>
           <th>Production</th>
-          <th className={factoryView ? undefined : "hide-sm"}>Est. shipping</th>
+          <th className={adminView ? "hide-sm" : undefined}>Est. shipping</th>
           <th className="num hide-sm">Pieces</th>
         </>
       }
@@ -234,15 +237,17 @@ export function OrdersPage({ id, editing = false }: { id?: string; editing?: boo
                 {o.margen_order_id}
               </Link>
             </td>
-            <td className="mono hide-sm">
-              <OrDash>{o.factory_order_id}</OrDash>
-            </td>
-            {!factoryView && (
+            {role !== "client" && (
+              <td className="mono hide-sm">
+                <OrDash>{o.factory_order_id}</OrDash>
+              </td>
+            )}
+            {adminView && (
               <td className="hide-sm">
                 <OrderOrganization order={o} />
               </td>
             )}
-            {!factoryView && (
+            {adminView && (
               <td className="hide-sm">
                 <OrderFactory order={o} />
               </td>
@@ -258,7 +263,7 @@ export function OrdersPage({ id, editing = false }: { id?: string; editing?: boo
                 <td>
                   <ProductionBadge status={o.production_status} />
                 </td>
-                <td className="hide-sm">
+                <td className={adminView ? "hide-sm" : undefined}>
                   <ShipDay day={o.estimated_ship_date} />
                 </td>
               </>
@@ -524,6 +529,35 @@ function FactoryOrderPage({ order }: { order: Order }) {
         <section className="card section">
           {/* Keyed so the form shows the saved values after each save. */}
           <ShippingForm key={shippingKey(order)} order={order} />
+        </section>
+        <section className="card section">
+          <OrderLines order={order} editing={false} canEdit={false} />
+        </section>
+      </div>
+    </>
+  );
+}
+
+// What a client user sees: their order's status, shipping and items, read only, with no factory details.
+function ClientOrderPage({ order }: { order: Order }) {
+  return (
+    <>
+      <BackLink to="/customs">Orders</BackLink>
+      <div className="page-head">
+        <div className="title-block">
+          <h1 className="mono">{order.margen_order_id}</h1>
+          <p className="muted">Added {formatDate(order.created_at)}</p>
+        </div>
+      </div>
+      {/* One full-width card per row: the details read across, the items below. */}
+      <div className="detail-grid stacked">
+        <section className="card section">
+          <h2>Details</h2>
+          <dl className="details across">
+            {detail("Order status", <OrderBadge status={order.order_status} />)}
+            {detail("Production status", <ProductionBadge status={order.production_status} />)}
+            {shippingDetails(order)}
+          </dl>
         </section>
         <section className="card section">
           <OrderLines order={order} editing={false} canEdit={false} />

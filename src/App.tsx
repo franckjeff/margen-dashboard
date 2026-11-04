@@ -1,12 +1,13 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { HashRouter, Navigate, Route, Routes, useParams } from "react-router";
-import { SignedInProvider, useSession, useSignedIn } from "./auth/AuthProvider";
-import { LoginPage, NoAccess } from "./auth/LoginPage";
+import { SignedInProvider, useRecovery, useSession, useSignedIn } from "./auth/AuthProvider";
+import { LoginPage, NoAccess, SetPasswordPage } from "./auth/LoginPage";
 import { Layout } from "./components/Layout";
 import { useProfile } from "./data/queries";
 import { visiblePages, type PageName } from "./lib/constants";
 
 // Each page's code is downloaded the first time it's opened, so the app starts fast however many pages it has.
+const AccountPage = lazy(() => import("./features/account/AccountPage").then((m) => ({ default: m.AccountPage })));
 const AthletesPage = lazy(() => import("./features/athletes/AthletesPage").then((m) => ({ default: m.AthletesPage })));
 const ContactsPage = lazy(() => import("./features/contacts/ContactsPage").then((m) => ({ default: m.ContactsPage })));
 const DesignsPage = lazy(() => import("./features/designs/DesignsPage").then((m) => ({ default: m.DesignsPage })));
@@ -57,7 +58,9 @@ export function App() {
 
 function SignInGate() {
   const session = useSession();
+  const { recovering } = useRecovery();
   if (session === undefined) return <Loading />;
+  if (recovering) return <SetPasswordPage />;
   if (!session) return <LoginPage />;
   return <SignedIn key={session.user.id} session={session} />;
 }
@@ -107,6 +110,8 @@ function AppRoutes() {
         <Route path="designs" element={page("designs", <DesignsPage />)} />
         <Route path="reports" element={page("reports", <ReportsPage />)} />
         <Route path="users" element={page("users", <UsersPage />)} />
+        {/* Everyone's Change password page; it's not in the menu, but linked beside Sign out. */}
+        <Route path="account" element={<AccountPage />} />
         <Route path="*" element={<Navigate to={home} replace />} />
       </Route>
     </Routes>

@@ -10,7 +10,7 @@ import { orderLinesOf, parseQuantity, type LineWithItem } from "./lines";
 const QUANTITY_RULE = "The quantity must be a whole number of 1 or more.";
 
 // What the order is made of: one line per item and size, with its quantity.
-// Read-only unless the order is being edited (#/customs/<id>/edit). Factory users can't edit (canEdit false).
+// Read-only unless the order is being edited (#/customs/<id>/edit). Factory and client users can't edit (canEdit false).
 export function OrderLines({ order, editing, canEdit = true }: { order: Order; editing: boolean; canEdit?: boolean }) {
   const items = useItems();
   const orderItems = useOrderItems();
@@ -37,9 +37,14 @@ export function OrderLines({ order, editing, canEdit = true }: { order: Order; e
           {lines.map((l) => (
             <tr key={l.id}>
               <td>
-                <Link to={`/items/${l.item.id}`} className="strong">
-                  {l.item.name}
-                </Link>
+                {/* Only admins have the Items page. */}
+                {canEdit ? (
+                  <Link to={`/items/${l.item.id}`} className="strong">
+                    {l.item.name}
+                  </Link>
+                ) : (
+                  <span className="strong">{l.item.name}</span>
+                )}
               </td>
               <td>{l.size}</td>
               {editing ? <EditableLine line={l} /> : <td className="num">{l.quantity}</td>}

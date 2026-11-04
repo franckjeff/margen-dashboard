@@ -58,6 +58,15 @@ export function DashboardPage() {
       </>
     );
   }
+  if (role === "client") {
+    return (
+      <>
+        <Welcome />
+        <ClientStats />
+        <Scrapbook />
+      </>
+    );
+  }
   if (role !== "admin") {
     return (
       <>
@@ -93,6 +102,39 @@ function FactoryStats() {
   return (
     <>
       <p className="muted">Orders assigned to {factory.name}.</p>
+      <div className="stats">
+        <Link to="/customs" className="card stat">
+          <span className="stat-label">Open orders</span>
+          <span className="stat-value">{open.length}</span>
+        </Link>
+        <Link to="/customs" className="card stat">
+          <span className="stat-label">In production</span>
+          <span className="stat-value">{open.filter((o) => o.production_status).length}</span>
+        </Link>
+        <Link to="/customs" className="card stat">
+          <span className="stat-label">All orders</span>
+          <span className="stat-value">{all.length}</span>
+        </Link>
+      </div>
+    </>
+  );
+}
+
+// A client user's own organization and its orders; the database returns nothing else to them.
+function ClientStats() {
+  const organizations = useOrganizations();
+  const orders = useOrders();
+  const waiting = loadingState([organizations, orders]);
+  if (waiting) return waiting;
+  const organization = organizations.data![0];
+  if (!organization) {
+    return <p className="muted">Your account isn't linked to an organization yet. Ask a MARGEN admin to link it on the Users page.</p>;
+  }
+  const all = orders.data!;
+  const open = all.filter((o) => OPEN_ORDER_STATUSES.includes(o.order_status));
+  return (
+    <>
+      <p className="muted">Orders for {organization.name}.</p>
       <div className="stats">
         <Link to="/customs" className="card stat">
           <span className="stat-label">Open orders</span>

@@ -50,7 +50,7 @@ export type OrderEvent = Pick<Tables<"order_events">, "id" | "order_id" | "actio
 export type Note = Pick<Tables<"notes">, "id" | "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "body" | "created_at"> & {
   author: { email: string | null } | null;
 };
-export type User = Pick<Tables<"profiles">, "id" | "email" | "first_name" | "factory_id" | "created_at"> & {
+export type User = Pick<Tables<"profiles">, "id" | "email" | "first_name" | "factory_id" | "organization_id" | "created_at"> & {
   role: Role;
   last_sign_in_at: string | null;
 };
@@ -270,7 +270,7 @@ export function useUsers() {
     queryKey: keys.users,
     queryFn: async (): Promise<User[]> => {
       const [users, signIns] = await Promise.all([
-        supabase.from("profiles").select("id, email, first_name, role, factory_id, created_at").order("email"),
+        supabase.from("profiles").select("id, email, first_name, role, factory_id, organization_id, created_at").order("email"),
         supabase.rpc("user_last_sign_ins"),
       ]);
       const lastSignIn = new Map(unwrap(signIns).map((s) => [s.id, s.last_sign_in_at]));

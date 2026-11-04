@@ -86,7 +86,10 @@ export function Layout() {
             <button type="button" className="icon-btn theme-toggle" onClick={toggle} aria-label={themeLabel} title={themeLabel}>
               {theme === "dark" ? <SunIcon /> : <MoonIcon />}
             </button>
-            <button type="button" className="ghost" onClick={() => supabase.auth.signOut()}>
+          </div>
+          <div className="user-links">
+            <Link to="/account">Change password</Link>
+            <button type="button" className="link-button" onClick={() => supabase.auth.signOut()}>
               Sign out
             </button>
           </div>

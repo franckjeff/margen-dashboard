@@ -4,7 +4,7 @@
 -- (it's also safe on MARGEN PROD, the live project). It always ends with
 -- an error, on purpose, so that nothing it does is kept: the test users and records it creates,
 -- and every change it tries, are all undone. Read the result in the error message:
---   "ACCESS TESTS PASSED: 177 checks"  or  "ACCESS TESTS FAILED: 2 of 177 checks" followed by each failure.
+--   "ACCESS TESTS PASSED: 208 checks"  or  "ACCESS TESTS FAILED: 2 of 208 checks" followed by each failure.
 --
 -- Each check runs one query as one user, then undoes it, so checks don't affect each other.
 -- Expected results:
@@ -25,6 +25,7 @@ create function pg_temp.user_id(who text) returns uuid language sql immutable as
     when 'factory_b' then '0000ace5-0000-4000-8000-000000000003'
     when 'client' then '0000ace5-0000-4000-8000-000000000004'
     when 'designer' then '0000ace5-0000-4000-8000-000000000005'
+    when 'client_b' then '0000ace5-0000-4000-8000-000000000006'
   end::uuid
 $$;
 
@@ -67,7 +68,7 @@ $$;
 -- Test data. 0000ace5-… ids can't clash with real records.
 insert into auth.users (id, email, aud, role)
 select pg_temp.user_id(w), w || '@access-test.invalid', 'authenticated', 'authenticated'
-from unnest(array['admin', 'factory', 'factory_b', 'client', 'designer']) w;
+from unnest(array['admin', 'factory', 'factory_b', 'client', 'designer', 'client_b']) w;
 
 insert into public.factories (id, name, contact_name) values
   ('0000ace5-0000-4000-8000-0000000f0001', 'Access test factory A', 'Test'),
@@ -76,19 +77,21 @@ insert into public.factories (id, name, contact_name) values
 update public.profiles set role = 'admin' where id = pg_temp.user_id('admin');
 update public.profiles set role = 'factory', factory_id = '0000ace5-0000-4000-8000-0000000f0001' where id = pg_temp.user_id('factory');
 update public.profiles set role = 'factory', factory_id = '0000ace5-0000-4000-8000-0000000f0002' where id = pg_temp.user_id('factory_b');
-update public.profiles set role = 'client' where id = pg_temp.user_id('client');
 update public.profiles set role = 'designer' where id = pg_temp.user_id('designer');
+update public.profiles set role = 'client' where id = pg_temp.user_id('client_b');
 
 insert into public.items (id, item_code, name) values
   ('0000ace5-0000-4000-8000-0000000e0001', 'ACCESS-TEST-X', 'Access test item X'),
   ('0000ace5-0000-4000-8000-0000000e0002', 'ACCESS-TEST-Y', 'Access test item Y');
 insert into public.organizations (id, name) values ('0000ace5-0000-4000-8000-0000000b0001', 'Access test organization');
+-- The client user is linked to this organization; client_b isn't linked to any.
+update public.profiles set role = 'client', organization_id = '0000ace5-0000-4000-8000-0000000b0001' where id = pg_temp.user_id('client');
 insert into public.contacts (id, first_name, last_name) values ('0000ace5-0000-4000-8000-0000000b0002', 'Access', 'Test');
 insert into public.organization_contacts (organization_id, contact_id) values ('0000ace5-0000-4000-8000-0000000b0001', '0000ace5-0000-4000-8000-0000000b0002');
 insert into public.athletes (id, first_name, last_name) values ('0000ace5-0000-4000-8000-0000000b0003', 'Access', 'Test');
 insert into public.leads (id, first_name, last_name) values ('0000ace5-0000-4000-8000-0000000b0004', 'Access', 'Test');
 insert into public.notes (id, organization_id, body) values ('0000ace5-0000-4000-8000-0000000b0005', '0000ace5-0000-4000-8000-0000000b0001', 'Access test note');
--- Order A is factory A's (with item X), order B is factory B's (with item Y).
+-- Order A is factory A's and the test organization's (with item X), order B is factory B's (with item Y).
 insert into public.orders (id, margen_order_id, factory_id, organization_id) values
   ('0000ace5-0000-4000-8000-0000000d0001', 'ACCESS_TEST_A', '0000ace5-0000-4000-8000-0000000f0001', '0000ace5-0000-4000-8000-0000000b0001'),
   ('0000ace5-0000-4000-8000-0000000d0002', 'ACCESS_TEST_B', '0000ace5-0000-4000-8000-0000000f0002', null);
@@ -105,6 +108,7 @@ insert into public.scrapbooks (user_id, body) values
 insert into public.app_errors (kind, message) values ('background', 'Access test error');
 
 -- Admin-only tables: everyone but admins sees nothing and can't add, change or delete.
+-- (The linked client also sees its own organization: checked further down.)
 do $$
 declare
   t text;
@@ -113,7 +117,8 @@ begin
   foreach t in array array['organizations', 'contacts', 'organization_contacts', 'athletes', 'leads', 'notes',
                            'order_requests', 'order_request_lines', 'order_events', 'app_errors'] loop
     perform pg_temp.check(t || ': admin sees them', 'admin', format('select (count(*) > 0)::int from public.%I', t), '1');
-    foreach who in array array['anon', 'client', 'designer', 'factory'] loop
+    foreach who in array array['anon', 'client', 'client_b', 'designer', 'factory'] loop
+      continue when t = 'organizations' and who = 'client';
       perform pg_temp.check(t || ': sees nothing', who, format('select count(*) from public.%I', t), '0');
       perform pg_temp.check(t || ': can''t delete', who, format('with x as (delete from public.%I returning 1) select count(*) from x', t), '0');
     end loop;
@@ -142,7 +147,7 @@ select pg_temp.check('orders: admin sees both test orders', 'admin', $q$select c
 select pg_temp.check('orders: factory sees only its own', 'factory', $q$select count(*) from public.orders where factory_id is distinct from '0000ace5-0000-4000-8000-0000000f0001'$q$, '0');
 select pg_temp.check('orders: factory sees its order', 'factory', $q$select count(*) from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, '1');
 select pg_temp.check('orders: other factory doesn''t see it', 'factory_b', $q$select count(*) from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, '0');
-select pg_temp.check('orders: sees nothing', 'client', $q$select count(*) from public.orders$q$, '0');
+select pg_temp.check('orders: unlinked client sees nothing', 'client_b', $q$select count(*) from public.orders$q$, '0');
 select pg_temp.check('orders: sees nothing', 'designer', $q$select count(*) from public.orders$q$, '0');
 select pg_temp.check('orders: sees nothing', 'anon', $q$select count(*) from public.orders$q$, '0');
 select pg_temp.check('orders: factory updates production status', 'factory', $q$with x as (update public.orders set production_status = 'sewing' where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '1');
@@ -164,7 +169,7 @@ select pg_temp.check('order_items: factory sees no other lines', 'factory', $q$s
 select pg_temp.check('order_items: factory can''t change quantities', 'factory', $q$with x as (update public.order_items set quantity = 99 returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('order_items: factory can''t add lines', 'factory', $q$insert into public.order_items (order_id, item_id, size, quantity) values ('0000ace5-0000-4000-8000-0000000d0001', '0000ace5-0000-4000-8000-0000000e0001', 'S', 1)$q$, 'denied');
 select pg_temp.check('order_items: factory can''t remove lines', 'factory', $q$with x as (delete from public.order_items returning 1) select count(*) from x$q$, '0');
-select pg_temp.check('order_items: sees nothing', 'client', $q$select count(*) from public.order_items$q$, '0');
+select pg_temp.check('order_items: unlinked client sees nothing', 'client_b', $q$select count(*) from public.order_items$q$, '0');
 select pg_temp.check('order_items: sees nothing', 'anon', $q$select count(*) from public.order_items$q$, '0');
 select pg_temp.check('order_items: admin can add lines', 'admin', $q$insert into public.order_items (order_id, item_id, size, quantity) values ('0000ace5-0000-4000-8000-0000000d0001', '0000ace5-0000-4000-8000-0000000e0001', 'S', 1)$q$, 'ok');
 
@@ -172,11 +177,25 @@ select pg_temp.check('order_items: admin can add lines', 'admin', $q$insert into
 select pg_temp.check('items: factory sees items on its orders', 'factory', $q$select count(*) from public.items where id = '0000ace5-0000-4000-8000-0000000e0001'$q$, '1');
 select pg_temp.check('items: factory doesn''t see other items', 'factory', $q$select count(*) from public.items where id = '0000ace5-0000-4000-8000-0000000e0002'$q$, '0');
 select pg_temp.check('items: factory can''t change', 'factory', $q$with x as (update public.items set name = 'x' returning 1) select count(*) from x$q$, '0');
-select pg_temp.check('items: sees nothing', 'client', $q$select count(*) from public.items$q$, '0');
+select pg_temp.check('items: unlinked client sees nothing', 'client_b', $q$select count(*) from public.items$q$, '0');
 select pg_temp.check('items: sees nothing', 'designer', $q$select count(*) from public.items$q$, '0');
 select pg_temp.check('items: sees nothing', 'anon', $q$select count(*) from public.items$q$, '0');
 select pg_temp.check('items: can''t add', 'client', $q$insert into public.items (item_code, name) values ('X', 'X')$q$, 'denied');
 select pg_temp.check('items: admin can rename', 'admin', $q$with x as (update public.items set name = 'Renamed' where id = '0000ace5-0000-4000-8000-0000000e0001' returning 1) select count(*) from x$q$, '1');
+
+-- Clients: a client user sees its organization and that organization's orders, lines and items, read only.
+select pg_temp.check('organizations: client sees only its own', 'client', $q$select count(*) from public.organizations$q$, '1');
+select pg_temp.check('organizations: client can''t rename its own', 'client', $q$with x as (update public.organizations set name = 'x' returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('orders: client sees only its organization''s', 'client', $q$select count(*) from public.orders where organization_id is distinct from '0000ace5-0000-4000-8000-0000000b0001'$q$, '0');
+select pg_temp.check('orders: client sees its order', 'client', $q$select count(*) from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, '1');
+select pg_temp.check('orders: client can''t change its order', 'client', $q$with x as (update public.orders set order_status = 'closed' where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('orders: client can''t delete its order', 'client', $q$with x as (delete from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('order_items: client sees only its orders'' lines', 'client', $q$select count(*) from public.order_items where id in ('0000ace5-0000-4000-8000-0000000c0001', '0000ace5-0000-4000-8000-0000000c0002')$q$, '1');
+select pg_temp.check('order_items: client can''t change quantities', 'client', $q$with x as (update public.order_items set quantity = 99 returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('order_items: client can''t add lines', 'client', $q$insert into public.order_items (order_id, item_id, size, quantity) values ('0000ace5-0000-4000-8000-0000000d0001', '0000ace5-0000-4000-8000-0000000e0001', 'S', 1)$q$, 'denied');
+select pg_temp.check('items: client sees items on its orders', 'client', $q$select count(*) from public.items where id = '0000ace5-0000-4000-8000-0000000e0001'$q$, '1');
+select pg_temp.check('items: client doesn''t see other items', 'client', $q$select count(*) from public.items where id = '0000ace5-0000-4000-8000-0000000e0002'$q$, '0');
+select pg_temp.check('order_events: client sees no order history', 'client', $q$select count(*) from public.order_events$q$, '0');
 
 -- Factories: a factory user sees only their own factory, read only.
 select pg_temp.check('factories: factory sees only its own', 'factory', $q$select count(*) from public.factories$q$, '1');
@@ -189,9 +208,10 @@ select pg_temp.check('factories: can''t add', 'factory', $q$insert into public.f
 select pg_temp.check('profiles: sees only their own', 'client', $q$select count(*) from public.profiles$q$, '1');
 select pg_temp.check('profiles: sees only their own', 'factory', $q$select count(*) from public.profiles$q$, '1');
 select pg_temp.check('profiles: sees nothing', 'anon', $q$select count(*) from public.profiles$q$, '0');
-select pg_temp.check('profiles: admin sees the test users', 'admin', $q$select count(*) from public.profiles where email like '%@access-test.invalid'$q$, '5');
+select pg_temp.check('profiles: admin sees the test users', 'admin', $q$select count(*) from public.profiles where email like '%@access-test.invalid'$q$, '6');
 select pg_temp.check('profiles: can''t make themselves admin', 'client', $q$with x as (update public.profiles set role = 'admin' where id = auth.uid() returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('profiles: factory can''t switch to another factory', 'factory', $q$with x as (update public.profiles set factory_id = '0000ace5-0000-4000-8000-0000000f0002' where id = auth.uid() returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('profiles: client can''t switch to another organization', 'client', $q$with x as (update public.profiles set organization_id = null where id = auth.uid() returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('profiles: can''t change their first name', 'designer', $q$with x as (update public.profiles set first_name = 'X' where id = auth.uid() returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('profiles: can''t change their email', 'admin', $q$update public.profiles set email = 'x@y.co' where id = auth.uid()$q$, 'denied');
 select pg_temp.check('profiles: can''t add', 'client', $q$insert into public.profiles (id, email) values (gen_random_uuid(), 'x@y.co')$q$, 'denied');

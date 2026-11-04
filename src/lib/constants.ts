@@ -68,8 +68,8 @@ export type Page = { name: PageName; label: string; roles: Role[]; group?: strin
 export const PAGES: Page[] = [
   { name: "dashboard", label: "Dashboard", roles: ["admin", "factory", "client", "designer"] },
   // Consecutive pages with the same group sit under that heading in the menu.
-  // Factory users see only the orders assigned to their factory.
-  { name: "customs", label: "Orders", roles: ["admin", "factory"], group: "Customs" },
+  // Factory users see only the orders assigned to their factory; client users only their organization's.
+  { name: "customs", label: "Orders", roles: ["admin", "factory", "client"], group: "Customs" },
   // Orders sent from the public Order Entry page (#/order), waiting to be turned into orders.
   { name: "order-requests", label: "Order requests", roles: ["admin"], group: "Customs" },
   { name: "items", label: "Items", roles: ["admin"], group: "Customs" },

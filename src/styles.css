@@ -171,6 +171,8 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 }
 .login-card { width: 100%; max-width: 360px; width: min(360px, calc(100vw - 32px)); padding: 28px; display: grid; gap: 14px; }
 .login-card .notice { margin: 0; padding: 8px 12px; }
+.login-card p { margin: 0; }
+.login-link { justify-self: center; font-size: 0.85rem; }
 
 /* ---------- public order entry (#/order) ---------- */
 
@@ -276,8 +278,11 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 }
 .user-email { color: rgb(255 255 255 / 0.68); overflow-wrap: anywhere; }
 .user-actions { display: flex; align-items: center; gap: 6px; }
-.user .ghost { color: #ffffff; margin-left: auto; padding: 6px 10px; }
-.user .ghost:hover { background: rgb(255 255 255 / 0.1); border-color: transparent; }
+/* Small text links under the role: Change password and Sign out. */
+.user-links { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.user-links a, .user-links .link-button { color: rgb(255 255 255 / 0.75); font: inherit; font-size: 0.78rem; text-decoration: none; }
+.user-links a:hover, .user-links .link-button:hover { color: var(--green); text-decoration: underline; }
+.account-form { max-width: 420px; }
 .theme-toggle { color: rgb(255 255 255 / 0.8); }
 .theme-toggle:hover { background: rgb(255 255 255 / 0.1); color: var(--green); }
 .theme-toggle svg { width: 18px; height: 18px; }
