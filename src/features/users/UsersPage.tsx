@@ -8,6 +8,7 @@ import { ROLE_LABELS, type Role } from "../../lib/constants";
 import { formatDate } from "../../lib/format";
 import { formValues } from "../../lib/forms";
 import { supabase, unwrap } from "../../lib/supabase";
+import { useUiState } from "../../lib/uiState";
 
 const notChanged = (user: User) => `${user.email} wasn't changed. You may not have permission.`;
 const MIN_PASSWORD = 8;
@@ -134,6 +135,8 @@ export function UsersPage() {
   const { query, setQuery, matches } = useSearch();
   const [failedSaves, setFailedSaves] = useState(0);
   const [adding, setAdding] = useState(false);
+  // "" shows every access level.
+  const [roleFilter, setRoleFilter] = useUiState<Role | "">("usersRole", "");
   const all = users.data ?? [];
 
   const setRole = useDbAction({
@@ -182,7 +185,8 @@ export function UsersPage() {
   // The factory or organization the account is linked to, for the roles that have one.
   const linkedName = (u: User) => (u.role === "factory" ? factoryName(u.factory_id) : u.role === "client" ? organizationName(u.organization_id) : "");
   const searchText = (u: User) => `${u.email} ${u.first_name ?? ""} ${ROLE_LABELS[u.role]} ${linkedName(u)}`.toLowerCase();
-  const visible = all.filter((u) => matches(searchText(u)));
+  const visible = all.filter((u) => (!roleFilter || u.role === roleFilter) && matches(searchText(u)));
+  const countOf = (role: Role) => all.filter((u) => u.role === role).length;
 
   return (
     <>
@@ -190,6 +194,14 @@ export function UsersPage() {
         <h1>
           Users <Count n={all.length} />
         </h1>
+        <select className="filter" aria-label="Filter by access level" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | "")}>
+          <option value="">All access levels</option>
+          {Object.entries(ROLE_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label} ({countOf(value as Role)})
+            </option>
+          ))}
+        </select>
         <SearchBox value={query} onChange={setQuery} placeholder="Search users" />
         {!adding && (
           <button type="button" className="primary" onClick={() => setAdding(true)}>
