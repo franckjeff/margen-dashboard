@@ -1,20 +1,20 @@
 import { Link } from "react-router";
 import { ListPage } from "../../components/ListPage";
 import { useNotice } from "../../components/Notice";
-import { BackLink, Count, FormButtons, Missing, OrDash, PanelHead, QueryGate, loadingState } from "../../components/ui";
+import { BackLink, Count, Dash, FormButtons, Missing, OrDash, Optional, PanelHead, QueryGate, loadingState } from "../../components/ui";
 import { useDeleteRecord, useSaveRecord } from "../../data/mutations";
-import { useContacts, useNotes, useOrganizations, type Contact } from "../../data/queries";
+import { useContacts, useFactories, useNotes, useOrganizations, type Contact } from "../../data/queries";
 import { ADDRESS_FIELDS } from "../../lib/constants";
 import { addressLines, contactLocation, formatDate, fullName, place, plural } from "../../lib/format";
 import { deleteMessage, formValues, orNull } from "../../lib/forms";
 import { NotesSection } from "../notes/NotesSection";
-import { isBusyWith, useLinkActions } from "../organizations/links";
+import { isBusyWith, useLinkActions, type LinkOwner } from "../organizations/links";
 
 function ContactForm({ contact }: { contact?: Contact }) {
   const save = useSaveRecord("contacts");
   const { notify } = useNotice();
   const back = contact ? `/contacts/${contact.id}` : "/contacts";
-  const text = (name: (typeof ADDRESS_FIELDS)[number] | "first_name" | "last_name") => contact?.[name] ?? "";
+  const text = (name: (typeof ADDRESS_FIELDS)[number] | "first_name" | "last_name" | "email") => contact?.[name] ?? "";
   return (
     <>
       <PanelHead title={contact ? "Edit contact" : "New contact"} close={back} />
@@ -25,6 +25,7 @@ function ContactForm({ contact }: { contact?: Contact }) {
           const row = {
             first_name: v.first_name,
             last_name: v.last_name,
+            email: orNull(v.email.toLowerCase()),
             ...Object.fromEntries(ADDRESS_FIELDS.map((f) => [f, orNull(v[f])])),
           };
           if (!row.first_name || !row.last_name) return notify("error", "The contact needs a first and last name.");
@@ -38,6 +39,10 @@ function ContactForm({ contact }: { contact?: Contact }) {
         <label>
           Last name
           <input name="last_name" required autoComplete="off" defaultValue={text("last_name")} />
+        </label>
+        <label>
+          <Optional>Email</Optional>
+          <input name="email" type="email" autoComplete="off" defaultValue={text("email")} placeholder="Where the app sends this contact's emails" />
         </label>
         <fieldset className="stack">
           <legend>
@@ -78,6 +83,17 @@ function ContactForm({ contact }: { contact?: Contact }) {
   );
 }
 
+const ADDRESS_LABELS: Record<(typeof ADDRESS_FIELDS)[number], string> = {
+  address_line1: "Address line 1",
+  address_line2: "Address line 2",
+  city: "City",
+  state: "State / region",
+  postal_code: "Postal code",
+  country: "Country",
+};
+
+const linkedNames =(c: Contact) => [...c.organizations, ...c.factories].map((o) => o.name).join(", ");
+
 export function ContactsPage({ id, editing = false }: { id?: string; editing?: boolean }) {
   const contacts = useContacts();
 
@@ -101,19 +117,21 @@ export function ContactsPage({ id, editing = false }: { id?: string; editing?: b
       newTo="/contacts/new"
       newLabel="New contact"
       placeholder="Search contacts"
+      empty="No contacts yet."
       loading={loadingState([contacts])}
       head={
         <>
           <th>First name</th>
           <th>Last name</th>
+          <th className="hide-sm">Email</th>
           <th className="hide-sm">Location</th>
-          <th>Organizations</th>
+          <th>Organizations and factories</th>
         </>
       }
       rows={all.map((c) => ({
         key: c.id,
         to: `/contacts/${c.id}`,
-        search: `${fullName(c)} ${addressLines(c).join(" ")} ${c.organizations.map((o) => o.name).join(" ")}`.toLowerCase(),
+        search: `${fullName(c)} ${c.email ?? ""} ${addressLines(c).join(" ")} ${linkedNames(c)}`.toLowerCase(),
         cells: (
           <>
             <td>
@@ -123,10 +141,13 @@ export function ContactsPage({ id, editing = false }: { id?: string; editing?: b
             </td>
             <td>{c.last_name}</td>
             <td className="hide-sm">
+              <OrDash>{c.email}</OrDash>
+            </td>
+            <td className="hide-sm">
               <OrDash>{contactLocation(c)}</OrDash>
             </td>
             <td>
-              <OrDash>{c.organizations.map((o) => o.name).join(", ")}</OrDash>
+              <OrDash>{linkedNames(c)}</OrDash>
             </td>
           </>
         ),
@@ -140,14 +161,15 @@ export function ContactsPage({ id, editing = false }: { id?: string; editing?: b
 function ContactPage({ contact, editing }: { contact: Contact; editing: boolean }) {
   const remove = useDeleteRecord("contacts");
   const notes = useNotes();
-  const lines = addressLines(contact);
   const label = fullName(contact);
 
   const confirmDelete = () => {
-    const links = contact.organizations.length;
+    const links = contact.organizations.length + contact.factories.length;
+    const defaults = [...contact.organizations, ...contact.factories].filter((o) => o.is_default).map((o) => o.name);
     const noteCount = (notes.data ?? []).filter((n) => n.contact_id === contact.id).length;
     const message = deleteMessage(label, [
-      links > 0 && `Its ${plural(links, "organization link")} will be removed too. The organizations themselves are kept.`,
+      links > 0 && `Its ${plural(links, "link")} to organizations and factories will be removed too. They themselves are kept.`,
+      defaults.length > 0 && `It's the default contact of ${defaults.join(", ")}, so their emails need a new default contact.`,
       noteCount > 0 && `Its ${plural(noteCount, "note")} will be deleted too.`,
     ]);
     if (confirm(message)) remove.mutate({ id: contact.id, label });
@@ -159,7 +181,6 @@ function ContactPage({ contact, editing }: { contact: Contact; editing: boolean 
       <div className="page-head">
         <div className="title-block">
           <h1>{label}</h1>
-          <p className="muted">{contactLocation(contact) || "No location yet"}</p>
         </div>
         {!editing && (
           <>
@@ -172,33 +193,38 @@ function ContactPage({ contact, editing }: { contact: Contact; editing: boolean 
           </>
         )}
       </div>
-      <div className="detail-grid">
+      {/* Three full-width blocks: the contact's details, its organizations, then its factories. */}
+      <div className="detail-grid stacked">
         <section className="card section">
           {editing ? (
             <ContactForm contact={contact} />
           ) : (
             <>
               <h2>Details</h2>
-              <dl className="details">
+              {/* Every field is shown, empty ones as a dash, so it's clear what's missing. */}
+              <dl className="details across">
                 <div>
-                  <dt>Address</dt>
+                  <dt>First name</dt>
+                  <dd>{contact.first_name}</dd>
+                </div>
+                <div>
+                  <dt>Last name</dt>
                   <dd>
-                    {lines.length ? (
-                      <address className="address">
-                        {lines.map((line, i) => (
-                          <span key={i}>
-                            {i > 0 && <br />}
-                            {line}
-                          </span>
-                        ))}
-                      </address>
-                    ) : (
-                      <>
-                        <span className="muted">No address yet.</span> <Link to={`/contacts/${contact.id}/edit`}>Add one</Link>
-                      </>
-                    )}
+                    <OrDash>{contact.last_name}</OrDash>
                   </dd>
                 </div>
+                <div>
+                  <dt>Email</dt>
+                  <dd>{contact.email ? <a href={`mailto:${contact.email}`}>{contact.email}</a> : <Dash />}</dd>
+                </div>
+                {ADDRESS_FIELDS.map((f) => (
+                  <div key={f}>
+                    <dt>{ADDRESS_LABELS[f]}</dt>
+                    <dd>
+                      <OrDash>{contact[f]}</OrDash>
+                    </dd>
+                  </div>
+                ))}
                 <div>
                   <dt>Added</dt>
                   <dd>{formatDate(contact.created_at)}</dd>
@@ -208,9 +234,12 @@ function ContactPage({ contact, editing }: { contact: Contact; editing: boolean 
           )}
         </section>
         <section className="card section">
-          <ContactOrganizations contact={contact} />
+          <ContactOwners contact={contact} owner="organization" editing={editing} />
         </section>
-        <section className="card section span-all">
+        <section className="card section">
+          <ContactOwners contact={contact} owner="factory" editing={editing} />
+        </section>
+        <section className="card section">
           <NotesSection subject={{ contact_id: contact.id }} />
         </section>
       </div>
@@ -218,49 +247,63 @@ function ContactPage({ contact, editing }: { contact: Contact; editing: boolean 
   );
 }
 
-function ContactOrganizations({ contact }: { contact: Contact }) {
+// The organizations or factories this contact is linked to. The default contact gets their emails.
+// Linking, unlinking and choosing the default only show in edit mode.
+function ContactOwners({ contact, owner, editing }: { contact: Contact; owner: LinkOwner; editing: boolean }) {
   const organizations = useOrganizations();
+  const factories = useFactories();
   const { link, makeDefault, unlink } = useLinkActions();
-  const linked = new Set(contact.organizations.map((o) => o.id));
-  const available = (organizations.data ?? []).filter((o) => !linked.has(o.id));
+  const isFactory = owner === "factory";
+  const linkedTo: { id: string; name: string; is_default: boolean; where: string }[] = isFactory
+    ? contact.factories.map((f) => ({ ...f, where: f.country ?? "" }))
+    : contact.organizations.map((o) => ({ ...o, where: place(o) }));
+  const linked = new Set(linkedTo.map((o) => o.id));
+  const all = (isFactory ? factories.data : organizations.data) ?? [];
+  const available = all.filter((o) => !linked.has(o.id));
+  const route = isFactory ? "factories" : "organizations";
+  const noun = isFactory ? "factory" : "organization";
 
   return (
     <>
       <h2>
-        Organizations <Count n={contact.organizations.length} />
+        {isFactory ? "Factories" : "Organizations"} <Count n={linkedTo.length} />
       </h2>
-      {contact.organizations.length ? (
+      {linkedTo.length ? (
         <div className="table-wrap">
           <table className="static">
             <tbody>
-              {contact.organizations.map((o) => {
-                const l = { organization_id: o.id, contact_id: contact.id };
+              {linkedTo.map((o) => {
+                const l = { owner, owner_id: o.id, contact_id: contact.id };
                 return (
                   <tr key={o.id}>
                     <td>
-                      <Link to={`/organizations/${o.id}`} className="strong">
+                      <Link to={`/${route}/${o.id}`} className="strong">
                         {o.name}
                       </Link>
                     </td>
                     <td className="muted hide-sm">
-                      <OrDash>{place(o)}</OrDash>
+                      <OrDash>{o.where}</OrDash>
                     </td>
                     <td>
                       {o.is_default ? (
-                        <span className="badge" title={`Default contact for ${o.name}`}>
+                        <span className="badge" title={`Default contact for ${o.name}: gets its emails`}>
                           Default
                         </span>
                       ) : (
-                        <button type="button" className="ghost small" disabled={isBusyWith(makeDefault, l)} onClick={() => makeDefault.mutate(l)}>
-                          Make default
-                        </button>
+                        editing && (
+                          <button type="button" className="ghost small" disabled={isBusyWith(makeDefault, l)} onClick={() => makeDefault.mutate(l)}>
+                            Make default
+                          </button>
+                        )
                       )}
                     </td>
-                    <td className="num">
-                      <button type="button" className="ghost small" disabled={isBusyWith(unlink, l)} onClick={() => unlink.mutate(l)}>
-                        Unlink
-                      </button>
-                    </td>
+                    {editing && (
+                      <td className="num">
+                        <button type="button" className="ghost small" disabled={isBusyWith(unlink, l)} onClick={() => unlink.mutate(l)}>
+                          Unlink
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -268,18 +311,18 @@ function ContactOrganizations({ contact }: { contact: Contact }) {
           </table>
         </div>
       ) : (
-        <p className="empty">Not linked to any organization yet.</p>
+        <p className="empty">Not linked to any {noun} yet.</p>
       )}
-      {available.length ? (
+      {editing && available.length > 0 && (
         <form
           className="link-form"
           onSubmit={(event) => {
-            const { organization } = formValues(event);
-            if (organization) link.mutate({ organization_id: organization, contact_id: contact.id });
+            const { target } = formValues(event);
+            if (target) link.mutate({ owner, owner_id: target, contact_id: contact.id });
           }}
         >
-          <select name="organization" required aria-label="Organization to link" defaultValue="">
-            <option value="">Choose an organization to link…</option>
+          <select name="target" required aria-label={`${isFactory ? "Factory" : "Organization"} to link`} defaultValue="">
+            <option value="">Choose {isFactory ? "a factory" : "an organization"} to link…</option>
             {available.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}
@@ -290,10 +333,12 @@ function ContactOrganizations({ contact }: { contact: Contact }) {
             Link
           </button>
         </form>
-      ) : (
+      )}
+      {/* The same line in both blocks; it explains why there's nothing to choose when that's the case. */}
+      {editing && (
         <p className="muted small">
-          {organizations.data?.length ? "Already linked to every organization." : "No organizations yet."}{" "}
-          <Link to="/organizations/new">Add an organization</Link>
+          {available.length === 0 && (all.length ? `Already linked to every ${noun}. ` : `No ${route} yet. `)}
+          <Link to={`/${route}/new`}>Add {isFactory ? "a factory" : "an organization"}</Link>
         </p>
       )}
     </>

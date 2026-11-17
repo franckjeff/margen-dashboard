@@ -318,8 +318,7 @@ export function UsersPage() {
         New users are added with Add user. You can't change your own level, and there must
         always be at least one Admin. The first name is how the Dashboard greets each person. A Factory account sees only the
         orders of the factory it's linked to, and can change only their production status and shipping details. A Client account
-        sees only the orders of the organization it's linked to, and can't change anything. A Designer account sees only the
-        Dashboard and Designs.
+        sees only the orders of the organization it's linked to, and can't change anything.
       </p>
     </>
   );

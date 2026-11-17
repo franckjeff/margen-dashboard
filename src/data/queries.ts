@@ -25,14 +25,18 @@ export const keys = {
   scrapbook: ["scrapbook"] as const,
   orderRequests: ["orderRequests"] as const,
   appErrors: ["appErrors"] as const,
+  emails: ["emails"] as const,
+  emailSettings: ["emailSettings"] as const,
+  myContacts: ["myContacts"] as const,
   users: ["users"] as const,
 };
 
 export type Profile = { role: Role | null; firstName: string | null };
-export type LinkedContact = Pick<Tables<"contacts">, "id" | "first_name" | "last_name" | "city" | "country"> & { is_default: boolean };
+export type LinkedContact = Pick<Tables<"contacts">, "id" | "first_name" | "last_name" | "email" | "city" | "country"> & { is_default: boolean };
 export type LinkedOrganization = Pick<Tables<"organizations">, "id" | "name" | "state" | "country"> & { is_default: boolean };
+export type LinkedFactory = Pick<Tables<"factories">, "id" | "name" | "country"> & { is_default: boolean };
 export type Organization = Tables<"organizations"> & { contacts: LinkedContact[] };
-export type Contact = Tables<"contacts"> & { organizations: LinkedOrganization[] };
+export type Contact = Tables<"contacts"> & { organizations: LinkedOrganization[]; factories: LinkedFactory[] };
 export type Athlete = Tables<"athletes">;
 export type Lead = Tables<"leads">;
 export type Order = Omit<Tables<"orders">, "created_at"> & {
@@ -41,7 +45,9 @@ export type Order = Omit<Tables<"orders">, "created_at"> & {
   factory: { id: string; name: string } | null;
 };
 export type Item = Tables<"items">;
-export type Factory = Tables<"factories">;
+export type Factory = Tables<"factories"> & { contacts: LinkedContact[] };
+// A factory or client user's own contacts (see the emails_to_default_contacts migration).
+export type MyContact = Pick<Tables<"contacts">, "id" | "first_name" | "last_name" | "email"> & { owner_id: string; is_default: boolean };
 export type OrderLine = Pick<Tables<"order_items">, "id" | "order_id" | "item_id" | "size" | "quantity">;
 export type OrderEvent = Pick<Tables<"order_events">, "id" | "order_id" | "action" | "changed_at"> & {
   changes: Record<string, { from?: unknown; to?: unknown }>;
@@ -67,6 +73,15 @@ export function useProfile(userId: string) {
   });
 }
 
+const LINKED_CONTACT = "id, first_name, last_name, email, city, country";
+
+// Flattens link rows so each linked contact carries the link's is_default flag.
+const flattenContacts = (links: { is_default: boolean; contacts: Omit<LinkedContact, "is_default"> | null }[]): LinkedContact[] =>
+  links
+    .filter((l) => l.contacts)
+    .map((l) => ({ ...l.contacts!, is_default: l.is_default }))
+    .sort(byPerson);
+
 export function useOrganizations() {
   return useQuery({
     queryKey: keys.organizations,
@@ -74,17 +89,10 @@ export function useOrganizations() {
       const rows = unwrap(
         await supabase
           .from("organizations")
-          .select("id, name, state, country, created_at, organization_contacts(is_default, contacts(id, first_name, last_name, city, country))")
+          .select(`id, name, state, country, created_at, organization_contacts(is_default, contacts(${LINKED_CONTACT}))`)
           .order("name"),
       );
-      // Flatten the link rows so each linked contact carries the link's is_default flag.
-      return rows.map(({ organization_contacts: links, ...o }) => ({
-        ...o,
-        contacts: links
-          .filter((l) => l.contacts)
-          .map((l) => ({ ...l.contacts!, is_default: l.is_default }))
-          .sort(byPerson),
-      }));
+      return rows.map(({ organization_contacts: links, ...o }) => ({ ...o, contacts: flattenContacts(links) }));
     },
   });
 }
@@ -97,18 +105,23 @@ export function useContacts() {
         await supabase
           .from("contacts")
           .select(
-            `id, first_name, last_name, created_at, ${ADDRESS_FIELDS.join(", ")}, organization_contacts(is_default, organizations(id, name, state, country))`,
+            `id, first_name, last_name, email, created_at, ${ADDRESS_FIELDS.join(", ")}, organization_contacts(is_default, organizations(id, name, state, country)), factory_contacts(is_default, factories(id, name, country))`,
           )
           .order("last_name")
           .order("first_name"),
       ) as unknown as (Tables<"contacts"> & {
         organization_contacts: { is_default: boolean; organizations: Omit<LinkedOrganization, "is_default"> | null }[];
+        factory_contacts: { is_default: boolean; factories: Omit<LinkedFactory, "is_default"> | null }[];
       })[];
-      return rows.map(({ organization_contacts: links, ...c }) => ({
+      return rows.map(({ organization_contacts: orgLinks, factory_contacts: factoryLinks, ...c }) => ({
         ...c,
-        organizations: links
+        organizations: orgLinks
           .filter((l) => l.organizations)
           .map((l) => ({ ...l.organizations!, is_default: l.is_default }))
+          .sort(byName),
+        factories: factoryLinks
+          .filter((l) => l.factories)
+          .map((l) => ({ ...l.factories!, is_default: l.is_default }))
           .sort(byName),
       }));
     },
@@ -179,13 +192,35 @@ export function useItems() {
 export function useFactories() {
   return useQuery({
     queryKey: keys.factories,
-    queryFn: async (): Promise<Factory[]> =>
-      unwrap(
+    queryFn: async (): Promise<Factory[]> => {
+      const rows = unwrap(
         await supabase
           .from("factories")
-          .select("id, name, contact_name, country, description, created_at")
+          .select(`id, name, country, description, created_at, factory_contacts(is_default, contacts(${LINKED_CONTACT}))`)
           .order("name"),
-      ),
+      );
+      return rows.map(({ factory_contacts: links, ...f }) => ({ ...f, contacts: flattenContacts(links) }));
+    },
+  });
+}
+
+// The contacts of the signed-in factory user's factory, or client user's organization.
+// The database only returns their own links.
+export function useMyContacts(role: Role) {
+  return useQuery({
+    queryKey: keys.myContacts,
+    queryFn: async (): Promise<MyContact[]> => {
+      const contact = "contacts(id, first_name, last_name, email)";
+      const links = (
+        role === "factory"
+          ? unwrap(await supabase.from("factory_contacts").select(`owner_id:factory_id, is_default, ${contact}`))
+          : unwrap(await supabase.from("organization_contacts").select(`owner_id:organization_id, is_default, ${contact}`))
+      ) as unknown as { owner_id: string; is_default: boolean; contacts: Omit<MyContact, "is_default" | "owner_id"> | null }[];
+      return links
+        .filter((l) => l.contacts)
+        .map((l) => ({ ...l.contacts!, owner_id: l.owner_id, is_default: l.is_default }))
+        .sort(byPerson);
+    },
   });
 }
 
@@ -238,6 +273,40 @@ export function useAppErrors() {
     queryKey: keys.appErrors,
     queryFn: async (): Promise<AppError[]> =>
       unwrap(await supabase.from("app_errors").select("*").order("last_seen_at", { ascending: false }).limit(200)),
+  });
+}
+
+export type Email = Tables<"email_outbox"> & {
+  order: { id: string; margen_order_id: string } | null;
+  request: { id: string; organization_name: string } | null;
+};
+
+// Admins only: the latest emails in the outbox, with what each one is about.
+export function useEmails() {
+  return useQuery({
+    queryKey: keys.emails,
+    queryFn: async (): Promise<Email[]> =>
+      unwrap(
+        await supabase
+          .from("email_outbox")
+          .select("*, order:orders(id, margen_order_id), request:order_requests(id, organization_name)")
+          .order("created_at", { ascending: false })
+          .limit(500),
+      ),
+  });
+}
+
+export type EmailSettings = Tables<"email_settings">;
+
+// Admins only: how sending behaves on this project (off, test redirect or live).
+export function useEmailSettings() {
+  return useQuery({
+    queryKey: keys.emailSettings,
+    queryFn: async (): Promise<EmailSettings | null> => {
+      const { data, error } = await supabase.from("email_settings").select("*").maybeSingle();
+      if (error) throw new DbError(error);
+      return data;
+    },
   });
 }
 

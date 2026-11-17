@@ -7,7 +7,7 @@
 // Without a password, the person chooses one with "Forgot your password?" on the sign-in page.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const ROLES = ["admin", "factory", "client", "designer"];
+const ROLES = ["admin", "factory", "client"];
 const MIN_PASSWORD = 8;
 
 const cors = {

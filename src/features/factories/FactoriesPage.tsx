@@ -18,8 +18,9 @@ import {
 import { useDeleteRecord, useSaveRecord } from "../../data/mutations";
 import { useFactories, useNotes, useOrders, type Factory } from "../../data/queries";
 import { OPEN_ORDER_STATUSES } from "../../lib/constants";
-import { formatDate, plural } from "../../lib/format";
+import { formatDate, fullName, plural } from "../../lib/format";
 import { deleteMessage, formValues, orNull } from "../../lib/forms";
+import { LinkedContacts } from "../contacts/LinkedContacts";
 import { NotesSection } from "../notes/NotesSection";
 
 function FactoryForm({ factory }: { factory?: Factory }) {
@@ -33,19 +34,14 @@ function FactoryForm({ factory }: { factory?: Factory }) {
         className="stack"
         onSubmit={(event) => {
           const v = formValues(event);
-          const row = { name: v.name, contact_name: v.contact_name, country: orNull(v.country), description: orNull(v.description) };
+          const row = { name: v.name, country: orNull(v.country), description: orNull(v.description) };
           if (!row.name) return notify("error", "The factory needs a name.");
-          if (!row.contact_name) return notify("error", "The factory needs a contact name.");
           save.mutate({ row, id: factory?.id, label: row.name });
         }}
       >
         <label>
           Name
           <input name="name" required autoFocus autoComplete="off" defaultValue={factory?.name} />
-        </label>
-        <label>
-          Contact name
-          <input name="contact_name" required autoComplete="off" defaultValue={factory?.contact_name} placeholder="Main contact at the factory" />
         </label>
         <label>
           <Optional>Country</Optional>
@@ -93,7 +89,7 @@ export function FactoriesPage({ id, editing = false }: { id?: string; editing?: 
       head={
         <>
           <th>Name</th>
-          <th className="hide-sm">Contact name</th>
+          <th className="hide-sm">Default contact</th>
           <th className="hide-sm">Country</th>
           <th className="num">Open orders</th>
           <th className="num hide-sm">All orders</th>
@@ -102,10 +98,11 @@ export function FactoriesPage({ id, editing = false }: { id?: string; editing?: 
       rows={all.map((f) => {
         const own = allOrders.filter((o) => o.factory_id === f.id);
         const open = own.filter((o) => OPEN_ORDER_STATUSES.includes(o.order_status)).length;
+        const def = f.contacts.find((c) => c.is_default);
         return {
           key: f.id,
           to: `/factories/${f.id}`,
-          search: `${f.name} ${f.contact_name} ${f.country ?? ""} ${f.description ?? ""}`.toLowerCase(),
+          search: `${f.name} ${f.contacts.map(fullName).join(" ")} ${f.country ?? ""} ${f.description ?? ""}`.toLowerCase(),
           cells: (
             <>
               <td>
@@ -113,7 +110,7 @@ export function FactoriesPage({ id, editing = false }: { id?: string; editing?: 
                   {f.name}
                 </Link>
               </td>
-              <td className="hide-sm">{f.contact_name}</td>
+              <td className="hide-sm">{def ? fullName(def) : <Dash />}</td>
               <td className="hide-sm">
                 <OrDash>{f.country}</OrDash>
               </td>
@@ -133,6 +130,7 @@ function FactoryPage({ factory, editing }: { factory: Factory; editing: boolean 
   const orders = useOrders();
   const notes = useNotes();
   const { notify } = useNotice();
+  const defaultContact = factory.contacts.find((c) => c.is_default);
 
   const confirmDelete = () => {
     // The database refuses to delete a factory that orders are assigned to; say so before asking.
@@ -151,7 +149,6 @@ function FactoryPage({ factory, editing }: { factory: Factory; editing: boolean 
       <div className="page-head">
         <div className="title-block">
           <h1>{factory.name}</h1>
-          {factory.country && <p className="muted">{factory.country}</p>}
         </div>
         {!editing && (
           <>
@@ -164,27 +161,29 @@ function FactoryPage({ factory, editing }: { factory: Factory; editing: boolean 
           </>
         )}
       </div>
-      <div className="detail-grid">
+      {/* Full-width blocks, one under the other: details, contacts, orders, notes. */}
+      <div className="detail-grid stacked">
         <section className="card section">
           {editing ? (
             <FactoryForm factory={factory} />
           ) : (
             <>
               <h2>Details</h2>
-              <dl className="details">
+              {/* Every field is shown, empty ones as a dash, so it's clear what's missing. */}
+              <dl className="details across">
                 <div>
                   <dt>Name</dt>
                   <dd>{factory.name}</dd>
-                </div>
-                <div>
-                  <dt>Contact name</dt>
-                  <dd>{factory.contact_name}</dd>
                 </div>
                 <div>
                   <dt>Country</dt>
                   <dd>
                     <OrDash>{factory.country}</OrDash>
                   </dd>
+                </div>
+                <div>
+                  <dt>Default contact</dt>
+                  <dd>{defaultContact ? <Link to={`/contacts/${defaultContact.id}`}>{fullName(defaultContact)}</Link> : <Dash />}</dd>
                 </div>
                 <div>
                   <dt>Description</dt>
@@ -199,9 +198,12 @@ function FactoryPage({ factory, editing }: { factory: Factory; editing: boolean 
           )}
         </section>
         <section className="card section">
+          <LinkedContacts owner="factory" ownerId={factory.id} contacts={factory.contacts} who={factory.name} editing={editing} />
+        </section>
+        <section className="card section">
           <FactoryOrders factory={factory} />
         </section>
-        <section className="card section span-all">
+        <section className="card section">
           <NotesSection subject={{ factory_id: factory.id }} />
         </section>
       </div>
@@ -255,7 +257,7 @@ function FactoryOrders({ factory }: { factory: Factory }) {
             </table>
           </div>
         ) : (
-          <p className="empty">No orders assigned yet.</p>
+          <p className="empty">No orders yet.</p>
         ))}
     </>
   );

@@ -1,6 +1,6 @@
 // Must match the check constraint on profiles.role.
-export type Role = "admin" | "factory" | "client" | "designer";
-export const ROLE_LABELS: Record<Role, string> = { admin: "Admin", factory: "Factory", client: "Client", designer: "Designer" };
+export type Role = "admin" | "factory" | "client";
+export const ROLE_LABELS: Record<Role, string> = { admin: "Admin", factory: "Factory", client: "Client" };
 
 // Must match the check constraint on leads.status.
 export const LEAD_STATUSES: Record<string, string> = {
@@ -57,31 +57,34 @@ export type PageName =
   | "leads"
   | "organizations"
   | "contacts"
-  | "designs"
   | "reports"
-  | "users";
+  | "users"
+  | "emails"
+  | "my-contacts";
 
 export type Page = { name: PageName; label: string; roles: Role[]; group?: string };
 
 // Menu order, and which roles see each page. The first visible page is the home page.
 // Hiding a page here is only cosmetic: the database's access rules are what protect the data.
 export const PAGES: Page[] = [
-  { name: "dashboard", label: "Dashboard", roles: ["admin", "factory", "client", "designer"] },
+  { name: "dashboard", label: "Dashboard", roles: ["admin", "factory", "client"] },
   // Consecutive pages with the same group sit under that heading in the menu.
   // Factory users see only the orders assigned to their factory; client users only their organization's.
   { name: "customs", label: "Orders", roles: ["admin", "factory", "client"], group: "Customs" },
   // Orders sent from the public Order Entry page (#/order), waiting to be turned into orders.
   { name: "order-requests", label: "Order requests", roles: ["admin"], group: "Customs" },
   { name: "items", label: "Items", roles: ["admin"], group: "Customs" },
-  { name: "factories", label: "Factories", roles: ["admin"], group: "Customs" },
-  { name: "leads", label: "Leads", roles: ["admin"], group: "Clients" },
-  { name: "organizations", label: "Organizations", roles: ["admin"], group: "Clients" },
-  { name: "contacts", label: "Contacts", roles: ["admin"], group: "Clients" },
-  // Designers see only this page and the Dashboard.
-  { name: "designs", label: "Designs", roles: ["admin", "designer"] },
+  // Factory and client users' own contacts; the default one gets the app's emails.
+  { name: "my-contacts", label: "Contacts", roles: ["factory", "client"] },
+  { name: "leads", label: "Leads", roles: ["admin"] },
+  // Contacts belong to organizations and factories alike, so they sit outside the groups.
+  { name: "contacts", label: "Contacts", roles: ["admin"] },
   { name: "athletes", label: "Athletes", roles: ["admin"] },
-  { name: "reports", label: "Reports", roles: ["admin"] },
-  { name: "users", label: "Users", roles: ["admin"] },
+  { name: "reports", label: "Reporting", roles: ["admin"] },
+  { name: "factories", label: "Factories", roles: ["admin"], group: "Admin" },
+  { name: "organizations", label: "Organizations", roles: ["admin"], group: "Admin" },
+  { name: "users", label: "Users", roles: ["admin"], group: "Admin" },
+  { name: "emails", label: "Email log", roles: ["admin"], group: "Admin" },
 ];
 
 export const visiblePages = (role: Role) => PAGES.filter((p) => p.roles.includes(role));

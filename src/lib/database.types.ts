@@ -93,6 +93,7 @@ export type Database = {
           city: string | null
           country: string | null
           created_at: string
+          email: string | null
           first_name: string
           id: string
           last_name: string
@@ -105,6 +106,7 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          email?: string | null
           first_name: string
           id?: string
           last_name: string
@@ -117,6 +119,7 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          email?: string | null
           first_name?: string
           id?: string
           last_name?: string
@@ -125,9 +128,121 @@ export type Database = {
         }
         Relationships: []
       }
+      email_outbox: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          contact_id: string | null
+          created_at: string
+          id: string
+          kind: string
+          last_error: string | null
+          order_id: string | null
+          order_request_id: string | null
+          provider_id: string | null
+          recipient_email: string | null
+          recipient_id: string | null
+          recipient_name: string | null
+          send_after: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          last_error?: string | null
+          order_id?: string | null
+          order_request_id?: string | null
+          provider_id?: string | null
+          recipient_email?: string | null
+          recipient_id?: string | null
+          recipient_name?: string | null
+          send_after?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          last_error?: string | null
+          order_id?: string | null
+          order_request_id?: string | null
+          provider_id?: string | null
+          recipient_email?: string | null
+          recipient_id?: string | null
+          recipient_name?: string | null
+          send_after?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_outbox_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbox_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbox_order_request_id_fkey"
+            columns: ["order_request_id"]
+            isOneToOne: false
+            referencedRelation: "order_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbox_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_settings: {
+        Row: {
+          app_url: string
+          delay_minutes: number
+          from_address: string
+          id: boolean
+          mode: string
+          redirect_to: string | null
+        }
+        Insert: {
+          app_url?: string
+          delay_minutes?: number
+          from_address?: string
+          id?: boolean
+          mode?: string
+          redirect_to?: string | null
+        }
+        Update: {
+          app_url?: string
+          delay_minutes?: number
+          from_address?: string
+          id?: boolean
+          mode?: string
+          redirect_to?: string | null
+        }
+        Relationships: []
+      }
       factories: {
         Row: {
-          contact_name: string
           country: string | null
           created_at: string
           description: string | null
@@ -135,7 +250,6 @@ export type Database = {
           name: string
         }
         Insert: {
-          contact_name: string
           country?: string | null
           created_at?: string
           description?: string | null
@@ -143,7 +257,6 @@ export type Database = {
           name: string
         }
         Update: {
-          contact_name?: string
           country?: string | null
           created_at?: string
           description?: string | null
@@ -151,6 +264,42 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      factory_contacts: {
+        Row: {
+          contact_id: string
+          created_at: string
+          factory_id: string
+          is_default: boolean
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          factory_id: string
+          is_default?: boolean
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          factory_id?: string
+          is_default?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "factory_contacts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "factory_contacts_factory_id_fkey"
+            columns: ["factory_id"]
+            isOneToOne: false
+            referencedRelation: "factories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       items: {
         Row: {
@@ -682,6 +831,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_my_contact: {
+        Args: { email?: string; first_name: string; last_name: string }
+        Returns: string
+      }
+      claim_due_emails: {
+        Args: { batch?: number; secret: string }
+        Returns: Json
+      }
       convert_order_request: {
         Args: {
           margen_order_id: string
@@ -689,6 +846,15 @@ export type Database = {
           request_id: string
         }
         Returns: string
+      }
+      finish_email: {
+        Args: {
+          email_id: string
+          error: string
+          provider_id: string
+          secret: string
+        }
+        Returns: undefined
       }
       log_app_error: {
         Args: {

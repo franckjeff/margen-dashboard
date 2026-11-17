@@ -22,7 +22,7 @@ export function ReportsPage() {
     <>
       <div className="page-head">
         <div className="title-block">
-          <h1>Reports</h1>
+          <h1>Reporting</h1>
           <p className="muted">Choose filters, then download the matching data as an Excel spreadsheet.</p>
         </div>
       </div>

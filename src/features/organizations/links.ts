@@ -1,30 +1,39 @@
 import { expectRows, useDbAction } from "../../data/mutations";
 import { supabase, unwrap } from "../../lib/supabase";
 
-// Links between organizations and contacts, used from both sides' pages.
-type Link = { organization_id: string; contact_id: string };
+// Links between contacts and an organization or a factory, used from both sides' pages.
+// Each organization and factory has at most one default contact, who gets its emails.
+export type LinkOwner = "organization" | "factory";
+export type Link = { owner: LinkOwner; owner_id: string; contact_id: string };
+
+// Both link tables have the same shape; only the owner's column differs.
+type LinkTable = {
+  insert: (row: object) => PromiseLike<Parameters<typeof unwrap<null>>[0]>;
+  update: (row: object) => Filtered;
+  delete: () => Filtered;
+};
+type Filtered = {
+  eq: (column: string, value: string) => {
+    eq: (column: string, value: string) => { select: (columns: string) => PromiseLike<Parameters<typeof unwrap<unknown[]>>[0]> };
+  };
+};
+const table = (l: Link) => supabase.from(l.owner === "factory" ? "factory_contacts" : "organization_contacts") as unknown as LinkTable;
+const ownerColumn = (l: Link) => (l.owner === "factory" ? "factory_id" : "organization_id");
 
 export function useLinkActions() {
   const link = useDbAction({
-    tables: ["organization_contacts"],
-    run: async (l: Link) => unwrap(await supabase.from("organization_contacts").insert(l)),
+    tables: ["organization_contacts", "factory_contacts"],
+    run: async (l: Link) => unwrap(await table(l).insert({ [ownerColumn(l)]: l.owner_id, contact_id: l.contact_id })),
     success: () => null,
     failure: () => "Couldn't link them",
   });
 
   // The database moves the flag off the previous default contact.
   const makeDefault = useDbAction({
-    tables: ["organization_contacts"],
-    run: async ({ organization_id, contact_id }: Link) =>
+    tables: ["organization_contacts", "factory_contacts"],
+    run: async (l: Link) =>
       expectRows(
-        unwrap(
-          await supabase
-            .from("organization_contacts")
-            .update({ is_default: true })
-            .eq("organization_id", organization_id)
-            .eq("contact_id", contact_id)
-            .select("contact_id"),
-        ),
+        unwrap(await table(l).update({ is_default: true }).eq(ownerColumn(l), l.owner_id).eq("contact_id", l.contact_id).select("contact_id")),
         "The default contact wasn't changed. You may not have permission.",
       ),
     success: () => null,
@@ -32,10 +41,11 @@ export function useLinkActions() {
   });
 
   const unlink = useDbAction({
-    tables: ["organization_contacts"],
-    run: async ({ organization_id, contact_id }: Link) =>
-      unwrap(
-        await supabase.from("organization_contacts").delete().eq("organization_id", organization_id).eq("contact_id", contact_id),
+    tables: ["organization_contacts", "factory_contacts"],
+    run: async (l: Link) =>
+      expectRows(
+        unwrap(await table(l).delete().eq(ownerColumn(l), l.owner_id).eq("contact_id", l.contact_id).select("contact_id")),
+        "The contact wasn't unlinked. You may not have permission.",
       ),
     success: () => null,
     failure: () => "Couldn't unlink them",
@@ -46,4 +56,7 @@ export function useLinkActions() {
 
 // Which link a pending action is for, so only that row's button is disabled.
 export const isBusyWith = (action: { isPending: boolean; variables?: Link }, l: Link) =>
-  action.isPending && action.variables?.organization_id === l.organization_id && action.variables?.contact_id === l.contact_id;
+  action.isPending &&
+  action.variables?.owner === l.owner &&
+  action.variables?.owner_id === l.owner_id &&
+  action.variables?.contact_id === l.contact_id;

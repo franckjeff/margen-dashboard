@@ -9,7 +9,8 @@ type Address = {
   country: string | null;
 };
 
-export const fullName = (p: Person) => `${p.first_name} ${p.last_name}`;
+// Trimmed: contacts made from a factory's old single contact name have an empty last name.
+export const fullName = (p: Person) => `${p.first_name} ${p.last_name}`.trim();
 export const place = (o: Located) => [o.state, o.country].filter(Boolean).join(", ");
 export const contactLocation = (c: { city?: string | null; country?: string | null }) =>
   [c.city, c.country].filter(Boolean).join(", ");

@@ -33,7 +33,7 @@ const OrderOrganization = ({ order }: { order: Order }) =>
   order.organization ? <Link to={`/organizations/${order.organization.id}`}>{order.organization.name}</Link> : <Dash />;
 
 const OrderFactory = ({ order }: { order: Order }) =>
-  order.factory ? <Link to={`/factories/${order.factory.id}`}>{order.factory.name}</Link> : <span className="muted">Not assigned</span>;
+  order.factory ? <Link to={`/factories/${order.factory.id}`}>{order.factory.name}</Link> : <Dash />;
 
 const ShipDay = ({ day }: { day: string | null }) => (day ? <>{formatDay(day)}</> : <Dash />);
 
@@ -204,7 +204,11 @@ export function OrdersPage({ id, editing = false }: { id?: string; editing?: boo
       newLabel="New order"
       placeholder="Search orders"
       loading={loadingState([orders, orderItems])}
-      empty={factoryView ? "No orders are assigned to your factory yet." : adminView ? undefined : "You don't have any orders yet."}
+      empty="No orders yet."
+      selection={{
+        noun: "order",
+        summary: (ids) => plural(ids.reduce((sum, id) => sum + piecesIn(lines, id), 0), "piece"),
+      }}
       actions={
         adminView && (
           <Link to="/customs/import" className="button">

@@ -12,11 +12,12 @@ type TableName = keyof Database["public"]["Tables"];
 // so those are refetched too. Add a line here when a new table or embed is added.
 const INVALIDATES: Record<TableName, readonly (readonly string[])[]> = {
   organizations: [keys.organizations, keys.contacts, keys.orders, keys.notes],
-  contacts: [keys.contacts, keys.organizations, keys.notes],
-  organization_contacts: [keys.organizations, keys.contacts],
+  contacts: [keys.contacts, keys.organizations, keys.factories, keys.myContacts, keys.notes],
+  organization_contacts: [keys.organizations, keys.contacts, keys.myContacts],
+  factory_contacts: [keys.factories, keys.contacts, keys.myContacts],
   athletes: [keys.athletes, keys.notes],
   leads: [keys.leads],
-  orders: [keys.orders, keys.orderItems, keys.orderEvents, keys.orderRequests],
+  orders: [keys.orders, keys.orderItems, keys.orderEvents, keys.orderRequests, keys.emails],
   order_items: [keys.orderItems, keys.orderEvents],
   order_events: [keys.orderEvents],
   items: [keys.items, keys.orderItems, keys.orderRequests],
@@ -24,10 +25,12 @@ const INVALIDATES: Record<TableName, readonly (readonly string[])[]> = {
   notes: [keys.notes],
   note_dismissals: [keys.dismissals],
   scrapbooks: [keys.scrapbook],
-  order_requests: [keys.orderRequests],
+  order_requests: [keys.orderRequests, keys.emails],
   order_request_lines: [keys.orderRequests],
   profiles: [keys.users, ["profile"]],
   app_errors: [keys.appErrors],
+  email_outbox: [keys.emails],
+  email_settings: [keys.emailSettings],
 };
 
 export const invalidate = (queryClient: QueryClient, table: TableName) =>

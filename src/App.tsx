@@ -10,8 +10,9 @@ import { visiblePages, type PageName } from "./lib/constants";
 const AccountPage = lazy(() => import("./features/account/AccountPage").then((m) => ({ default: m.AccountPage })));
 const AthletesPage = lazy(() => import("./features/athletes/AthletesPage").then((m) => ({ default: m.AthletesPage })));
 const ContactsPage = lazy(() => import("./features/contacts/ContactsPage").then((m) => ({ default: m.ContactsPage })));
-const DesignsPage = lazy(() => import("./features/designs/DesignsPage").then((m) => ({ default: m.DesignsPage })));
+const EmailsPage = lazy(() => import("./features/emails/EmailsPage").then((m) => ({ default: m.EmailsPage })));
 const DashboardPage = lazy(() => import("./features/dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
+const MyContactsPage = lazy(() => import("./features/contacts/MyContactsPage").then((m) => ({ default: m.MyContactsPage })));
 const FactoriesPage = lazy(() => import("./features/factories/FactoriesPage").then((m) => ({ default: m.FactoriesPage })));
 const OrderEntryPage = lazy(() => import("./features/orderEntry/OrderEntryPage").then((m) => ({ default: m.OrderEntryPage })));
 const OrderRequestsPage = lazy(() =>
@@ -107,9 +108,10 @@ function AppRoutes() {
         {records("leads", (id, editing) => <LeadsPage id={id} editing={editing} />)}
         {records("organizations", (id, editing) => <OrganizationsPage id={id} editing={editing} />)}
         {records("contacts", (id, editing) => <ContactsPage id={id} editing={editing} />)}
-        <Route path="designs" element={page("designs", <DesignsPage />)} />
         <Route path="reports" element={page("reports", <ReportsPage />)} />
         <Route path="users" element={page("users", <UsersPage />)} />
+        <Route path="emails" element={page("emails", <EmailsPage />)} />
+        {records("my-contacts", (id, editing) => <MyContactsPage id={id} editing={editing} />)}
         {/* Everyone's Change password page; it's not in the menu, but linked beside Sign out. */}
         <Route path="account" element={<AccountPage />} />
         <Route path="*" element={<Navigate to={home} replace />} />

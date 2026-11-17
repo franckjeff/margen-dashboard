@@ -16,12 +16,12 @@ import {
   loadingState,
 } from "../../components/ui";
 import { useDeleteRecord, useSaveRecord } from "../../data/mutations";
-import { useContacts, useNotes, useOrders, useOrganizations, type Organization } from "../../data/queries";
-import { contactLocation, formatDate, fullName, place, plural } from "../../lib/format";
+import { useNotes, useOrders, useOrganizations, type Organization } from "../../data/queries";
+import { formatDate, fullName, place, plural } from "../../lib/format";
 import { deleteMessage, formValues, orNull } from "../../lib/forms";
 import { useUiState } from "../../lib/uiState";
 import { NotesSection } from "../notes/NotesSection";
-import { isBusyWith, useLinkActions } from "./links";
+import { LinkedContacts } from "../contacts/LinkedContacts";
 
 function OrganizationForm({ org }: { org?: Organization }) {
   const save = useSaveRecord("organizations");
@@ -184,7 +184,6 @@ function OrganizationPage({ org, editing }: { org: Organization; editing: boolea
       <div className="page-head">
         <div className="title-block">
           <h1>{org.name}</h1>
-          <p className="muted">{place(org) || "No location yet"}</p>
         </div>
         {!editing && (
           <>
@@ -197,14 +196,20 @@ function OrganizationPage({ org, editing }: { org: Organization; editing: boolea
           </>
         )}
       </div>
-      <div className="detail-grid">
+      {/* Full-width blocks, one under the other: details, contacts, orders, notes. */}
+      <div className="detail-grid stacked">
         <section className="card section">
           {editing ? (
             <OrganizationForm org={org} />
           ) : (
             <>
               <h2>Details</h2>
-              <dl className="details">
+              {/* Every field is shown, empty ones as a dash, so it's clear what's missing. */}
+              <dl className="details across">
+                <div>
+                  <dt>Name</dt>
+                  <dd>{org.name}</dd>
+                </div>
                 <div>
                   <dt>State</dt>
                   <dd>
@@ -232,99 +237,15 @@ function OrganizationPage({ org, editing }: { org: Organization; editing: boolea
           )}
         </section>
         <section className="card section">
-          <OrganizationContacts org={org} />
+          <LinkedContacts owner="organization" ownerId={org.id} contacts={org.contacts} who={org.name} editing={editing} />
         </section>
-        <section className="card section span-all">
+        <section className="card section">
           <OrganizationOrders org={org} />
         </section>
-        <section className="card section span-all">
+        <section className="card section">
           <NotesSection subject={{ organization_id: org.id }} />
         </section>
       </div>
-    </>
-  );
-}
-
-function OrganizationContacts({ org }: { org: Organization }) {
-  const contacts = useContacts();
-  const { link, makeDefault, unlink } = useLinkActions();
-  const linked = new Set(org.contacts.map((c) => c.id));
-  const available = (contacts.data ?? []).filter((c) => !linked.has(c.id));
-
-  return (
-    <>
-      <h2>
-        Contacts <Count n={org.contacts.length} />
-      </h2>
-      {org.contacts.length ? (
-        <div className="table-wrap">
-          <table className="static">
-            <tbody>
-              {org.contacts.map((c) => {
-                const l = { organization_id: org.id, contact_id: c.id };
-                return (
-                  <tr key={c.id}>
-                    <td>
-                      <Link to={`/contacts/${c.id}`} className="strong">
-                        {fullName(c)}
-                      </Link>
-                    </td>
-                    <td className="muted hide-sm">
-                      <OrDash>{contactLocation(c)}</OrDash>
-                    </td>
-                    <td>
-                      {c.is_default ? (
-                        <span className="badge">Default</span>
-                      ) : (
-                        <button type="button" className="ghost small" disabled={isBusyWith(makeDefault, l)} onClick={() => makeDefault.mutate(l)}>
-                          Make default
-                        </button>
-                      )}
-                    </td>
-                    <td className="num">
-                      <button type="button" className="ghost small" disabled={isBusyWith(unlink, l)} onClick={() => unlink.mutate(l)}>
-                        Unlink
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="empty">No contacts linked yet.</p>
-      )}
-      {org.contacts.length > 0 && !org.contacts.some((c) => c.is_default) && (
-        <p className="muted small">
-          No default contact. Choose one with <strong>Make default</strong>.
-        </p>
-      )}
-      {available.length ? (
-        <form
-          className="link-form"
-          onSubmit={(event) => {
-            const { contact } = formValues(event);
-            if (contact) link.mutate({ organization_id: org.id, contact_id: contact });
-          }}
-        >
-          <select name="contact" required aria-label="Contact to link" defaultValue="">
-            <option value="">Choose a contact to link…</option>
-            {available.map((c) => (
-              <option key={c.id} value={c.id}>
-                {fullName(c)}
-              </option>
-            ))}
-          </select>
-          <button type="submit" className="primary" disabled={link.isPending}>
-            Link
-          </button>
-        </form>
-      ) : (
-        <p className="muted small">
-          {contacts.data?.length ? "Every contact is already linked." : "No contacts yet."} <Link to="/contacts/new">Add a contact</Link>
-        </p>
-      )}
     </>
   );
 }
@@ -364,15 +285,7 @@ function OrganizationOrders({ org }: { org: Organization }) {
           </table>
         </div>
       ) : (
-        <p className="empty">
-          {orders.isPending ? (
-            "Loading…"
-          ) : (
-            <>
-              No orders yet. <Link to="/customs/new">Add one in Orders</Link> and choose this organization.
-            </>
-          )}
-        </p>
+        <p className="empty">{orders.isPending ? "Loading…" : "No orders yet."}</p>
       )}
     </>
   );

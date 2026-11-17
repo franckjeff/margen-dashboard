@@ -41,7 +41,7 @@ const data: ReportData = {
     order("2", "2026_2_PUFF"),
   ],
   organizations: [],
-  factories: [{ id: "f1", name: "Rokau", country: "China", contact_name: "Mr Lin", description: null, created_at: "" }],
+  factories: [{ id: "f1", name: "Rokau", country: "China", description: null, created_at: "", contacts: [] }],
   orderItems: lines,
   items,
 };
