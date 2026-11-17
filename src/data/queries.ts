@@ -160,7 +160,7 @@ export function useOrders() {
         await supabase
           .from("orders")
           .select(
-            "id, margen_order_id, factory_order_id, order_status, production_status, organization_id, factory_id, estimated_ship_date, actual_ship_date, shipping_method, tracking_number, created_at, organization:organizations(id, name), factory:factories(id, name)",
+            "id, margen_order_id, factory_order_id, order_status, production_status, organization_id, factory_id, estimated_ship_date, actual_ship_date, shipping_method, tracking_number, archived_at, created_at, organization:organizations(id, name), factory:factories(id, name)",
           )
           .order("created_at", { ascending: false }),
       ),

@@ -101,6 +101,8 @@ function AppRoutes() {
         <Route index element={<Navigate to={home} replace />} />
         <Route path="dashboard" element={page("dashboard", <DashboardPage />)} />
         {records("customs", (id, editing) => <OrdersPage id={id} editing={editing} />)}
+        {/* Archived orders open on their usual page, #/customs/<id>. */}
+        <Route path="archived-orders" element={page("archived-orders", <OrdersPage archived />)} />
         {records("items", (id, editing) => <ItemsPage id={id} editing={editing} />)}
         {records("factories", (id, editing) => <FactoriesPage id={id} editing={editing} />)}
         {records("order-requests", (id) => <OrderRequestsPage id={id} />)}

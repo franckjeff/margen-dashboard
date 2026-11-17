@@ -459,6 +459,16 @@ table.selectable tbody tr { cursor: default; user-select: none; }
 tbody tr.selected, tbody tr.selected:hover { background: var(--accent-soft); }
 .selection-bar { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 12px 16px; border-top: 1px solid var(--border); background: var(--surface-2); }
+/* A list split into grids, one card each, with the selection total stuck to the bottom of the screen. */
+.list-groups { display: grid; gap: 16px; min-width: 0; }
+.list-group-title { margin: 0; font-size: 15px; }
+.list-group-title button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 14px; border: 0; border-radius: 0;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.list-group-title button:hover { background: var(--surface-2); }
+.list-group.open .list-group-title button { padding-bottom: 10px; }
+.list-group.open .chevron { transform: rotate(90deg); }
+.list-groups-bar { position: sticky; bottom: 0; overflow: hidden; }
+.list-groups-bar .selection-bar { position: static; border-top: 0; }
 .my-contact-form { position: static; margin-bottom: 16px; max-width: 560px; }
 .import-help { margin: 10px 0 0; }
 .report-description { margin: 6px 0 18px; }

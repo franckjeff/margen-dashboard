@@ -638,6 +638,7 @@ export type Database = {
       orders: {
         Row: {
           actual_ship_date: string | null
+          archived_at: string | null
           created_at: string
           estimated_ship_date: string | null
           factory_id: string | null
@@ -652,6 +653,7 @@ export type Database = {
         }
         Insert: {
           actual_ship_date?: string | null
+          archived_at?: string | null
           created_at?: string
           estimated_ship_date?: string | null
           factory_id?: string | null
@@ -666,6 +668,7 @@ export type Database = {
         }
         Update: {
           actual_ship_date?: string | null
+          archived_at?: string | null
           created_at?: string
           estimated_ship_date?: string | null
           factory_id?: string | null

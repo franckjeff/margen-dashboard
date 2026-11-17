@@ -16,6 +16,7 @@ const AUDIT_FIELDS: Record<string, string> = {
   actual_ship_date: "Actual shipping date",
   shipping_method: "Shipping method",
   tracking_number: "Tracker",
+  archived_at: "Archived",
 };
 const AUDIT_ACTIONS: Record<string, string> = {
   created: "Created",
@@ -29,6 +30,7 @@ const AUDIT_ACTIONS: Record<string, string> = {
 export function auditValue(field: string, value: unknown): string {
   if (field === "order_status") return ORDER_STATUSES[value as string] ?? String(value);
   if (field === "production_status") return value ? (PRODUCTION_STATUSES[value as string] ?? String(value)) : "Not started";
+  if (field === "archived_at") return value ? "Yes" : "No";
   if (value == null) return "None";
   if (field.endsWith("_ship_date")) return formatDay(String(value));
   return String(value);

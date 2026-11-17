@@ -173,12 +173,12 @@ restore it from the Supabase dashboard; nothing is lost.
 
 ## Access tests
 
-`supabase/tests/access_rules.sql` checks the access rules above automatically: 243 checks of what
+`supabase/tests/access_rules.sql` checks the access rules above automatically: 246 checks of what
 admins, factories, clients and visitors who aren't signed in can see and change, table by
 table, plus the public and admin-only database functions and which emails are queued for whom. To run it, open the **MARGEN TEST** project,
 paste the whole file into the SQL editor and click Run.
 
 It always ends with an error, on purpose: that is how everything it did is undone, including the test
-users and records it creates. The error message is the result: `ACCESS TESTS PASSED: 243 checks`, or
+users and records it creates. The error message is the result: `ACCESS TESTS PASSED: 246 checks`, or
 `ACCESS TESTS FAILED` followed by each check that failed. It's also safe to run on the live database,
 which is worth doing once after each change goes live.

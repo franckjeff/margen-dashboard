@@ -4,7 +4,7 @@
 -- (it's also safe on MARGEN PROD, the live project). It always ends with
 -- an error, on purpose, so that nothing it does is kept: the test users and records it creates,
 -- and every change it tries, are all undone. Read the result in the error message:
---   "ACCESS TESTS PASSED: 243 checks"  or  "ACCESS TESTS FAILED: 2 of 243 checks" followed by each failure.
+--   "ACCESS TESTS PASSED: 246 checks"  or  "ACCESS TESTS FAILED: 2 of 246 checks" followed by each failure.
 --
 -- Each check runs one query as one user, then undoes it, so checks don't affect each other.
 -- Expected results:
@@ -206,15 +206,18 @@ select pg_temp.check('orders: sees nothing', 'anon', $q$select count(*) from pub
 select pg_temp.check('orders: factory updates production status', 'factory', $q$with x as (update public.orders set production_status = 'sewing' where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '1');
 select pg_temp.check('orders: factory updates shipping details', 'factory', $q$with x as (update public.orders set tracking_number = 'T1', shipping_method = 'Air', estimated_ship_date = current_date, actual_ship_date = current_date where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '1');
 select pg_temp.check('orders: factory can''t update another factory''s order', 'factory', $q$with x as (update public.orders set production_status = 'sewing' where id = '0000ace5-0000-4000-8000-0000000d0002' returning 1) select count(*) from x$q$, '0');
-select pg_temp.check('orders: factory can''t change the order status', 'factory', $q$update public.orders set order_status = 'closed' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'denied');
+select pg_temp.check('orders: factory can''t change the order status', 'factory', $q$update public.orders set order_status = 'done' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'denied');
 select pg_temp.check('orders: factory can''t change the Margen order ID', 'factory', $q$update public.orders set margen_order_id = 'X' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'denied');
 select pg_temp.check('orders: factory can''t change the organization', 'factory', $q$update public.orders set organization_id = null where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'denied');
 select pg_temp.check('orders: factory can''t hand the order to another factory', 'factory', $q$update public.orders set factory_id = '0000ace5-0000-4000-8000-0000000f0002' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'denied');
 select pg_temp.check('orders: factory can''t add', 'factory', $q$insert into public.orders (margen_order_id, factory_id) values ('ACCESS_TEST_NEW', '0000ace5-0000-4000-8000-0000000f0001')$q$, 'denied');
 select pg_temp.check('orders: factory can''t delete', 'factory', $q$with x as (delete from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('orders: can''t add', 'client', $q$insert into public.orders (margen_order_id) values ('ACCESS_TEST_NEW')$q$, 'denied');
-select pg_temp.check('orders: can''t change', 'client', $q$with x as (update public.orders set order_status = 'closed' returning 1) select count(*) from x$q$, '0');
-select pg_temp.check('orders: admin can change the status', 'admin', $q$with x as (update public.orders set order_status = 'closed' where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('orders: can''t change', 'client', $q$with x as (update public.orders set order_status = 'done' returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('orders: admin can change the status', 'admin', $q$with x as (update public.orders set order_status = 'done' where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('orders: admin can archive', 'admin', $q$with x as (update public.orders set archived_at = now() where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('orders: factory can''t archive', 'factory', $q$update public.orders set archived_at = now() where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'denied');
+select pg_temp.check('orders: client can''t archive', 'client', $q$with x as (update public.orders set archived_at = now() returning 1) select count(*) from x$q$, '0');
 
 -- Order lines: a factory sees its own orders' lines, read only.
 select pg_temp.check('order_items: factory sees only its orders'' lines', 'factory', $q$select count(*) from public.order_items where id in ('0000ace5-0000-4000-8000-0000000c0001', '0000ace5-0000-4000-8000-0000000c0002')$q$, '1');
@@ -240,7 +243,7 @@ select pg_temp.check('organizations: client sees only its own', 'client', $q$sel
 select pg_temp.check('organizations: client can''t rename its own', 'client', $q$with x as (update public.organizations set name = 'x' returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('orders: client sees only its organization''s', 'client', $q$select count(*) from public.orders where organization_id is distinct from '0000ace5-0000-4000-8000-0000000b0001'$q$, '0');
 select pg_temp.check('orders: client sees its order', 'client', $q$select count(*) from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, '1');
-select pg_temp.check('orders: client can''t change its order', 'client', $q$with x as (update public.orders set order_status = 'closed' where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('orders: client can''t change its order', 'client', $q$with x as (update public.orders set order_status = 'done' where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('orders: client can''t delete its order', 'client', $q$with x as (delete from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('order_items: client sees only its orders'' lines', 'client', $q$select count(*) from public.order_items where id in ('0000ace5-0000-4000-8000-0000000c0001', '0000ace5-0000-4000-8000-0000000c0002')$q$, '1');
 select pg_temp.check('order_items: client can''t change quantities', 'client', $q$with x as (update public.order_items set quantity = 99 returning 1) select count(*) from x$q$, '0');

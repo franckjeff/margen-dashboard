@@ -15,7 +15,7 @@ import {
   useOrders,
   useOrganizations,
 } from "../../data/queries";
-import { OPEN_LEAD_STATUSES, OPEN_ORDER_STATUSES, ROLE_LABELS } from "../../lib/constants";
+import { OPEN_LEAD_STATUSES, ROLE_LABELS, isOpenOrder } from "../../lib/constants";
 import { fullName } from "../../lib/format";
 import { DbError, messageOf, supabase } from "../../lib/supabase";
 import { NoteMeta } from "../notes/NotesSection";
@@ -98,7 +98,7 @@ function FactoryStats() {
     return <p className="muted">Your account isn't linked to a factory yet. Ask a MARGEN admin to link it on the Users page.</p>;
   }
   const all = orders.data!;
-  const open = all.filter((o) => OPEN_ORDER_STATUSES.includes(o.order_status));
+  const open = all.filter(isOpenOrder);
   return (
     <>
       <p className="muted">Orders assigned to {factory.name}.</p>
@@ -131,7 +131,7 @@ function ClientStats() {
     return <p className="muted">Your account isn't linked to an organization yet. Ask a MARGEN admin to link it on the Users page.</p>;
   }
   const all = orders.data!;
-  const open = all.filter((o) => OPEN_ORDER_STATUSES.includes(o.order_status));
+  const open = all.filter(isOpenOrder);
   return (
     <>
       <p className="muted">Orders for {organization.name}.</p>

@@ -19,7 +19,7 @@ import {
 } from "../../components/ui";
 import { expectRows, useDbAction, useDeleteRecord, useSaveRecord } from "../../data/mutations";
 import { useFactories, useOrderItems, useOrders, useOrganizations, type Order } from "../../data/queries";
-import { ORDER_STATUSES, PRODUCTION_STATUSES, productionLabel } from "../../lib/constants";
+import { ORDER_GRIDS, ORDER_STATUSES, PRODUCTION_STATUSES, productionLabel } from "../../lib/constants";
 import type { TablesUpdate } from "../../lib/database.types";
 import { formatDate, formatDay, plural } from "../../lib/format";
 import { deleteMessage, formValues, orNull } from "../../lib/forms";
@@ -172,7 +172,8 @@ function OrderForm({ order }: { order?: Order }) {
 // The Orders page, under the Customs menu: its URL is #/customs, its data the "orders" table.
 // Factory users see the same pages without client details, and change only production and shipping;
 // client users see them read only, without factory details. The database only returns each one's own orders.
-export function OrdersPage({ id, editing = false }: { id?: string; editing?: boolean }) {
+// With `archived`, the Archived orders page: only the orders an admin has archived, in one list.
+export function OrdersPage({ id, editing = false, archived = false }: { id?: string; editing?: boolean; archived?: boolean }) {
   const orders = useOrders();
   const orderItems = useOrderItems();
   const { role } = useSignedIn();
@@ -194,23 +195,25 @@ export function OrdersPage({ id, editing = false }: { id?: string; editing?: boo
     );
   }
 
-  const all = orders.data ?? [];
+  const all = (orders.data ?? []).filter((o) => Boolean(o.archived_at) === archived);
   const lines = orderItems.data ?? [];
   return (
     <ListPage
-      title="Orders"
+      title={archived ? "Archived orders" : "Orders"}
       count={all.length}
-      newTo={adminView ? "/customs/new" : undefined}
+      newTo={adminView && !archived ? "/customs/new" : undefined}
       newLabel="New order"
-      placeholder="Search orders"
+      placeholder={archived ? "Search archived orders" : "Search orders"}
       loading={loadingState([orders, orderItems])}
-      empty="No orders yet."
+      empty={archived ? "No archived orders." : "No orders yet."}
+      groups={archived ? undefined : ORDER_GRIDS.map((g) => ({ key: g.key, title: g.title, empty: "No orders." }))}
       selection={{
         noun: "order",
         summary: (ids) => plural(ids.reduce((sum, id) => sum + piecesIn(lines, id), 0), "piece"),
       }}
       actions={
-        adminView && (
+        adminView &&
+        !archived && (
           <Link to="/customs/import" className="button">
             Import from Excel
           </Link>
@@ -226,11 +229,13 @@ export function OrdersPage({ id, editing = false }: { id?: string; editing?: boo
           <th>Production</th>
           <th className={adminView ? "hide-sm" : undefined}>Est. shipping</th>
           <th className="num hide-sm">Pieces</th>
+          {archived && <th className="hide-sm">Archived</th>}
         </>
       }
       rows={all.map((o) => ({
         key: o.id,
         to: `/customs/${o.id}`,
+        group: ORDER_GRIDS.find((g) => g.statuses.includes(o.order_status))?.key,
         search: `${o.margen_order_id} ${o.factory_order_id ?? ""} ${o.organization?.name ?? ""} ${o.factory?.name ?? ""} ${ORDER_STATUSES[o.order_status]} ${productionLabel(
           o.production_status,
         )}`.toLowerCase(),
@@ -273,6 +278,7 @@ export function OrdersPage({ id, editing = false }: { id?: string; editing?: boo
               </>
             )}
             <td className="num hide-sm">{piecesIn(lines, o.id) || <Dash />}</td>
+            {archived && <td className="hide-sm">{o.archived_at && formatDate(o.archived_at)}</td>}
           </>
         ),
       }))}
@@ -282,13 +288,21 @@ export function OrdersPage({ id, editing = false }: { id?: string; editing?: boo
 }
 
 // Fields changed in place: from an order page's header, or in the factory's Orders list.
-type QuickField = "order_status" | "production_status" | "factory_id" | "estimated_ship_date";
+// "archived" takes any value to archive the order now, or "" to bring it back.
+type QuickField = "order_status" | "production_status" | "factory_id" | "estimated_ship_date" | "archived";
 const QUICK_CHANGES: Record<QuickField, (value: string) => TablesUpdate<"orders">> = {
   order_status: (value) => ({ order_status: value }),
   production_status: (value) => ({ production_status: value || null }),
   factory_id: (value) => ({ factory_id: value || null }),
   estimated_ship_date: (value) => ({ estimated_ship_date: value || null }),
+  archived: (value) => ({ archived_at: value ? new Date().toISOString() : null }),
 };
+
+// Back to the list the order is on.
+const OrdersBackLink = ({ order }: { order: Order }) =>
+  order.archived_at ? <BackLink to="/archived-orders">Archived orders</BackLink> : <BackLink to="/customs">Orders</BackLink>;
+
+const archivedNote = (order: Order) => (order.archived_at ? ` · Archived ${formatDate(order.archived_at)}` : "");
 
 function useSetOrderField(order: Order) {
   const factories = useFactories();
@@ -305,6 +319,7 @@ function useSetOrderField(order: Order) {
       const id = order.margen_order_id;
       if (field === "order_status") return `Order ${id} is now ${ORDER_STATUSES[value]}.`;
       if (field === "production_status") return `Order ${id} production: ${productionLabel(value || null)}.`;
+      if (field === "archived") return value ? `Archived order ${id}.` : `Order ${id} is back on the Orders page.`;
       if (field === "estimated_ship_date")
         return value ? `Order ${id} is estimated to ship on ${formatDay(value)}.` : `Removed the estimated shipping date of order ${id}.`;
       return value ? `Order ${id} is assigned to ${factoryName(value)}.` : `Order ${id} is no longer assigned to a factory.`;
@@ -398,11 +413,14 @@ function OrderPage({ order, editing }: { order: Order; editing: boolean }) {
 
   return (
     <>
-      <BackLink to="/customs">Orders</BackLink>
+      <OrdersBackLink order={order} />
       <div className="page-head">
         <div className="title-block">
           <h1 className="mono">{order.margen_order_id}</h1>
-          <p className="muted">{order.factory_order_id ? `Factory order ${order.factory_order_id}` : "No factory order ID yet"}</p>
+          <p className="muted">
+            {order.factory_order_id ? `Factory order ${order.factory_order_id}` : "No factory order ID yet"}
+            {archivedNote(order)}
+          </p>
         </div>
         {!editing && (
           <>
@@ -432,6 +450,14 @@ function OrderPage({ order, editing }: { order: Order; editing: boolean }) {
             <Link to={`/customs/${order.id}/edit`} className="button">
               Edit
             </Link>
+            {/* Archiving keeps the order's status; it only moves the order to Archived orders. */}
+            <button
+              type="button"
+              disabled={setField.isPending}
+              onClick={() => setField.mutate({ field: "archived", value: order.archived_at ? "" : "yes" })}
+            >
+              {order.archived_at ? "Unarchive" : "Archive"}
+            </button>
             <button type="button" className="danger" onClick={confirmDelete} disabled={remove.isPending}>
               Delete
             </button>
@@ -510,11 +536,14 @@ function FactoryOrderPage({ order }: { order: Order }) {
   const setField = useSetOrderField(order);
   return (
     <>
-      <BackLink to="/customs">Orders</BackLink>
+      <OrdersBackLink order={order} />
       <div className="page-head">
         <div className="title-block">
           <h1 className="mono">{order.margen_order_id}</h1>
-          <p className="muted">{order.factory_order_id ? `Factory order ${order.factory_order_id}` : "No factory order ID yet"}</p>
+          <p className="muted">
+            {order.factory_order_id ? `Factory order ${order.factory_order_id}` : "No factory order ID yet"}
+            {archivedNote(order)}
+          </p>
         </div>
         <ProductionSelect order={order} setField={setField} />
       </div>
@@ -546,11 +575,14 @@ function FactoryOrderPage({ order }: { order: Order }) {
 function ClientOrderPage({ order }: { order: Order }) {
   return (
     <>
-      <BackLink to="/customs">Orders</BackLink>
+      <OrdersBackLink order={order} />
       <div className="page-head">
         <div className="title-block">
           <h1 className="mono">{order.margen_order_id}</h1>
-          <p className="muted">Added {formatDate(order.created_at)}</p>
+          <p className="muted">
+            Added {formatDate(order.created_at)}
+            {archivedNote(order)}
+          </p>
         </div>
       </div>
       {/* One full-width card per row: the details read across, the items below. */}

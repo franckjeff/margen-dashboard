@@ -23,9 +23,10 @@ type Email = {
 const ORDER_STATUSES: Record<string, string> = {
   received: "Received",
   accepted: "Accepted",
+  in_production: "In production",
+  done: "Done",
   on_hold: "On hold",
   cancelled: "Cancelled",
-  closed: "Closed",
 };
 
 const reply = (status: number, body: Record<string, unknown>) =>

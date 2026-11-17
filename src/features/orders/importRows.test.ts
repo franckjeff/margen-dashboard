@@ -15,6 +15,7 @@ const order = (o: Partial<Order> & Pick<Order, "id" | "margen_order_id">): Order
   actual_ship_date: null,
   shipping_method: null,
   tracking_number: null,
+  archived_at: null,
   created_at: "2026-01-01T00:00:00Z",
   ...o,
 });
@@ -67,14 +68,14 @@ describe("checkImportRows", () => {
     const rows = checkImportRows(
       [
         raw({ margen_order_id: "B2", organization: "outrigger  canoe club" }),
-        raw({ margen_order_id: "A1", order_status: "Closed" }, 3),
+        raw({ margen_order_id: "A1", order_status: "Done" }, 3),
         raw({ margen_order_id: "A1", order_status: "Accepted" }, 4),
       ],
       orders,
       orgs,
     );
     expect(rows[0]).toMatchObject({ action: "new", change: { organization_id: "o1" } });
-    expect(rows[1]).toMatchObject({ action: "update", change: { order_status: "closed" } });
+    expect(rows[1]).toMatchObject({ action: "update", change: { order_status: "done" } });
     // The same Margen order ID twice in one file is an error.
     expect(rows[2]).toMatchObject({ action: "error", errors: ["Margen order ID is in the file twice"] });
   });

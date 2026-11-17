@@ -89,6 +89,46 @@ describe("ListPage", () => {
     expect(screen.getByRole("status")).not.toHaveTextContent("selected");
   });
 
+  it("splits rows into grids, and selects across them", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ListPage
+          title="Things"
+          count={3}
+          placeholder="Search things"
+          head={<th>Name</th>}
+          rows={[{ ...row("1", "A"), group: "late" }, { ...row("2", "B"), group: "early" }, { ...row("3", "C"), group: "late" }]}
+          loading={null}
+          groups={[
+            { key: "early", title: "Early" },
+            { key: "late", title: "Late" },
+            { key: "never", title: "Never", empty: "No things." },
+          ]}
+          selection={{ noun: "thing", summary: (keys) => `keys ${keys.join(",")}` }}
+        />
+      </MemoryRouter>,
+    );
+    const grid = (name: string) => screen.getByRole("region", { name });
+    expect(grid("Early")).toHaveTextContent("B");
+    expect(grid("Late")).toHaveTextContent("AC");
+    expect(grid("Never")).toHaveTextContent("No things.");
+    // A range runs down the screen: from B in the first grid to A in the second.
+    await user.click(screen.getByText("B"));
+    await user.keyboard("{Shift>}");
+    await user.click(screen.getByText("A"));
+    await user.keyboard("{/Shift}");
+    expect(screen.getByRole("status")).toHaveTextContent("2 things selected · keys 2,1");
+    // A collapsed grid hides its rows, and they drop out of the selection.
+    await user.click(screen.getByRole("button", { name: /Late/ }));
+    expect(screen.getByRole("button", { name: /Late/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("A")).not.toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent("1 thing selected · keys 2");
+    await user.click(screen.getByRole("button", { name: /Late/ }));
+    expect(screen.getByText("A")).toBeVisible();
+    localStorage.clear();
+  });
+
   it("counts only the selected rows still shown", async () => {
     const user = userEvent.setup();
     renderList([row("1", "Outrigger"), row("2", "Puff")], true);

@@ -16,27 +16,38 @@ export const OPEN_LEAD_STATUSES = ["new", "contacted", "qualified"];
 export const ORDER_STATUSES: Record<string, string> = {
   received: "Received",
   accepted: "Accepted",
+  in_production: "In production",
+  done: "Done",
   on_hold: "On hold",
   cancelled: "Cancelled",
-  closed: "Closed",
 };
 export const PRODUCTION_STATUSES: Record<string, string> = {
-  job_sheet_approved: "Job sheet approved",
   artwork_in_progress: "Artwork in progress",
   in_printing_queue: "In printing queue",
   sewing: "Sewing",
   trimming: "Trimming",
   shipped: "Shipped",
 };
-// Orders still being worked on, as opposed to cancelled or closed.
-export const OPEN_ORDER_STATUSES = ["received", "accepted", "on_hold"];
+// Orders still being worked on, as opposed to done or cancelled.
+export const OPEN_ORDER_STATUSES = ["received", "accepted", "in_production", "on_hold"];
+// An archived order doesn't count as open, whatever its status.
+export const isOpenOrder = (o: { order_status: string; archived_at: string | null }) =>
+  !o.archived_at && OPEN_ORDER_STATUSES.includes(o.order_status);
 export const ORDER_TONES: Record<string, string> = {
   received: "accent",
   accepted: "accent",
+  in_production: "accent",
+  done: "success",
   on_hold: "warn",
   cancelled: "muted",
-  closed: "success",
 };
+// The grids on the Orders page, top to bottom, and the order statuses each one holds.
+export const ORDER_GRIDS: { key: string; title: string; statuses: string[] }[] = [
+  { key: "new", title: "Pre-Production", statuses: ["received", "accepted", "on_hold"] },
+  { key: "in_production", title: "In production", statuses: ["in_production"] },
+  { key: "done", title: "Done", statuses: ["done"] },
+  { key: "cancelled", title: "Cancelled", statuses: ["cancelled"] },
+];
 export const productionLabel = (status: string | null) => (status ? PRODUCTION_STATUSES[status] : "Not started");
 
 // Must match the check constraint on order_items.size. Adult sizes, then junior, in display order.
@@ -50,6 +61,7 @@ export const LEAD_TEXT_FIELDS = ["organization_name", "email", "phone", "state",
 export type PageName =
   | "dashboard"
   | "customs"
+  | "archived-orders"
   | "order-requests"
   | "items"
   | "factories"
@@ -71,6 +83,8 @@ export const PAGES: Page[] = [
   // Consecutive pages with the same group sit under that heading in the menu.
   // Factory users see only the orders assigned to their factory; client users only their organization's.
   { name: "customs", label: "Orders", roles: ["admin", "factory", "client"], group: "Customs" },
+  // Orders an admin has archived, whatever their status; they leave the Orders page.
+  { name: "archived-orders", label: "Archived orders", roles: ["admin", "factory", "client"], group: "Customs" },
   // Orders sent from the public Order Entry page (#/order), waiting to be turned into orders.
   { name: "order-requests", label: "Order requests", roles: ["admin"], group: "Customs" },
   { name: "items", label: "Items", roles: ["admin"], group: "Customs" },

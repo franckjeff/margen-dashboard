@@ -17,7 +17,7 @@ import {
 } from "../../components/ui";
 import { useDeleteRecord, useSaveRecord } from "../../data/mutations";
 import { useFactories, useNotes, useOrders, type Factory } from "../../data/queries";
-import { OPEN_ORDER_STATUSES } from "../../lib/constants";
+import { isOpenOrder } from "../../lib/constants";
 import { formatDate, fullName, plural } from "../../lib/format";
 import { deleteMessage, formValues, orNull } from "../../lib/forms";
 import { LinkedContacts } from "../contacts/LinkedContacts";
@@ -97,7 +97,7 @@ export function FactoriesPage({ id, editing = false }: { id?: string; editing?: 
       }
       rows={all.map((f) => {
         const own = allOrders.filter((o) => o.factory_id === f.id);
-        const open = own.filter((o) => OPEN_ORDER_STATUSES.includes(o.order_status)).length;
+        const open = own.filter(isOpenOrder).length;
         const def = f.contacts.find((c) => c.is_default);
         return {
           key: f.id,

@@ -16,6 +16,7 @@ const order = (id: string, margen: string, extra: Partial<Order> = {}): Order =>
   actual_ship_date: null,
   shipping_method: null,
   tracking_number: null,
+  archived_at: null,
   created_at: "2026-11-02T10:00:00",
   ...extra,
 });

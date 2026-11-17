@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { plural } from "../lib/format";
+import { ChevronIcon } from "./icons";
 import { Count } from "./ui";
 
 export type ListRow = {
@@ -8,8 +9,12 @@ export type ListRow = {
   to: string; // the row's own page; clicking anywhere on the row opens it (double-clicking, in a selectable list)
   search: string; // lowercase text the search box matches against
   filteredOut?: boolean; // left out by the list's filters, whatever the search says
+  group?: string; // which grid the row sits in, for a list split into groups
   cells: ReactNode;
 };
+
+// A list can be split into grids, one card each, in this order; a row goes in the grid named by its group.
+export type ListGroup = { key: string; title: string; empty?: string };
 
 // Filters rows by a search string; rows stay mounted, so the search box keeps focus while typing.
 export function useSearch() {
@@ -29,6 +34,29 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
       onChange={(event) => onChange(event.target.value)}
     />
   );
+}
+
+// Which grids of a list are collapsed, remembered in this browser between visits.
+function useCollapsedGroups(list: string) {
+  const storageKey = `list-collapsed:${list}`;
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(storageKey) ?? "[]") as string[]);
+    } catch {
+      return new Set();
+    }
+  });
+  const toggle = (group: string) => {
+    const next = new Set(collapsed);
+    if (!next.delete(group)) next.add(group);
+    setCollapsed(next);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify([...next]));
+    } catch {
+      // Not remembered, e.g. in a private window; the grid still collapses.
+    }
+  };
+  return { collapsed, toggle };
 }
 
 // Rows the user can select like in a spreadsheet, with a total of the selected rows shown at the bottom.
@@ -110,6 +138,7 @@ export function ListPage({
   filters,
   empty = "Nothing here yet.",
   selection,
+  groups,
 }: {
   title: string;
   count: number;
@@ -125,25 +154,30 @@ export function ListPage({
   filters?: ReactNode;
   empty?: string; // shown when there are no rows at all
   selection?: ListSelection;
+  groups?: ListGroup[];
 }) {
   const navigate = useNavigate();
   const { query, setQuery, matches } = useSearch();
   const visible = (row: ListRow) => !row.filteredOut && matches(row.search);
-  const rowSelection = useRowSelection(rows.filter(visible).map((r) => r.key));
+  // Grouped rows in grid order, so a range selected across grids follows what's on screen.
+  const inGroup = (g: ListGroup) => rows.filter((r) => r.group === g.key);
+  const { collapsed, toggle } = useCollapsedGroups(title);
+  // Rows in a collapsed grid can't be selected, and drop out of the selection's total.
+  const ordered = groups ? groups.filter((g) => !collapsed.has(g.key)).flatMap(inGroup) : rows;
+  const rowSelection = useRowSelection(ordered.filter(visible).map((r) => r.key));
   const picked = rowSelection.visibleSelected;
   // A click on a link or a field inside the row is left to it.
   const onControl = (event: MouseEvent) => Boolean((event.target as HTMLElement).closest("a, button, input, select, textarea, label"));
 
-  const body =
-    loading ??
-    (rows.length ? (
+  const table = (tableRows: ListRow[], none: string) =>
+    tableRows.length ? (
       <>
         <table className={selection ? "selectable" : undefined}>
           <thead>
             <tr>{head}</tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {tableRows.map((row) => (
               <tr
                 key={row.key}
                 hidden={!visible(row)}
@@ -168,13 +202,32 @@ export function ListPage({
             ))}
           </tbody>
         </table>
-        <p className="empty no-match" hidden={rows.some(visible)}>
+        <p className="empty no-match" hidden={tableRows.some(visible)}>
           No matches.
         </p>
       </>
     ) : (
-      <p className="empty">{empty}</p>
-    ));
+      <p className="empty">{none}</p>
+    );
+
+  const bar = selection && rows.length > 0 && !loading && (
+    <div className="selection-bar" role="status">
+      {picked.length ? (
+        <>
+          <span>
+            <strong>{plural(picked.length, `${selection.noun} selected`, `${selection.noun}s selected`)}</strong>
+            {" · "}
+            {selection.summary(picked)}
+          </span>
+          <button type="button" className="ghost small" onClick={rowSelection.clear}>
+            Clear
+          </button>
+        </>
+      ) : (
+        <span className="muted small">Click rows to select them: drag or Shift-click for a range, Ctrl-click to add one. Double-click to open.</span>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -192,29 +245,34 @@ export function ListPage({
         )}
       </div>
       <div className={`layout${panel ? " has-panel" : ""}`}>
-        <section className="card list">
-          {body}
-          {selection && rows.length > 0 && !loading && (
-            <div className="selection-bar" role="status">
-              {picked.length ? (
-                <>
-                  <span>
-                    <strong>{plural(picked.length, `${selection.noun} selected`, `${selection.noun}s selected`)}</strong>
-                    {" · "}
-                    {selection.summary(picked)}
-                  </span>
-                  <button type="button" className="ghost small" onClick={rowSelection.clear}>
-                    Clear
-                  </button>
-                </>
-              ) : (
-                <span className="muted small">
-                  Click rows to select them: drag or Shift-click for a range, Ctrl-click to add one. Double-click to open.
-                </span>
-              )}
-            </div>
-          )}
-        </section>
+        {groups && !loading && rows.length > 0 ? (
+          <div className="list-groups">
+            {groups.map((g) => {
+              const groupRows = inGroup(g);
+              const open = !collapsed.has(g.key);
+              const id = `list-group-${g.key}`;
+              return (
+                <section key={g.key} className={`card list list-group${open ? " open" : ""}`} aria-label={g.title}>
+                  <h2 className="list-group-title">
+                    <button type="button" aria-expanded={open} aria-controls={id} onClick={() => toggle(g.key)}>
+                      <ChevronIcon />
+                      {g.title} <Count n={groupRows.filter(visible).length} />
+                    </button>
+                  </h2>
+                  <div id={id} hidden={!open}>
+                    {table(groupRows, g.empty ?? "None.")}
+                  </div>
+                </section>
+              );
+            })}
+            {bar && <div className="card list-groups-bar">{bar}</div>}
+          </div>
+        ) : (
+          <section className="card list">
+            {loading ?? table(rows, empty)}
+            {bar}
+          </section>
+        )}
         {panel && <aside className="card panel">{panel}</aside>}
       </div>
     </>
