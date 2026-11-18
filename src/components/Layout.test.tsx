@@ -8,6 +8,7 @@ vi.mock("../auth/AuthProvider", () => ({
   useSignedIn: () => ({ email: "factory@example.com", role: "factory" }),
 }));
 vi.mock("../lib/supabase", () => ({ supabase: { auth: { signOut: vi.fn() } } }));
+vi.mock("../data/queries", () => ({ useOpenOrderCount: () => ({ data: 7 }) }));
 
 // jsdom has no media queries; pretend the window is wide, or narrow.
 const setWide = (wide: boolean) => {
@@ -66,9 +67,9 @@ describe("folding the menu", () => {
   });
 });
 
-describe("the version", () => {
-  it("shows at the bottom of the menu (dev while running locally)", () => {
+describe("the order count", () => {
+  it("shows beside Orders in progress", () => {
     renderLayout();
-    expect(document.querySelector(".sidebar .app-version")).toHaveTextContent("dev");
+    expect(screen.getByRole("link", { name: /Orders in progress/ })).toHaveTextContent("Orders in progress(7)");
   });
 });

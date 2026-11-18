@@ -174,6 +174,19 @@ export function useOrders() {
   });
 }
 
+// How many orders are on the Orders in progress page (every order not archived), for the menu.
+// Only the number comes back. It sits under keys.orders, so any change to orders refreshes it.
+export function useOpenOrderCount() {
+  return useQuery({
+    queryKey: [...keys.orders, "openCount"],
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase.from("orders").select("id", { count: "exact", head: true }).is("archived_at", null);
+      if (error) throw new DbError(error);
+      return count ?? 0;
+    },
+  });
+}
+
 // Written by a database trigger on every order change; newest first, with who made it.
 export function useOrderEvents() {
   return useQuery({

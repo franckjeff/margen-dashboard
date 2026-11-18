@@ -180,7 +180,7 @@ function AccountSection({ factory }: { factory: boolean }) {
       </p>
       <h3>The menu</h3>
       <p>
-        Your menu has <Ui>Dashboard</Ui>, your home page; <Ui>Orders</Ui> and <Ui>Archived orders</Ui>, under <em>Customs</em>;{" "}
+        Your menu has <Ui>Dashboard</Ui>, your home page; <Ui>Orders in progress</Ui> and <Ui>Archived orders</Ui>, under <em>Customs</em>;{" "}
         <Ui>Contacts</Ui>, the people at {factory ? "your factory" : "your organization"}; and this <Ui>User guide</Ui>. Click{" "}
         <em>Customs</em> to open or close its group. At the bottom you'll find your email, your access level (
         <em>{factory ? "Factory" : "Client"}</em>), a button that switches between light and dark mode, and the links{" "}
@@ -267,7 +267,7 @@ function OrdersSection({ factory }: { factory: boolean }) {
   return (
     <>
       <p>
-        Click <Ui>Orders</Ui> in the menu, or any count on the Dashboard, to see {factory ? "the orders assigned to your factory" : "your organization's orders"}, newest first. They're split into four grids by order status:
+        Click <Ui>Orders in progress</Ui> in the menu, or any count on the Dashboard, to see {factory ? "the orders assigned to your factory" : "your organization's orders"}, newest first. They're split into four grids by order status:
       </p>
       <div className="table-wrap">
         <table className="static">

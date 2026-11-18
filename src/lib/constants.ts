@@ -86,7 +86,7 @@ export const PAGES: Page[] = [
   { name: "dashboard", label: "Dashboard", roles: ["admin", "factory", "client"] },
   // Consecutive pages with the same group sit under that heading in the menu.
   // Factory users see only the orders assigned to their factory; client users only their organization's.
-  { name: "customs", label: "Orders", roles: ["admin", "factory", "client"], group: "Customs" },
+  { name: "customs", label: "Orders in progress", roles: ["admin", "factory", "client"], group: "Customs" },
   // Orders an admin has archived, whatever their status; they leave the Orders page.
   { name: "archived-orders", label: "Archived orders", roles: ["admin", "factory", "client"], group: "Customs" },
   // Signed-in clients send orders with items and sizes here; admins can send one for a client.
