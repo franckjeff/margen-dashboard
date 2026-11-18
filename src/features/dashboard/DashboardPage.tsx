@@ -3,23 +3,13 @@ import { Link } from "react-router";
 import { useSignedIn } from "../../auth/AuthProvider";
 import { useNotice } from "../../components/Notice";
 import { Count, loadingState } from "../../components/ui";
-import {
-  keys,
-  useAthletes,
-  useContacts,
-  useDismissals,
-  useFactories,
-  useLeads,
-  useNotes,
-  useOrderRequests,
-  useOrders,
-  useOrganizations,
-} from "../../data/queries";
-import { OPEN_LEAD_STATUSES, ROLE_LABELS, isOpenOrder } from "../../lib/constants";
+import { keys, useDashboardCounts, useDismissals, useFactories, useNotes, useOrders, useOrganizations } from "../../data/queries";
+import { ROLE_LABELS, isOpenOrder } from "../../lib/constants";
 import { fullName } from "../../lib/format";
 import { DbError, messageOf, supabase } from "../../lib/supabase";
 import { NoteMeta } from "../notes/NotesSection";
 import { AppErrors } from "./AppErrors";
+import { OrderFlow } from "./OrderFlow";
 import { Scrapbook } from "./Scrapbook";
 import { dailyLine, greeting, quoteOfTheDay } from "./welcome";
 
@@ -79,6 +69,7 @@ export function DashboardPage() {
   return (
     <>
       <Welcome />
+      <OrderFlow />
       <AdminStats />
       <Scrapbook />
       <DashboardNotes />
@@ -153,13 +144,9 @@ function ClientStats() {
   );
 }
 
+// Counted by the database in one request, rather than loading each table to count it.
 function AdminStats() {
-  const orders = useOrders();
-  const leads = useLeads();
-  const athletes = useAthletes();
-  const organizations = useOrganizations();
-  const contacts = useContacts();
-  const requests = useOrderRequests();
+  const counts = useDashboardCounts().data;
   const stat = (label: string, value: number | undefined, to: string) => (
     <Link to={to} className="card stat">
       <span className="stat-label">{label}</span>
@@ -168,14 +155,14 @@ function AdminStats() {
   );
   return (
     <div className="stats">
-      {stat("Orders", orders.data?.length, "/customs")}
-      {stat("New order requests", requests.data?.filter((r) => r.status === "new").length, "/order-requests")}
-      {stat("Open leads", leads.data?.filter((l) => OPEN_LEAD_STATUSES.includes(l.status)).length, "/leads")}
-      {stat("Athletes", athletes.data?.length, "/athletes")}
-      {stat("Organizations", organizations.data?.length, "/organizations")}
-      {stat("Contacts", contacts.data?.length, "/contacts")}
-      {stat("Links", organizations.data?.reduce((sum, o) => sum + o.contacts.length, 0), "/organizations")}
-      {stat("Contacts without an organization", contacts.data?.filter((c) => !c.organizations.length).length, "/contacts")}
+      {stat("Orders", counts?.orders, "/customs")}
+      {stat("New order requests", counts?.new_order_requests, "/order-requests")}
+      {stat("Open leads", counts?.open_leads, "/leads")}
+      {stat("Athletes", counts?.athletes, "/athletes")}
+      {stat("Organizations", counts?.organizations, "/organizations")}
+      {stat("Contacts", counts?.contacts, "/contacts")}
+      {stat("Links", counts?.links, "/organizations")}
+      {stat("Contacts without an organization", counts?.contacts_without_organization, "/contacts")}
     </div>
   );
 }
@@ -184,10 +171,6 @@ function AdminStats() {
 function DashboardNotes() {
   const notes = useNotes();
   const dismissals = useDismissals();
-  const contacts = useContacts();
-  const athletes = useAthletes();
-  const factories = useFactories();
-  const organizations = useOrganizations();
   const queryClient = useQueryClient();
   const { notify } = useNotice();
 
@@ -205,24 +188,16 @@ function DashboardNotes() {
     },
   });
 
-  const waiting = loadingState([notes, dismissals, contacts, athletes, factories, organizations]);
+  const waiting = loadingState([notes, dismissals]);
   if (waiting) return <section className="card section dashboard-notes">{waiting}</section>;
 
   const visible = notes.data!.filter((n) => !dismissals.data!.has(n.id));
+  // Each note comes with the name of what it's about (see useNotes).
   const subjectOf = (n: (typeof visible)[number]) => {
-    if (n.contact_id) {
-      const contact = contacts.data!.find((c) => c.id === n.contact_id);
-      return { kind: "Contact", to: `/contacts/${n.contact_id}`, name: contact && fullName(contact) };
-    }
-    if (n.organization_id) {
-      const organization = organizations.data!.find((o) => o.id === n.organization_id);
-      return { kind: "Organization", to: `/organizations/${n.organization_id}`, name: organization?.name };
-    }
-    if (n.factory_id) {
-      return { kind: "Factory", to: `/factories/${n.factory_id}`, name: factories.data!.find((f) => f.id === n.factory_id)?.name };
-    }
-    const athlete = athletes.data!.find((a) => a.id === n.athlete_id);
-    return { kind: "Athlete", to: `/athletes/${n.athlete_id}`, name: athlete && fullName(athlete) };
+    if (n.contact_id) return { kind: "Contact", to: `/contacts/${n.contact_id}`, name: n.contact && fullName(n.contact) };
+    if (n.organization_id) return { kind: "Organization", to: `/organizations/${n.organization_id}`, name: n.organization?.name };
+    if (n.factory_id) return { kind: "Factory", to: `/factories/${n.factory_id}`, name: n.factory?.name };
+    return { kind: "Athlete", to: `/athletes/${n.athlete_id}`, name: n.athlete && fullName(n.athlete) };
   };
 
   return (

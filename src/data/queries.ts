@@ -29,6 +29,8 @@ export const keys = {
   emailSettings: ["emailSettings"] as const,
   myContacts: ["myContacts"] as const,
   users: ["users"] as const,
+  statusColors: ["statusColors"] as const,
+  dashboardCounts: ["dashboardCounts"] as const,
 };
 
 export type Profile = { role: Role | null; firstName: string | null };
@@ -55,6 +57,11 @@ export type OrderEvent = Pick<Tables<"order_events">, "id" | "order_id" | "actio
 };
 export type Note = Pick<Tables<"notes">, "id" | "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "body" | "created_at"> & {
   author: { email: string | null } | null;
+  // The name of what the note is about, so the Dashboard needn't load every contact, athlete, organization and factory.
+  contact: { first_name: string; last_name: string } | null;
+  athlete: { first_name: string; last_name: string } | null;
+  organization: { name: string } | null;
+  factory: { name: string } | null;
 };
 export type User = Pick<Tables<"profiles">, "id" | "email" | "first_name" | "factory_id" | "organization_id" | "created_at"> & {
   role: Role;
@@ -241,7 +248,9 @@ export function useNotes() {
       unwrap(
         await supabase
           .from("notes")
-          .select("id, contact_id, athlete_id, factory_id, organization_id, body, created_at, author:profiles!notes_created_by_fkey(email)")
+          .select(
+            "id, contact_id, athlete_id, factory_id, organization_id, body, created_at, author:profiles!notes_created_by_fkey(email), contact:contacts(first_name, last_name), athlete:athletes(first_name, last_name), organization:organizations(name), factory:factories(name)",
+          )
           .order("created_at", { ascending: false }),
       ),
   });
@@ -251,7 +260,7 @@ export function useNotes() {
 export type OrderRequestLine = Pick<Tables<"order_request_lines">, "id" | "item_id" | "size" | "quantity"> & { item: { name: string } | null };
 export type OrderRequest = Tables<"order_requests"> & { lines: OrderRequestLine[] };
 
-// Order requests sent from the public Order Entry page, newest first, with their lines. Admins only.
+// Order requests sent by clients from the Order Entry page, newest first, with their lines. Admins only.
 export function useOrderRequests() {
   return useQuery({
     queryKey: keys.orderRequests,
@@ -265,20 +274,22 @@ export function useOrderRequests() {
   });
 }
 
-export type AppError = Tables<"app_errors">;
+const APP_ERROR_COLUMNS = "id, kind, message, detail, page, user_agent, user_email, user_role, count, created_at, last_seen_at";
+export type AppError = Omit<Tables<"app_errors">, "user_id">;
 
 // Errors users hit in the last 90 days, most recent first. Only admins can read them.
 export function useAppErrors() {
   return useQuery({
     queryKey: keys.appErrors,
     queryFn: async (): Promise<AppError[]> =>
-      unwrap(await supabase.from("app_errors").select("*").order("last_seen_at", { ascending: false }).limit(200)),
+      unwrap(await supabase.from("app_errors").select(APP_ERROR_COLUMNS).order("last_seen_at", { ascending: false }).limit(200)),
   });
 }
 
 export type Email = Tables<"email_outbox"> & {
   order: { id: string; margen_order_id: string } | null;
   request: { id: string; organization_name: string } | null;
+  lead: { id: string; first_name: string; last_name: string; organization_name: string | null } | null;
 };
 
 // Admins only: the latest emails in the outbox, with what each one is about.
@@ -289,7 +300,7 @@ export function useEmails() {
       unwrap(
         await supabase
           .from("email_outbox")
-          .select("*, order:orders(id, margen_order_id), request:order_requests(id, organization_name)")
+          .select("*, order:orders(id, margen_order_id), request:order_requests(id, organization_name), lead:leads(id, first_name, last_name, organization_name)")
           .order("created_at", { ascending: false })
           .limit(500),
       ),
@@ -307,6 +318,45 @@ export function useEmailSettings() {
       if (error) throw new DbError(error);
       return data;
     },
+  });
+}
+
+// Badge colours admins chose on the Status colors page, read by everyone signed in.
+// "order:received" -> "#ffa94d"; a status that isn't listed keeps the app's built-in colour.
+// The admin Dashboard's numbers, counted by the database (see the dashboard_counts migration)
+// so the Dashboard doesn't load whole tables to count them.
+export type DashboardCounts = {
+  orders: number;
+  order_statuses: Record<string, number>;
+  new_order_requests: number;
+  open_leads: number;
+  athletes: number;
+  organizations: number;
+  contacts: number;
+  links: number;
+  contacts_without_organization: number;
+};
+
+export function useDashboardCounts() {
+  return useQuery({
+    queryKey: keys.dashboardCounts,
+    queryFn: async () => unwrap(await supabase.rpc("dashboard_counts")) as DashboardCounts,
+  });
+}
+
+export type StatusColors = Record<string, string>;
+export const statusColorKey = (kind: "order" | "production", status: string) => `${kind}:${status}`;
+
+export function useStatusColors() {
+  return useQuery({
+    queryKey: keys.statusColors,
+    queryFn: async (): Promise<StatusColors> => {
+      const { data, error } = await supabase.from("status_colors").select("kind, status, background");
+      if (error) throw new DbError(error);
+      return Object.fromEntries(data.map((c) => [statusColorKey(c.kind as "order" | "production", c.status), c.background]));
+    },
+    // They rarely change; a badge doesn't need to refetch them on every page.
+    staleTime: 5 * 60_000,
   });
 }
 

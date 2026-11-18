@@ -38,12 +38,12 @@ export function OrderRequestsPage({ id }: { id?: string }) {
       count={all.length}
       placeholder="Search requests"
       loading={loadingState([requests])}
-      empty="No order requests yet. Clients send them from the public order form."
+      empty="No order requests yet. Signed-in clients send them from the Place an order page."
       actions={
-        // The page clients use; share this link with them.
-        <a href="#/order" target="_blank" rel="noreferrer" className="button">
-          Public order form
-        </a>
+        // The page signed-in clients use; admins can send an order for a client here too.
+        <Link to="/order" className="button">
+          Place an order
+        </Link>
       }
       head={
         <>

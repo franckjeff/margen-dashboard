@@ -112,7 +112,13 @@ describe("ListPage", () => {
     const grid = (name: string) => screen.getByRole("region", { name });
     expect(grid("Early")).toHaveTextContent("B");
     expect(grid("Late")).toHaveTextContent("AC");
+    // An empty grid starts collapsed, and opens on request.
+    const never = screen.getByRole("button", { name: /Never/ });
+    expect(never).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("No things.")).not.toBeVisible();
+    await user.click(never);
     expect(grid("Never")).toHaveTextContent("No things.");
+    expect(screen.getByText("No things.")).toBeVisible();
     // A range runs down the screen: from B in the first grid to A in the second.
     await user.click(screen.getByText("B"));
     await user.keyboard("{Shift>}");
@@ -126,6 +132,8 @@ describe("ListPage", () => {
     expect(screen.getByRole("status")).toHaveTextContent("1 thing selected · keys 2");
     await user.click(screen.getByRole("button", { name: /Late/ }));
     expect(screen.getByText("A")).toBeVisible();
+    // Each choice is remembered in this browser.
+    expect(JSON.parse(localStorage.getItem("list-collapsed:Things")!)).toEqual({ never: true, late: true });
     localStorage.clear();
   });
 

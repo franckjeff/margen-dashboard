@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
 import logo from "../assets/margen-logo.svg";
 import { useSignedIn } from "../auth/AuthProvider";
@@ -15,6 +15,28 @@ export const Logo = () => <img src={logo} alt="MARGEN" className="logo" />;
 
 type MenuEntry = Page | { group: string; pages: Page[] };
 
+// Whether the menu is folded away, remembered in this browser. Storage can be blocked, so it's optional.
+const MENU_KEY = "menu-collapsed";
+function useMenuCollapsed() {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(MENU_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const set = (next: boolean) => {
+    setCollapsed(next);
+    try {
+      if (next) localStorage.setItem(MENU_KEY, "1");
+      else localStorage.removeItem(MENU_KEY);
+    } catch {
+      // Not remembered; it still works for this visit.
+    }
+  };
+  return [collapsed, set] as const;
+}
+
 export function Layout() {
   const { email, role } = useSignedIn();
   const { pathname } = useLocation();
@@ -22,6 +44,7 @@ export function Layout() {
   const { theme, toggle } = useTheme();
   // Menu group name -> open (true) or closed (false), once the user toggles it.
   const [menuGroups, setMenuGroups] = useUiState<Record<string, boolean>>("menuGroups", {});
+  const [menuCollapsed, setMenuCollapsed] = useMenuCollapsed();
   const page = pathname.split("/")[1];
 
   // A notice is dropped on navigation, except the one that announced the navigation itself.
@@ -48,8 +71,26 @@ export function Layout() {
   const themeLabel = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
+    <div className={`app-shell${menuCollapsed ? " menu-collapsed" : ""}`}>
+      {/* Double-clicking the menu's background (not a link or button) folds it to a thin strip. */}
+      <aside
+        className={`sidebar${menuCollapsed ? " collapsed" : ""}`}
+        onDoubleClick={(e) => {
+          if (menuCollapsed || (e.target as HTMLElement).closest("a, button, input, select, textarea")) return;
+          if (!window.matchMedia("(min-width: 861px)").matches) return;
+          window.getSelection()?.removeAllRanges();
+          setMenuCollapsed(true);
+        }}
+      >
+        <button
+          type="button"
+          className="menu-expand"
+          onClick={() => setMenuCollapsed(false)}
+          aria-label="Show the menu"
+          title="Show the menu"
+        >
+          <ChevronIcon />
+        </button>
         <Link to={`/${pages[0].name}`} className="brand" aria-label="MARGEN Dashboard home">
           <Logo />
         </Link>
@@ -93,6 +134,9 @@ export function Layout() {
               Sign out
             </button>
           </div>
+          <p className="app-version" title="The version of the app you're using">
+            {__APP_VERSION__}
+          </p>
         </div>
       </aside>
       <main className="page">

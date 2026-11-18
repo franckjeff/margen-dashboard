@@ -10,6 +10,7 @@ export const LEAD_STATUSES: Record<string, string> = {
   converted: "Converted",
   lost: "Lost",
 };
+// Must match the open leads counted by the dashboard_counts database function.
 export const OPEN_LEAD_STATUSES = ["new", "contacted", "qualified"];
 
 // Must match the check constraints on orders.order_status and orders.production_status.
@@ -34,12 +35,12 @@ export const OPEN_ORDER_STATUSES = ["received", "accepted", "in_production", "on
 export const isOpenOrder = (o: { order_status: string; archived_at: string | null }) =>
   !o.archived_at && OPEN_ORDER_STATUSES.includes(o.order_status);
 export const ORDER_TONES: Record<string, string> = {
-  received: "accent",
-  accepted: "accent",
-  in_production: "accent",
+  received: "orange",
+  accepted: "yellow",
+  in_production: "yellow",
   done: "success",
   on_hold: "warn",
-  cancelled: "muted",
+  cancelled: "danger",
 };
 // The grids on the Orders page, top to bottom, and the order statuses each one holds.
 export const ORDER_GRIDS: { key: string; title: string; statuses: string[] }[] = [
@@ -61,6 +62,7 @@ export const LEAD_TEXT_FIELDS = ["organization_name", "email", "phone", "state",
 export type PageName =
   | "dashboard"
   | "customs"
+  | "order"
   | "archived-orders"
   | "order-requests"
   | "items"
@@ -72,7 +74,9 @@ export type PageName =
   | "reports"
   | "users"
   | "emails"
-  | "my-contacts";
+  | "my-contacts"
+  | "guide"
+  | "status-colors";
 
 export type Page = { name: PageName; label: string; roles: Role[]; group?: string };
 
@@ -85,7 +89,9 @@ export const PAGES: Page[] = [
   { name: "customs", label: "Orders", roles: ["admin", "factory", "client"], group: "Customs" },
   // Orders an admin has archived, whatever their status; they leave the Orders page.
   { name: "archived-orders", label: "Archived orders", roles: ["admin", "factory", "client"], group: "Customs" },
-  // Orders sent from the public Order Entry page (#/order), waiting to be turned into orders.
+  // Signed-in clients send orders with items and sizes here; admins can send one for a client.
+  { name: "order", label: "Place an order", roles: ["admin", "client"], group: "Customs" },
+  // Orders sent from the Order Entry page (#/order), waiting to be turned into orders.
   { name: "order-requests", label: "Order requests", roles: ["admin"], group: "Customs" },
   { name: "items", label: "Items", roles: ["admin"], group: "Customs" },
   // Factory and client users' own contacts; the default one gets the app's emails.
@@ -99,6 +105,10 @@ export const PAGES: Page[] = [
   { name: "organizations", label: "Organizations", roles: ["admin"], group: "Admin" },
   { name: "users", label: "Users", roles: ["admin"], group: "Admin" },
   { name: "emails", label: "Email log", roles: ["admin"], group: "Admin" },
+  // The colour of each status badge, for everyone.
+  { name: "status-colors", label: "Status colors", roles: ["admin"], group: "Admin" },
+  // How the app works, written for factory or client users; admins can read either version.
+  { name: "guide", label: "User guide", roles: ["admin", "factory", "client"] },
 ];
 
 export const visiblePages = (role: Role) => PAGES.filter((p) => p.roles.includes(role));

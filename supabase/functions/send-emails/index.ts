@@ -12,9 +12,10 @@ type Settings = { mode: "off" | "redirect" | "live"; redirect_to: string | null;
 type Details = Record<string, string | number | null>;
 type Email = {
   id: string;
-  kind: "order_assigned" | "order_shipped" | "order_request";
+  kind: "order_assigned" | "order_shipped" | "order_request" | "quote_request";
   order_id: string | null;
   order_request_id: string | null;
+  lead_id: string | null;
   recipient_email: string;
   details: Details | null;
 };
@@ -32,7 +33,7 @@ const ORDER_STATUSES: Record<string, string> = {
 const reply = (status: number, body: Record<string, unknown>) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-// Everything from the database is escaped: order requests come from a public page.
+// Everything from the database is escaped: quote requests come from a public page.
 const escape = (value: unknown) =>
   String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -116,7 +117,7 @@ function write(email: Email, appUrl: string) {
         subject: `New order request from ${d.organization_name}`,
         ...layout(
           `New order request from ${d.organization_name}`,
-          [hello, "Someone sent an order request from the Order Entry page."],
+          [hello, "A client sent an order request from the Order Entry page."],
           [
             ["Organization", d.organization_name],
             ["Contact", d.contact_name],
@@ -126,6 +127,24 @@ function write(email: Email, appUrl: string) {
             ["Notes", d.notes],
           ],
           { label: "Review the request", url: `${appUrl}/#/order-requests/${email.order_request_id}` },
+        ),
+      };
+    // To the admins: someone asked for a quote on the public page. It is saved as a lead.
+    case "quote_request":
+      return {
+        subject: `New quote request from ${d.organization_name || d.contact_name}`,
+        ...layout(
+          `New quote request from ${d.organization_name || d.contact_name}`,
+          [hello, "Someone asked for a quote on the MARGEN website. They are now on the Leads page."],
+          [
+            ["Name", d.contact_name],
+            ["Organization", d.organization_name],
+            ["Email", d.email],
+            ["Phone", d.phone],
+            ["Country", d.country],
+            ["Message", d.notes],
+          ],
+          { label: "Open the lead", url: `${appUrl}/#/leads/${email.lead_id}` },
         ),
       };
   }
@@ -152,7 +171,7 @@ Deno.serve(async (req) => {
     let providerId: string | null = null;
     let failure: string | null = null;
     try {
-      if (!email.details) throw new Error("The order or request no longer exists.");
+      if (!email.details) throw new Error("The order, request or lead no longer exists.");
       const message = write(email, appUrl);
       // On MARGEN TEST every email goes to one address, its subject saying who it was for.
       const redirect = settings.mode === "redirect";

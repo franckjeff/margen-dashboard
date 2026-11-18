@@ -174,7 +174,61 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 .login-card p { margin: 0; }
 .login-link { justify-self: center; font-size: 0.85rem; }
 
-/* ---------- public order entry (#/order) ---------- */
+/* ---------- public home: what people see before signing in ---------- */
+
+.home { min-height: 100vh; background: var(--bg); }
+.home-head {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap;
+  padding: 14px max(16px, calc((100vw - 1100px) / 2));
+  background: var(--navy); border-bottom: 1px solid rgb(255 255 255 / 0.08);
+}
+.home-head .logo { height: 22px; }
+.home-nav { display: flex; align-items: center; gap: 6px 22px; flex-wrap: wrap; }
+.home-nav .link-button { color: rgb(255 255 255 / 0.8); text-decoration: none; font: 400 0.72rem var(--heading); text-transform: uppercase; letter-spacing: 0.2em; }
+.home-nav .link-button:hover { color: #ffffff; }
+.home-signin, .home-ghost { background: transparent; border-color: rgb(255 255 255 / 0.4); color: #ffffff; }
+.home-signin:hover, .home-ghost:hover { background: rgb(255 255 255 / 0.08); border-color: #ffffff; }
+.home .home-cta { background: var(--green); border-color: var(--green); color: var(--dark-navy); }
+.home .home-cta:hover { background: var(--green); border-color: var(--green); filter: brightness(1.08); }
+
+.home-hero {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 40px; align-items: center;
+  padding: 64px max(16px, calc((100vw - 1100px) / 2)) 72px;
+  background: var(--navy); color: #ffffff;
+}
+.home-hero-text { display: grid; gap: 18px; justify-items: start; max-width: 560px; }
+.home-hero h1 { font-size: clamp(1.4rem, 3.4vw, 2.2rem); letter-spacing: 0.22em; line-height: 1.35; }
+.home-intro { margin: 0; font-size: 1.05rem; line-height: 1.6; color: rgb(255 255 255 / 0.82); }
+.home-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.home-signin-card { scroll-margin-top: 90px; }
+.home-signin-card .login-card { box-shadow: 0 12px 40px rgb(0 12 28 / 0.35); color: var(--text); }
+
+.home-section { max-width: 1100px; margin: 0 auto; padding: 64px 16px 8px; scroll-margin-top: 60px; }
+.home-section h2 { font-size: 1.15rem; font-weight: 300; margin-bottom: 18px; }
+.home-section h3 { margin: 0 0 6px; color: var(--text); }
+.home-lead { max-width: 760px; margin: 0 0 12px; font-size: 1rem; line-height: 1.7; }
+.home-steps, .home-reasons { list-style: none; margin: 24px 0 0; padding: 0; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.home-steps .card, .home-reasons .card { padding: 20px; }
+.home-steps p, .home-reasons p { margin: 0; color: var(--muted); line-height: 1.6; }
+.home-reasons .card { border-top: 3px solid var(--green); }
+.home-step-n {
+  display: inline-grid; place-items: center; width: 30px; height: 30px; margin-bottom: 12px; border-radius: 50%;
+  background: var(--navy); color: var(--green); font: 500 0.85rem var(--heading);
+}
+.home-quote { padding-bottom: 64px; }
+.home-quote .card { padding: 32px; display: grid; gap: 4px; justify-items: start; border-left: 5px solid var(--green); }
+.home-quote .home-cta { margin-top: 10px; }
+.home-orders-note { justify-self: stretch; margin: 18px 0 6px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); }
+.home-foot { display: grid; justify-items: center; gap: 10px; padding: 32px 16px; background: var(--navy); }
+
+@media (max-width: 860px) {
+  .home-hero { grid-template-columns: minmax(0, 1fr); padding-top: 40px; padding-bottom: 48px; }
+  .home-signin-card { justify-self: center; }
+  .home-section { padding-top: 48px; }
+}
+
+/* ---------- public pages (#/quote, #/design) and the order entry page (#/order) ---------- */
 
 .public-head {
   display: flex;
@@ -184,9 +238,12 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
   padding: 18px max(16px, calc((100vw - 760px) / 2));
   background: var(--navy);
 }
+.public-back { margin-left: auto; color: rgb(255 255 255 / 0.8); font-size: 0.85rem; }
+.public-back:hover { color: #ffffff; }
 .public-main { max-width: 760px; margin: 0 auto; padding: 28px 16px 48px; }
-.public-main h1 { margin-bottom: 6px; }
-.public-main .section h2 { margin-bottom: 4px; }
+.order-entry { max-width: 760px; }
+.public-main h1, .order-entry h1 { margin-bottom: 6px; }
+.public-main .section h2, .order-entry .section h2 { margin-bottom: 4px; }
 .public-upload { display: grid; gap: 10px; }
 .public-upload p { margin: 0; }
 .public-upload .notice { display: block; margin: 0; padding: 10px 14px; }
@@ -267,6 +324,26 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 .tab-group-pages { display: flex; flex-direction: column; gap: 2px; }
 .tab-group:not(.open) .tab-group-pages { display: none; }
 .tab-group .tab { padding-left: 37px; font-size: 0.72rem; }
+/* Double-clicking the menu folds it to a thin navy strip; clicking the strip opens it again.
+   Only on wide screens: below 860px the menu is a top bar and never folds. */
+.menu-expand { display: none; }
+@media (min-width: 861px) {
+  .app-shell.menu-collapsed { grid-template-columns: 22px minmax(0, 1fr); }
+  .sidebar.collapsed > :not(.menu-expand) { display: none; }
+  .sidebar.collapsed .menu-expand {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+    padding: 34px 0 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: rgb(255 255 255 / 0.6);
+  }
+  .sidebar.collapsed .menu-expand:hover { color: var(--green); background: rgb(255 255 255 / 0.05); }
+}
 
 .user {
   margin-top: auto;
@@ -282,6 +359,7 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 .user-links { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .user-links a, .user-links .link-button { color: rgb(255 255 255 / 0.75); font: inherit; font-size: 0.78rem; text-decoration: none; }
 .user-links a:hover, .user-links .link-button:hover { color: var(--green); text-decoration: underline; }
+.app-version { margin: 4px 0 0; color: rgb(255 255 255 / 0.45); font-size: 0.7rem; letter-spacing: 0.02em; }
 .account-form { max-width: 420px; }
 .theme-toggle { color: rgb(255 255 255 / 0.8); }
 .theme-toggle:hover { background: rgb(255 255 255 / 0.1); color: var(--green); }
@@ -317,6 +395,11 @@ legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-
 .status-converted, .tone-success { background: var(--green); color: var(--dark-navy); }
 .tone-warn { background: var(--warn-soft); color: var(--warn); }
 .tone-muted { background: var(--surface-2); color: var(--muted); }
+/* Order statuses: orange when received, yellow once accepted or in production, red when cancelled.
+   Solid fills with dark or white text, so they read the same in light and dark mode. */
+.tone-orange { background: #ffa94d; color: #3d1f00; }
+.tone-yellow { background: #ffe066; color: #3d3100; }
+.tone-danger { background: #e5484d; color: #ffffff; }
 .title-block h1 .status { font-size: 0.7rem; margin-left: 6px; letter-spacing: 0.1em; }
 
 .inline-select { display: flex; align-items: center; gap: 8px; font: 500 0.7rem var(--heading); text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted); }
@@ -351,6 +434,18 @@ td .cell-input { width: auto; min-width: 0; padding: 4px 8px; font-size: 0.85rem
   .welcome-grid { grid-template-columns: 1fr; }
 }
 
+/* The admin Dashboard's order flow: each status badge with its count, linked by arrows. */
+.order-flow { margin-bottom: 20px; }
+/* One compact line: each badge with its count in brackets, › between the main steps. On hold and Cancelled after a divider. */
+.flow-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.flow-side { padding-left: 18px; border-left: 1px solid var(--border); }
+.flow-step { display: inline-flex; align-items: center; gap: 5px; color: var(--text); white-space: nowrap; }
+.flow-step:hover { text-decoration: none; }
+.flow-step:hover .status { box-shadow: 0 0 0 2px var(--green); }
+.flow:not(.flow-side) .flow-step + .flow-step::before { content: "›"; margin-right: 5px; color: var(--muted); }
+.flow-count { font-variant-numeric: tabular-nums; font-weight: 600; }
+
 .stats { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 .stat { display: grid; gap: 6px; padding: 20px 22px; color: var(--text); border-top: 3px solid var(--navy); }
 .stat:hover { border-color: var(--storm); border-top-color: var(--green); text-decoration: none; }
@@ -371,6 +466,25 @@ td .cell-input { width: auto; min-width: 0; padding: 4px 8px; font-size: 0.85rem
 
 /* ---------- record pages ---------- */
 
+/* An admin's Received order: is it ready to be accepted, and what's missing. */
+.readiness { margin-bottom: 16px; padding: 14px 18px; border-left: 5px solid var(--warn); }
+.readiness.ready { border-left-color: var(--green); }
+.readiness-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.readiness-title { display: flex; flex-direction: column; gap: 2px; flex: 1 1 220px; }
+.readiness-icon {
+  display: inline-grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%;
+  font-weight: 700; background: var(--warn-soft); color: var(--warn);
+}
+.readiness.ready .readiness-icon { background: var(--success-soft); color: #000c1c; }
+.readiness-checks { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; font-size: 0.9rem; }
+.readiness-checks li { display: flex; gap: 8px; align-items: baseline; }
+.readiness-checks li > span:first-child { flex: none; width: 1em; font-weight: 700; text-align: center; }
+.readiness-checks li.ok > span:first-child { color: var(--success); }
+[data-theme="dark"] .readiness-checks li.ok > span:first-child { color: var(--green); }
+.readiness-checks li.needed { color: var(--danger); }
+.readiness-checks li.worth > span:first-child { color: var(--warn); }
+.readiness-missing { color: var(--muted); }
+.readiness-checks li.needed .readiness-missing { color: inherit; }
 .detail-grid { display: grid; gap: 16px; grid-template-columns: 320px minmax(0, 1fr); align-items: start; }
 .detail-grid.single { grid-template-columns: minmax(0, 480px); }
 .span-all { grid-column: 1 / -1; }
@@ -531,6 +645,53 @@ input.qty { width: 76px; padding: 4px 8px; text-align: right; }
 .table-wrap tfoot td { padding: 8px 12px; border-top: 1px solid var(--border); font-weight: 600; }
 .table-wrap.editing tfoot td.num { padding-right: 21px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ---------- status colors ---------- */
+
+.status-colors { max-width: 760px; }
+.status-colors .form-actions { align-items: center; }
+.status-colors .form-actions .primary { flex: 0 0 auto; }
+.color-input { width: 48px; height: 32px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
+
+/* ---------- user guide ---------- */
+
+.guide { max-width: 880px; display: grid; gap: 18px; }
+.guide .page-head { margin-bottom: 0; }
+.guide .notice { margin: 0; }
+.guide-section { scroll-margin-top: 16px; }
+.guide-section > h2 { display: flex; align-items: center; gap: 12px; }
+.guide-number {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--green);
+  color: var(--dark-navy);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.guide p { margin: 0 0 12px; }
+.guide ul, .guide ol { margin: 0 0 12px; padding-left: 22px; }
+.guide li { margin: 4px 0; }
+.guide .table-wrap { margin: 4px 0 12px; }
+.guide-toc ol { columns: 2 220px; margin: 0; }
+.guide-toc li { break-inside: avoid; margin: 0 0 6px; }
+.guide-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 28px; }
+.guide-columns h3 { margin-top: 4px; }
+/* A button, link or field named in the text, styled like a key on screen. */
+.ui-name { padding: 1px 6px; border-radius: 4px; background: var(--surface-2); font-weight: 600; white-space: nowrap; }
+.guide kbd { padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; font: 600 0.8rem var(--body); }
+.guide-tip { padding: 12px 16px; border-left: 4px solid var(--green); border-radius: 0 6px 6px 0; background: var(--accent-soft); }
+.guide-tip.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+.guide-badges { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.guide-nowrap { white-space: nowrap; }
+.guide .guide-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; list-style: none; padding: 0; }
+.guide-flow li { display: flex; align-items: center; gap: 6px; margin: 0; }
+.guide-flow li + li::before { content: "›"; color: var(--muted); }
+.guide-faq { margin: 0 0 12px; display: grid; gap: 14px; }
+.guide-faq dt { font-weight: 600; }
+.guide-faq dd { margin: 2px 0 0; }
 
 /* ---------- small screens ---------- */
 

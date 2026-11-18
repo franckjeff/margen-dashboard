@@ -41,7 +41,7 @@ Open http://localhost:5173 and sign in with a Supabase account. Saved code chang
 | `src/main.tsx`, `src/App.tsx` | Start-up and the page routes (hash URLs such as `#/customs/<id>`) |
 | `src/auth/` | Sign-in, the signed-in user and their role |
 | `src/data/` | Every Supabase read (`queries.ts`) and write (`mutations.ts`), with what each write refreshes |
-| `src/features/<area>/` | One folder per page: dashboard, orders, order requests, order entry (public), items, factories, organizations, contacts, athletes, leads, reports, users, emails, notes |
+| `src/features/<area>/` | One folder per page: dashboard, orders, order requests, order entry (public), items, factories, organizations, contacts, athletes, leads, reports, users, emails, notes, status colors, the user guide |
 | `src/components/` | Shared pieces: layout and menu, list pages, notices, badges, icons |
 | `src/lib/` | Supabase client and database types, constants, formatting, theme, spreadsheets |
 | `src/styles.css` | Styles following the MARGEN branding guidelines (navy, storm blue, green; Exo 2 and Open Sans), including dark mode |
@@ -173,12 +173,12 @@ restore it from the Supabase dashboard; nothing is lost.
 
 ## Access tests
 
-`supabase/tests/access_rules.sql` checks the access rules above automatically: 246 checks of what
+`supabase/tests/access_rules.sql` checks the access rules above automatically: 269 checks of what
 admins, factories, clients and visitors who aren't signed in can see and change, table by
 table, plus the public and admin-only database functions and which emails are queued for whom. To run it, open the **MARGEN TEST** project,
 paste the whole file into the SQL editor and click Run.
 
 It always ends with an error, on purpose: that is how everything it did is undone, including the test
-users and records it creates. The error message is the result: `ACCESS TESTS PASSED: 246 checks`, or
+users and records it creates. The error message is the result: `ACCESS TESTS PASSED: 269 checks`, or
 `ACCESS TESTS FAILED` followed by each check that failed. It's also safe to run on the live database,
 which is worth doing once after each change goes live.

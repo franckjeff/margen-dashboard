@@ -2,6 +2,8 @@ import type { UseQueryResult } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { ADULT_SIZES, JUNIOR_SIZES, LEAD_STATUSES, ORDER_STATUSES, ORDER_TONES, PRODUCTION_STATUSES } from "../lib/constants";
+import { statusColorKey, useStatusColors } from "../data/queries";
+import { textOn } from "../lib/colors";
 import { formatDateTime } from "../lib/format";
 import { messageOf } from "../lib/supabase";
 
@@ -108,16 +110,31 @@ export const LeadBadge = ({ status }: { status: string }) => (
   <span className={`status status-${status}`}>{LEAD_STATUSES[status]}</span>
 );
 
-export const OrderBadge = ({ status }: { status: string }) => (
-  <span className={`status tone-${ORDER_TONES[status]}`}>{ORDER_STATUSES[status]}</span>
-);
+// The colour an admin chose for a status on the Status colors page, as a style, or none to keep the built-in one.
+function useStatusStyle(kind: "order" | "production", status: string) {
+  const background = useStatusColors().data?.[statusColorKey(kind, status)];
+  return background ? { backgroundColor: background, color: textOn(background) } : undefined;
+}
+
+export function OrderBadge({ status }: { status: string }) {
+  const style = useStatusStyle("order", status);
+  return (
+    <span className={`status tone-${ORDER_TONES[status]}`} style={style}>
+      {ORDER_STATUSES[status]}
+    </span>
+  );
+}
 
 // An empty production status means the factory hasn't started.
-export const ProductionBadge = ({ status }: { status: string | null }) =>
-  status ? (
-    <span className={`status tone-${status === "shipped" ? "success" : "accent"}`}>{PRODUCTION_STATUSES[status]}</span>
+export function ProductionBadge({ status }: { status: string | null }) {
+  const style = useStatusStyle("production", status ?? "");
+  return status ? (
+    <span className={`status tone-${status === "shipped" ? "success" : "accent"}`} style={style}>
+      {PRODUCTION_STATUSES[status]}
+    </span>
   ) : (
     <span className="muted small">Not started</span>
   );
+}
 
 export const DateTime = ({ value }: { value: string }) => <time dateTime={value}>{formatDateTime(value)}</time>;

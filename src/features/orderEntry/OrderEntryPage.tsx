@@ -1,16 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { Logo } from "../../components/Layout";
+import { useSignedIn } from "../../auth/AuthProvider";
 import { Optional, SizeOptions } from "../../components/ui";
+import { useOrganizations } from "../../data/queries";
 import { SIZES } from "../../lib/constants";
 import { formValues } from "../../lib/forms";
 import { downloadSheet, readFirstSheet } from "../../lib/spreadsheet";
 import { DbError, messageOf, supabase } from "../../lib/supabase";
 import { linesFromSheet, mergeLines, MAX_QUANTITY, TEMPLATE_COLUMNS, templateRows, type EntryItem, type EntryLine } from "./orderTemplate";
 
-// The public Order Entry page (#/order): anyone can send an order request without signing in.
-// It reads only item names and sends the request through one database function; admins see
-// the requests on the Order requests page.
+// The Order Entry page (#/order): signed-in clients (and admins) send an order request with
+// items, sizes and quantities. It reads only item names and sends the request through one
+// database function; admins see the requests on the Order requests page. People without an
+// account ask for a quote instead (#/quote), which becomes a lead.
 export function OrderEntryPage() {
   const items = useQuery({
     queryKey: ["orderEntryItems"],
@@ -23,12 +25,8 @@ export function OrderEntryPage() {
   const [sentTo, setSentTo] = useState<{ organization: string; email: string } | null>(null);
 
   return (
-    <div className="public-page">
-      <header className="public-head">
-        <Logo />
-        <span className="tagline">Order entry</span>
-      </header>
-      <main className="public-main">
+    <div className="order-entry">
+      <div>
         {sentTo ? (
           <section className="card section public-done">
             <h1>Thank you</h1>
@@ -47,12 +45,16 @@ export function OrderEntryPage() {
         ) : (
           <OrderEntryForm items={items.data} onSent={setSentTo} />
         )}
-      </main>
+      </div>
     </div>
   );
 }
 
 function OrderEntryForm({ items, onSent }: { items: EntryItem[]; onSent: (sent: { organization: string; email: string }) => void }) {
+  const { role, email, firstName } = useSignedIn();
+  // A client sees only their own organization, so its name fills in the form.
+  const organizations = useOrganizations();
+  const ownOrganization = role === "client" ? organizations.data?.[0]?.name ?? "" : "";
   const [lines, setLines] = useState<EntryLine[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileProblems, setFileProblems] = useState<string[]>([]);
@@ -124,23 +126,23 @@ function OrderEntryForm({ items, onSent }: { items: EntryItem[]; onSent: (sent: 
     <form className="stack" onSubmit={send}>
       <div>
         <h1>Place an order</h1>
-        <p className="muted">Tell us who you are and what you need. We'll confirm your order by email.</p>
+        <p className="muted">Tell us what you need. We'll confirm your order by email.</p>
       </div>
 
       <section className="card section stack">
         <h2>Your details</h2>
         <label>
           Organization or club
-          <input name="organization_name" required maxLength={200} autoComplete="organization" />
+          <input name="organization_name" key={ownOrganization} defaultValue={ownOrganization} required maxLength={200} autoComplete="organization" />
         </label>
         <div className="field-row">
           <label>
             Your name
-            <input name="contact_name" required maxLength={200} autoComplete="name" />
+            <input name="contact_name" defaultValue={role === "client" ? (firstName ?? "") : ""} required maxLength={200} autoComplete="name" />
           </label>
           <label>
             Email
-            <input name="email" type="email" required maxLength={320} autoComplete="email" />
+            <input name="email" type="email" defaultValue={role === "client" ? email : ""} required maxLength={320} autoComplete="email" />
           </label>
         </div>
         <label>

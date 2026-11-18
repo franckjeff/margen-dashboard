@@ -36,27 +36,30 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
   );
 }
 
-// Which grids of a list are collapsed, remembered in this browser between visits.
-function useCollapsedGroups(list: string) {
+// Grids the user opened (true) or closed (false), remembered in this browser between visits.
+// A grid the user never touched is open when it has rows, and closed when it's empty.
+function useGroupChoices(list: string) {
   const storageKey = `list-collapsed:${list}`;
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+  const [choices, setChoices] = useState<Record<string, boolean>>(() => {
     try {
-      return new Set(JSON.parse(localStorage.getItem(storageKey) ?? "[]") as string[]);
+      const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
+      // Earlier versions saved just the list of closed grids.
+      if (Array.isArray(saved)) return Object.fromEntries(saved.map((key: string) => [key, false]));
+      return saved && typeof saved === "object" ? (saved as Record<string, boolean>) : {};
     } catch {
-      return new Set();
+      return {};
     }
   });
-  const toggle = (group: string) => {
-    const next = new Set(collapsed);
-    if (!next.delete(group)) next.add(group);
-    setCollapsed(next);
+  const choose = (group: string, open: boolean) => {
+    const next = { ...choices, [group]: open };
+    setChoices(next);
     try {
-      localStorage.setItem(storageKey, JSON.stringify([...next]));
+      localStorage.setItem(storageKey, JSON.stringify(next));
     } catch {
-      // Not remembered, e.g. in a private window; the grid still collapses.
+      // Not remembered, e.g. in a private window; the grid still opens or closes.
     }
   };
-  return { collapsed, toggle };
+  return { choices, choose };
 }
 
 // Rows the user can select like in a spreadsheet, with a total of the selected rows shown at the bottom.
@@ -161,9 +164,10 @@ export function ListPage({
   const visible = (row: ListRow) => !row.filteredOut && matches(row.search);
   // Grouped rows in grid order, so a range selected across grids follows what's on screen.
   const inGroup = (g: ListGroup) => rows.filter((r) => r.group === g.key);
-  const { collapsed, toggle } = useCollapsedGroups(title);
+  const { choices, choose } = useGroupChoices(title);
+  const isOpen = (g: ListGroup) => choices[g.key] ?? inGroup(g).length > 0;
   // Rows in a collapsed grid can't be selected, and drop out of the selection's total.
-  const ordered = groups ? groups.filter((g) => !collapsed.has(g.key)).flatMap(inGroup) : rows;
+  const ordered = groups ? groups.filter(isOpen).flatMap(inGroup) : rows;
   const rowSelection = useRowSelection(ordered.filter(visible).map((r) => r.key));
   const picked = rowSelection.visibleSelected;
   // A click on a link or a field inside the row is left to it.
@@ -249,12 +253,12 @@ export function ListPage({
           <div className="list-groups">
             {groups.map((g) => {
               const groupRows = inGroup(g);
-              const open = !collapsed.has(g.key);
+              const open = isOpen(g);
               const id = `list-group-${g.key}`;
               return (
                 <section key={g.key} className={`card list list-group${open ? " open" : ""}`} aria-label={g.title}>
                   <h2 className="list-group-title">
-                    <button type="button" aria-expanded={open} aria-controls={id} onClick={() => toggle(g.key)}>
+                    <button type="button" aria-expanded={open} aria-controls={id} onClick={() => choose(g.key, !open)}>
                       <ChevronIcon />
                       {g.title} <Count n={groupRows.filter(visible).length} />
                     </button>

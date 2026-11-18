@@ -101,6 +101,7 @@ export function OrganizationsPage({ id, editing = false }: { id?: string; editin
       newTo="/organizations/new"
       newLabel="New organization"
       placeholder="Search organizations"
+      empty="No organizations yet."
       loading={loadingState([organizations])}
       filters={
         <>

@@ -9,15 +9,15 @@ type TableName = keyof Database["public"]["Tables"];
 
 // Which cached queries a change to each table can affect. Lists embed data from other tables
 // (an order shows its organization's and factory's names, an item its piece counts, an order its history),
-// so those are refetched too. Add a line here when a new table or embed is added.
+// so those are refetched too, as are the admin Dashboard's counts. Add a line here when a new table or embed is added.
 const INVALIDATES: Record<TableName, readonly (readonly string[])[]> = {
-  organizations: [keys.organizations, keys.contacts, keys.orders, keys.notes],
-  contacts: [keys.contacts, keys.organizations, keys.factories, keys.myContacts, keys.notes],
-  organization_contacts: [keys.organizations, keys.contacts, keys.myContacts],
+  organizations: [keys.organizations, keys.contacts, keys.orders, keys.notes, keys.dashboardCounts],
+  contacts: [keys.contacts, keys.organizations, keys.factories, keys.myContacts, keys.notes, keys.dashboardCounts],
+  organization_contacts: [keys.organizations, keys.contacts, keys.myContacts, keys.dashboardCounts],
   factory_contacts: [keys.factories, keys.contacts, keys.myContacts],
-  athletes: [keys.athletes, keys.notes],
-  leads: [keys.leads],
-  orders: [keys.orders, keys.orderItems, keys.orderEvents, keys.orderRequests, keys.emails],
+  athletes: [keys.athletes, keys.notes, keys.dashboardCounts],
+  leads: [keys.leads, keys.dashboardCounts],
+  orders: [keys.orders, keys.orderItems, keys.orderEvents, keys.orderRequests, keys.emails, keys.dashboardCounts],
   order_items: [keys.orderItems, keys.orderEvents],
   order_events: [keys.orderEvents],
   items: [keys.items, keys.orderItems, keys.orderRequests],
@@ -25,12 +25,13 @@ const INVALIDATES: Record<TableName, readonly (readonly string[])[]> = {
   notes: [keys.notes],
   note_dismissals: [keys.dismissals],
   scrapbooks: [keys.scrapbook],
-  order_requests: [keys.orderRequests, keys.emails],
+  order_requests: [keys.orderRequests, keys.emails, keys.dashboardCounts, keys.leads],
   order_request_lines: [keys.orderRequests],
   profiles: [keys.users, ["profile"]],
   app_errors: [keys.appErrors],
   email_outbox: [keys.emails],
   email_settings: [keys.emailSettings],
+  status_colors: [keys.statusColors],
 };
 
 export const invalidate = (queryClient: QueryClient, table: TableName) =>

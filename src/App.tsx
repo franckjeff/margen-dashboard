@@ -14,10 +14,14 @@ const EmailsPage = lazy(() => import("./features/emails/EmailsPage").then((m) =>
 const DashboardPage = lazy(() => import("./features/dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const MyContactsPage = lazy(() => import("./features/contacts/MyContactsPage").then((m) => ({ default: m.MyContactsPage })));
 const FactoriesPage = lazy(() => import("./features/factories/FactoriesPage").then((m) => ({ default: m.FactoriesPage })));
+// DEMO kit designer: remove this line, the "design" route below and the src/features/designer folder to take it out.
+const DesignerPage = lazy(() => import("./features/designer/DesignerPage").then((m) => ({ default: m.DesignerPage })));
+const QuotePage = lazy(() => import("./features/quote/QuotePage").then((m) => ({ default: m.QuotePage })));
 const OrderEntryPage = lazy(() => import("./features/orderEntry/OrderEntryPage").then((m) => ({ default: m.OrderEntryPage })));
 const OrderRequestsPage = lazy(() =>
   import("./features/orderRequests/OrderRequestsPage").then((m) => ({ default: m.OrderRequestsPage })),
 );
+const GuidePage = lazy(() => import("./features/guide/GuidePage").then((m) => ({ default: m.GuidePage })));
 const ItemsPage = lazy(() => import("./features/items/ItemsPage").then((m) => ({ default: m.ItemsPage })));
 const LeadsPage = lazy(() => import("./features/leads/LeadsPage").then((m) => ({ default: m.LeadsPage })));
 const OrdersPage = lazy(() => import("./features/orders/OrdersPage").then((m) => ({ default: m.OrdersPage })));
@@ -25,6 +29,9 @@ const OrganizationsPage = lazy(() =>
   import("./features/organizations/OrganizationsPage").then((m) => ({ default: m.OrganizationsPage })),
 );
 const ReportsPage = lazy(() => import("./features/reports/ReportsPage").then((m) => ({ default: m.ReportsPage })));
+const StatusColorsPage = lazy(() =>
+  import("./features/statusColors/StatusColorsPage").then((m) => ({ default: m.StatusColorsPage })),
+);
 const UsersPage = lazy(() => import("./features/users/UsersPage").then((m) => ({ default: m.UsersPage })));
 import { messageOf } from "./lib/supabase";
 
@@ -42,12 +49,21 @@ export function App() {
   return (
     <HashRouter>
       <Routes>
-        {/* The public Order Entry page: no sign-in needed. */}
+        {/* The public Request a quote page: no sign-in needed. It becomes a lead. */}
         <Route
-          path="order"
+          path="quote"
           element={
             <Suspense fallback={<Loading />}>
-              <OrderEntryPage />
+              <QuotePage />
+            </Suspense>
+          }
+        />
+        {/* DEMO kit designer, public. */}
+        <Route
+          path="design"
+          element={
+            <Suspense fallback={<Loading />}>
+              <DesignerPage />
             </Suspense>
           }
         />
@@ -100,6 +116,7 @@ function AppRoutes() {
       <Route element={<Layout />}>
         <Route index element={<Navigate to={home} replace />} />
         <Route path="dashboard" element={page("dashboard", <DashboardPage />)} />
+        <Route path="order" element={page("order", <OrderEntryPage />)} />
         {records("customs", (id, editing) => <OrdersPage id={id} editing={editing} />)}
         {/* Archived orders open on their usual page, #/customs/<id>. */}
         <Route path="archived-orders" element={page("archived-orders", <OrdersPage archived />)} />
@@ -114,6 +131,8 @@ function AppRoutes() {
         <Route path="users" element={page("users", <UsersPage />)} />
         <Route path="emails" element={page("emails", <EmailsPage />)} />
         {records("my-contacts", (id, editing) => <MyContactsPage id={id} editing={editing} />)}
+        <Route path="guide" element={page("guide", <GuidePage />)} />
+        <Route path="status-colors" element={page("status-colors", <StatusColorsPage />)} />
         {/* Everyone's Change password page; it's not in the menu, but linked beside Sign out. */}
         <Route path="account" element={<AccountPage />} />
         <Route path="*" element={<Navigate to={home} replace />} />

@@ -28,6 +28,7 @@ import { ImportPage } from "./ImportPage";
 import { piecesIn } from "./lines";
 import { OrderHistory } from "./OrderHistory";
 import { OrderLines } from "./OrderLines";
+import { isReady, readinessOf } from "./readiness";
 
 const OrderOrganization = ({ order }: { order: Order }) =>
   order.organization ? <Link to={`/organizations/${order.organization.id}`}>{order.organization.name}</Link> : <Dash />;
@@ -398,6 +399,64 @@ const shippingDetails = (order: Order) => (
   </>
 );
 
+// For a Received order: whether it seems to have everything it needs to be Accepted, and what's missing.
+export function ReadinessBar({ order }: { order: Order }) {
+  const setField = useSetOrderField(order);
+  const orderItems = useOrderItems();
+  const organizations = useOrganizations();
+  const factories = useFactories();
+  if (!orderItems.data || !organizations.data || !factories.data) return null;
+  const checks = readinessOf(order, {
+    lines: orderItems.data,
+    organizationContacts: organizations.data.find((o) => o.id === order.organization_id)?.contacts,
+    factoryContacts: factories.data.find((f) => f.id === order.factory_id)?.contacts,
+  });
+  const ready = isReady(checks);
+  const needed = checks.filter((c) => !c.ok && c.needed);
+  const worth = checks.filter((c) => !c.ok && !c.needed);
+  return (
+    <section className={`card readiness ${ready ? "ready" : "not-ready"}`} aria-label="Ready to accept?">
+      <div className="readiness-head">
+        <span className="readiness-icon" aria-hidden="true">
+          {ready ? "✓" : "!"}
+        </span>
+        <div className="readiness-title">
+          <strong>{ready ? "Ready to be accepted" : "Not ready to be accepted"}</strong>
+          <span className="muted small">
+            {ready
+              ? worth.length
+                ? "Everything needed is there; a few details are still worth adding."
+                : "The order has everything it needs."
+              : `Missing ${plural(needed.length, "thing")} before it can be accepted.`}
+          </span>
+        </div>
+        {ready && (
+          <button
+            type="button"
+            className="primary"
+            disabled={setField.isPending}
+            onClick={() => setField.mutate({ field: "order_status", value: "accepted" })}
+          >
+            Accept order
+          </button>
+        )}
+      </div>
+      <ul className="readiness-checks">
+        {checks.map((c) => (
+          <li key={c.label} className={c.ok ? "ok" : c.needed ? "needed" : "worth"}>
+            <span aria-hidden="true">{c.ok ? "✓" : c.needed ? "✕" : "!"}</span>
+            <span>
+              <span className="strong">{c.label}</span>
+              {!c.ok && <span className="readiness-missing"> · {c.missing}</span>}
+              {!c.ok && <span className="sr-only">{c.needed ? " (needed)" : " (worth adding)"}</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function OrderPage({ order, editing }: { order: Order; editing: boolean }) {
   const remove = useDeleteRecord("orders");
   const orderItems = useOrderItems();
@@ -464,6 +523,7 @@ function OrderPage({ order, editing }: { order: Order; editing: boolean }) {
           </>
         )}
       </div>
+      {order.order_status === "received" && !order.archived_at && !editing && <ReadinessBar order={order} />}
       {/* One full-width card per row: the details read across, the items and history below. */}
       <div className="detail-grid stacked">
         <section className="card section">

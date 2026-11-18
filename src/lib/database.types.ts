@@ -137,6 +137,7 @@ export type Database = {
           id: string
           kind: string
           last_error: string | null
+          lead_id: string | null
           order_id: string | null
           order_request_id: string | null
           provider_id: string | null
@@ -155,6 +156,7 @@ export type Database = {
           id?: string
           kind: string
           last_error?: string | null
+          lead_id?: string | null
           order_id?: string | null
           order_request_id?: string | null
           provider_id?: string | null
@@ -173,6 +175,7 @@ export type Database = {
           id?: string
           kind?: string
           last_error?: string | null
+          lead_id?: string | null
           order_id?: string | null
           order_request_id?: string | null
           provider_id?: string | null
@@ -189,6 +192,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
           {
@@ -829,6 +839,27 @@ export type Database = {
           },
         ]
       }
+      status_colors: {
+        Row: {
+          background: string
+          kind: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          background: string
+          kind: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          background?: string
+          kind?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -850,6 +881,7 @@ export type Database = {
         }
         Returns: string
       }
+      dashboard_counts: { Args: never; Returns: Json }
       finish_email: {
         Args: {
           email_id: string
@@ -884,6 +916,19 @@ export type Database = {
           file_name: string
           lines: Json
           notes: string
+          organization_name: string
+          phone: string
+          website?: string
+        }
+        Returns: undefined
+      }
+      submit_quote_request: {
+        Args: {
+          country: string
+          email: string
+          first_name: string
+          last_name: string
+          message: string
           organization_name: string
           phone: string
           website?: string

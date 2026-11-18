@@ -12,6 +12,7 @@ const KIND_LABELS: Record<string, string> = {
   order_assigned: "Order assigned (to the factory's default contact)",
   order_shipped: "Order shipped (to the client's default contact)",
   order_request: "New order request (to admins)",
+  quote_request: "New quote request (to admins)",
 };
 const STATUS_LABELS: Record<string, string> = {
   pending: "Waiting",
@@ -56,6 +57,7 @@ const recipient = (e: Email) => e.recipient_name ?? e.recipient_email ?? "nobody
 function About({ email }: { email: Email }) {
   if (email.order) return <Link to={`/customs/${email.order.id}`} className="mono">{email.order.margen_order_id}</Link>;
   if (email.request) return <Link to={`/order-requests/${email.request.id}`}>{email.request.organization_name}</Link>;
+  if (email.lead) return <Link to={`/leads/${email.lead.id}`}>{email.lead.organization_name ?? `${email.lead.first_name} ${email.lead.last_name}`}</Link>;
   return <span className="muted">Deleted</span>;
 }
 
@@ -93,7 +95,7 @@ export function EmailsPage() {
   const searchText = (e: Email) =>
     `${e.recipient_name ?? ""} ${e.recipient_email ?? ""} ${KIND_LABELS[e.kind] ?? e.kind} ${STATUS_LABELS[e.status] ?? e.status} ${e.order?.margen_order_id ?? ""} ${
       e.request?.organization_name ?? ""
-    } ${e.last_error ?? ""}`.toLowerCase();
+    } ${e.lead ? `${e.lead.first_name} ${e.lead.last_name} ${e.lead.organization_name ?? ""}` : ""} ${e.last_error ?? ""}`.toLowerCase();
   const visible = all.filter((e) => (!statusFilter || e.status === statusFilter) && matches(searchText(e)));
   const countOf = (status: string) => all.filter((e) => e.status === status).length;
 

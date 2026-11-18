@@ -4,7 +4,7 @@
 -- (it's also safe on MARGEN PROD, the live project). It always ends with
 -- an error, on purpose, so that nothing it does is kept: the test users and records it creates,
 -- and every change it tries, are all undone. Read the result in the error message:
---   "ACCESS TESTS PASSED: 246 checks"  or  "ACCESS TESTS FAILED: 2 of 246 checks" followed by each failure.
+--   "ACCESS TESTS PASSED: 269 checks"  or  "ACCESS TESTS FAILED: 2 of 269 checks" followed by each failure.
 --
 -- Each check runs one query as one user, then undoes it, so checks don't affect each other.
 -- Expected results:
@@ -158,6 +158,24 @@ begin
        + (select count(*) from public.factory_contacts where factory_id = '0000ace5-0000-4000-8000-0000000f0001' and is_default and contact_id <> '0000ace5-0000-4000-8000-0000000f0013');
 end $f$;
 
+-- Sends a quote request (website is the bot trap) as the signed-in user, then counts, as the test's owner (who
+-- sees everything), the lead it made: 10 per lead, plus 1 when exactly every admin with an email has one waiting.
+create function pg_temp.quote_makes_lead(website text) returns int language plpgsql as $f$
+begin
+  perform public.submit_quote_request(' Jane ', 'van Dyke', 'Lead test club', 'Lead-Test@Example.invalid', '', 'Spain', ' Hello ', website);
+  return pg_temp.quote_lead_count();
+end $f$;
+create function pg_temp.quote_lead_count() returns int language plpgsql security definer as $f$
+begin
+  return 10 * (select count(*) from public.leads l
+               where l.email = 'lead-test@example.invalid' and l.first_name = 'Jane' and l.last_name = 'van Dyke'
+                 and l.source = 'Quote request' and l.organization_name = 'Lead test club' and l.country = 'Spain'
+                 and l.phone is null and l.notes = 'Hello')
+       + (select (count(*) > 0 and count(*) = (select count(*) from public.profiles where role = 'admin' and coalesce(btrim(email), '') <> ''))::int
+          from public.email_outbox o join public.leads l on l.id = o.lead_id join public.profiles p on p.id = o.recipient_id
+          where l.email = 'lead-test@example.invalid' and o.kind = 'quote_request' and o.status = 'pending' and p.role = 'admin');
+end $f$;
+
 -- Admin-only tables: everyone but admins sees nothing and can't add, change or delete.
 -- (The linked client also sees its own organization: checked further down.)
 do $$
@@ -288,11 +306,23 @@ select pg_temp.check('note_dismissals: can hide a note for themselves', 'admin',
 select pg_temp.check('note_dismissals: can''t hide a note for someone else', 'admin', $q$insert into public.note_dismissals (note_id, user_id) values ('0000ace5-0000-4000-8000-0000000b0005', '0000ace5-0000-4000-8000-000000000004')$q$, 'denied');
 
 -- Functions.
-select pg_temp.check('order_entry_items: the public order page can list items', 'anon', $q$select (count(*) > 0)::int from public.order_entry_items()$q$, '1');
-select pg_temp.check('submit_order_request: the public order page can send', 'anon',
+select pg_temp.check('order_entry_items: a client can list items', 'client', $q$select (count(*) > 0)::int from public.order_entry_items()$q$, '1');
+select pg_temp.check('order_entry_items: the public can''t list items', 'anon', $q$select count(*) from public.order_entry_items()$q$, 'denied');
+select pg_temp.check('submit_order_request: a client can send', 'client',
   $q$select public.submit_order_request('Club', 'Name', 'access-test@example.invalid', '', '', '', '[{"item_id": "0000ace5-0000-4000-8000-0000000e0001", "size": "M", "quantity": 2}]', '')$q$, 'ok');
-select pg_temp.check('submit_order_request: refuses unknown items', 'anon',
+select pg_temp.check('submit_order_request: an admin can send', 'admin',
+  $q$select public.submit_order_request('Club', 'Name', 'access-test@example.invalid', '', '', '', '[{"item_id": "0000ace5-0000-4000-8000-0000000e0001", "size": "M", "quantity": 2}]', '')$q$, 'ok');
+select pg_temp.check('submit_order_request: the public can''t send', 'anon',
+  $q$select public.submit_order_request('Club', 'Name', 'access-test@example.invalid', '', '', '', '[{"item_id": "0000ace5-0000-4000-8000-0000000e0001", "size": "M", "quantity": 2}]', '')$q$, 'denied');
+select pg_temp.check('submit_order_request: factories are refused', 'factory',
+  $q$select public.submit_order_request('Club', 'Name', 'access-test@example.invalid', '', '', '', '[{"item_id": "0000ace5-0000-4000-8000-0000000e0001", "size": "M", "quantity": 2}]', '')$q$, 'denied');
+select pg_temp.check('submit_order_request: refuses unknown items', 'client',
   $q$select public.submit_order_request('Club', 'Name', 'access-test@example.invalid', '', '', '', '[{"item_id": "0000ace5-0000-4000-8000-000000000000", "size": "M", "quantity": 2}]', '')$q$, 'error');
+select pg_temp.check('submit_quote_request: the public can send one, a lead that emails admins', 'anon', $q$select pg_temp.quote_makes_lead('')$q$, '11');
+select pg_temp.check('submit_quote_request: signed-in users can send one too', 'client_b', $q$select pg_temp.quote_makes_lead('')$q$, '11');
+select pg_temp.check('submit_quote_request: bots make no lead', 'anon', $q$select pg_temp.quote_makes_lead('http://spam.invalid')$q$, '0');
+select pg_temp.check('submit_quote_request: refuses a request without a message', 'anon', $q$select public.submit_quote_request('Jane', 'Doe', '', 'jane@example.invalid', '', '', ' ', '')$q$, 'error');
+select pg_temp.check('submit_quote_request: refuses a bad email', 'anon', $q$select public.submit_quote_request('Jane', 'Doe', '', 'not-an-email', '', '', 'Hi', '')$q$, 'error');
 select pg_temp.check('convert_order_request: the public can''t call it', 'anon', $q$select public.convert_order_request('0000ace5-0000-4000-8000-0000000b0006', 'ACCESS_TEST_C')$q$, 'denied');
 select pg_temp.check('convert_order_request: non-admins are refused', 'client', $q$select public.convert_order_request('0000ace5-0000-4000-8000-0000000b0006', 'ACCESS_TEST_C')$q$, 'error');
 select pg_temp.check('convert_order_request: factories are refused', 'factory', $q$select public.convert_order_request('0000ace5-0000-4000-8000-0000000b0006', 'ACCESS_TEST_C')$q$, 'error');
@@ -368,6 +398,26 @@ select pg_temp.check('email_settings: admin can''t change them in the app', 'adm
 select pg_temp.check('claim_due_emails: the public can''t call it', 'anon', $q$select public.claim_due_emails('x', 1)$q$, 'denied');
 select pg_temp.check('claim_due_emails: admin can''t call it', 'admin', $q$select public.claim_due_emails('x', 1)$q$, 'denied');
 select pg_temp.check('finish_email: signed-in users can''t call it', 'factory', $q$select public.finish_email('x', '0000ace5-0000-4000-8000-000000000000', null, null)$q$, 'denied');
+
+-- Status colours: everyone signed in reads them, only admins change them.
+insert into public.status_colors (kind, status, background) values ('order', 'done', '#00aa00')
+  on conflict (kind, status) do update set background = excluded.background;
+select pg_temp.check('status_colors: factory reads them', 'factory', $q$select (count(*) > 0)::int from public.status_colors$q$, '1');
+select pg_temp.check('status_colors: client reads them', 'client', $q$select (count(*) > 0)::int from public.status_colors$q$, '1');
+select pg_temp.check('status_colors: the public can''t read them', 'anon', $q$select count(*) from public.status_colors$q$, 'denied');
+select pg_temp.check('status_colors: admin can set one', 'admin', $q$insert into public.status_colors (kind, status, background) values ('order', 'received', '#123456') on conflict (kind, status) do update set background = excluded.background$q$, 'ok');
+select pg_temp.check('status_colors: admin can reset one', 'admin', $q$with x as (delete from public.status_colors where kind = 'order' and status = 'done' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('status_colors: only hex colours', 'admin', $q$update public.status_colors set background = 'red'$q$, 'error');
+select pg_temp.check('status_colors: only known statuses', 'admin', $q$insert into public.status_colors (kind, status, background) values ('order', 'closed', '#123456')$q$, 'error');
+select pg_temp.check('status_colors: factory can''t set one', 'factory', $q$insert into public.status_colors (kind, status, background) values ('order', 'cancelled', '#123456')$q$, 'denied');
+select pg_temp.check('status_colors: client can''t change them', 'client', $q$with x as (update public.status_colors set background = '#000000' returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('status_colors: factory can''t reset them', 'factory', $q$with x as (delete from public.status_colors returning 1) select count(*) from x$q$, '0');
+
+-- dashboard_counts: the admin Dashboard's numbers. Admins only; it counts what the admin can see.
+select pg_temp.check('dashboard_counts: admin gets the counts', 'admin', $q$select ((public.dashboard_counts()->>'orders')::int = (select count(*) from public.orders) and (public.dashboard_counts()->>'contacts')::int = (select count(*) from public.contacts))::int$q$, '1');
+select pg_temp.check('dashboard_counts: factory is refused', 'factory', $q$select public.dashboard_counts()$q$, 'denied');
+select pg_temp.check('dashboard_counts: client is refused', 'client', $q$select public.dashboard_counts()$q$, 'denied');
+select pg_temp.check('dashboard_counts: the public is refused', 'anon', $q$select public.dashboard_counts()$q$, 'denied');
 
 -- Report, and undo everything above.
 do $$

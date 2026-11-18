@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { Logo } from "../components/Layout";
 import { supabase } from "../lib/supabase";
 import { useRecovery, useSession } from "./AuthProvider";
+import { PublicHome } from "./PublicHome";
 
 const MIN_PASSWORD = 8;
 
@@ -52,8 +53,10 @@ function SignIn({
     setError(error?.message ?? null);
   }
 
+  // The sign-in form sits on the public home page, beside what MARGEN Customs is about.
   return (
-    <LoginShell>
+    <PublicHome
+      signIn={
       <form className="card login-card" onSubmit={signIn}>
         <h1>Sign in</h1>
         {error && <p className="notice error">{error}</p>}
@@ -88,7 +91,8 @@ function SignIn({
           Forgot your password?
         </button>
       </form>
-    </LoginShell>
+      }
+    />
   );
 }
 
