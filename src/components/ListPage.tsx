@@ -14,7 +14,9 @@ export type ListRow = {
 };
 
 // A list can be split into grids, one card each, in this order; a row goes in the grid named by its group.
-export type ListGroup = { key: string; title: string; empty?: string };
+// startOpen, when any grid has it, sets which grids are open each time the page opens: the user can still
+// open and close them, but it isn't remembered for the next visit.
+export type ListGroup = { key: string; title: string; empty?: string; startOpen?: boolean };
 
 // Filters rows by a search string; rows stay mounted, so the search box keeps focus while typing.
 export function useSearch() {
@@ -38,9 +40,11 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
 
 // Grids the user opened (true) or closed (false), remembered in this browser between visits.
 // A grid the user never touched is open when it has rows, and closed when it's empty.
-function useGroupChoices(list: string) {
+// With a fixed start (from the grids' startOpen), every visit begins there and nothing is remembered.
+function useGroupChoices(list: string, start?: Record<string, boolean>) {
   const storageKey = `list-collapsed:${list}`;
   const [choices, setChoices] = useState<Record<string, boolean>>(() => {
+    if (start) return start;
     try {
       const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
       // Earlier versions saved just the list of closed grids.
@@ -53,6 +57,7 @@ function useGroupChoices(list: string) {
   const choose = (group: string, open: boolean) => {
     const next = { ...choices, [group]: open };
     setChoices(next);
+    if (start) return;
     try {
       localStorage.setItem(storageKey, JSON.stringify(next));
     } catch {
@@ -164,7 +169,10 @@ export function ListPage({
   const visible = (row: ListRow) => !row.filteredOut && matches(row.search);
   // Grouped rows in grid order, so a range selected across grids follows what's on screen.
   const inGroup = (g: ListGroup) => rows.filter((r) => r.group === g.key);
-  const { choices, choose } = useGroupChoices(title);
+  const start = groups?.some((g) => g.startOpen !== undefined)
+    ? Object.fromEntries(groups.map((g) => [g.key, !!g.startOpen]))
+    : undefined;
+  const { choices, choose } = useGroupChoices(title, start);
   const isOpen = (g: ListGroup) => choices[g.key] ?? inGroup(g).length > 0;
   // Rows in a collapsed grid can't be selected, and drop out of the selection's total.
   const ordered = groups ? groups.filter(isOpen).flatMap(inGroup) : rows;

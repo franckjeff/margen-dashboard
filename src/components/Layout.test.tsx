@@ -8,7 +8,10 @@ vi.mock("../auth/AuthProvider", () => ({
   useSignedIn: () => ({ email: "factory@example.com", role: "factory" }),
 }));
 vi.mock("../lib/supabase", () => ({ supabase: { auth: { signOut: vi.fn() } } }));
-vi.mock("../data/queries", () => ({ useOpenOrderCount: () => ({ data: 7 }) }));
+vi.mock("../data/queries", () => ({
+  hasMenuCount: (page: string) => ["customs", "archived-orders", "my-contacts"].includes(page),
+  useMenuCount: (page: string) => ({ data: { customs: 7, "archived-orders": 3, "my-contacts": 2 }[page] }),
+}));
 
 // jsdom has no media queries; pretend the window is wide, or narrow.
 const setWide = (wide: boolean) => {
@@ -67,9 +70,11 @@ describe("folding the menu", () => {
   });
 });
 
-describe("the order count", () => {
-  it("shows beside Orders in progress", () => {
+describe("the menu counts", () => {
+  it("show beside the menu items that have one", () => {
     renderLayout();
     expect(screen.getByRole("link", { name: /Orders in progress/ })).toHaveTextContent("Orders in progress(7)");
+    expect(screen.getByRole("link", { name: /Archived orders/ })).toHaveTextContent("Archived orders(3)");
+    expect(screen.getByRole("link", { name: /Contacts/ })).toHaveTextContent("Contacts(2)");
   });
 });

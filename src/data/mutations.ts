@@ -22,7 +22,7 @@ const INVALIDATES: Record<TableName, readonly (readonly string[])[]> = {
   order_events: [keys.orderEvents],
   items: [keys.items, keys.orderItems, keys.orderRequests],
   factories: [keys.factories, keys.orders, keys.notes],
-  notes: [keys.notes],
+  notes: [keys.notes, keys.emails],
   note_dismissals: [keys.dismissals],
   scrapbooks: [keys.scrapbook],
   order_requests: [keys.orderRequests, keys.emails, keys.dashboardCounts, keys.leads],

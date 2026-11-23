@@ -138,12 +138,14 @@ export type Database = {
           kind: string
           last_error: string | null
           lead_id: string | null
+          note_id: string | null
           order_id: string | null
           order_request_id: string | null
           provider_id: string | null
           recipient_email: string | null
           recipient_id: string | null
           recipient_name: string | null
+          sample: boolean
           send_after: string
           sent_at: string | null
           status: string
@@ -157,12 +159,14 @@ export type Database = {
           kind: string
           last_error?: string | null
           lead_id?: string | null
+          note_id?: string | null
           order_id?: string | null
           order_request_id?: string | null
           provider_id?: string | null
           recipient_email?: string | null
           recipient_id?: string | null
           recipient_name?: string | null
+          sample?: boolean
           send_after?: string
           sent_at?: string | null
           status?: string
@@ -176,12 +180,14 @@ export type Database = {
           kind?: string
           last_error?: string | null
           lead_id?: string | null
+          note_id?: string | null
           order_id?: string | null
           order_request_id?: string | null
           provider_id?: string | null
           recipient_email?: string | null
           recipient_id?: string | null
           recipient_name?: string | null
+          sample?: boolean
           send_after?: string
           sent_at?: string | null
           status?: string
@@ -199,6 +205,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbox_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
             referencedColumns: ["id"]
           },
           {
@@ -228,25 +241,31 @@ export type Database = {
         Row: {
           app_url: string
           delay_minutes: number
+          disabled_kinds: string[]
           from_address: string
           id: boolean
           mode: string
+          paused: boolean
           redirect_to: string | null
         }
         Insert: {
           app_url?: string
           delay_minutes?: number
+          disabled_kinds?: string[]
           from_address?: string
           id?: boolean
           mode?: string
+          paused?: boolean
           redirect_to?: string | null
         }
         Update: {
           app_url?: string
           delay_minutes?: number
+          disabled_kinds?: string[]
           from_address?: string
           id?: boolean
           mode?: string
+          paused?: boolean
           redirect_to?: string | null
         }
         Relationships: []
@@ -775,6 +794,8 @@ export type Database = {
           factory_id: string | null
           first_name: string | null
           id: string
+          last_name: string | null
+          muted_email_kinds: string[]
           organization_id: string | null
           role: string
         }
@@ -784,6 +805,8 @@ export type Database = {
           factory_id?: string | null
           first_name?: string | null
           id: string
+          last_name?: string | null
+          muted_email_kinds?: string[]
           organization_id?: string | null
           role?: string
         }
@@ -793,6 +816,8 @@ export type Database = {
           factory_id?: string | null
           first_name?: string | null
           id?: string
+          last_name?: string | null
+          muted_email_kinds?: string[]
           organization_id?: string | null
           role?: string
         }
@@ -908,6 +933,23 @@ export type Database = {
           item_code: string
           name: string
         }[]
+      }
+      send_sample_email: { Args: { kind: string }; Returns: string }
+      set_admin_email: {
+        Args: { enabled: boolean; kind: string; user_id: string }
+        Returns: undefined
+      }
+      set_email_kind_enabled: {
+        Args: { enabled: boolean; kind: string }
+        Returns: undefined
+      }
+      set_email_sender: {
+        Args: { delay_minutes: number; from_address: string }
+        Returns: undefined
+      }
+      set_email_sending_paused: {
+        Args: { paused: boolean }
+        Returns: undefined
       }
       submit_order_request: {
         Args: {

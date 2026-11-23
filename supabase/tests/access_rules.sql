@@ -4,7 +4,7 @@
 -- (it's also safe on MARGEN PROD, the live project). It always ends with
 -- an error, on purpose, so that nothing it does is kept: the test users and records it creates,
 -- and every change it tries, are all undone. Read the result in the error message:
---   "ACCESS TESTS PASSED: 269 checks"  or  "ACCESS TESTS FAILED: 2 of 269 checks" followed by each failure.
+--   "ACCESS TESTS PASSED: 290 checks"  or  "ACCESS TESTS FAILED: 2 of 290 checks" followed by each failure.
 --
 -- Each check runs one query as one user, then undoes it, so checks don't affect each other.
 -- Expected results:
@@ -176,6 +176,85 @@ begin
           where l.email = 'lead-test@example.invalid' and o.kind = 'quote_request' and o.status = 'pending' and p.role = 'admin');
 end $f$;
 
+-- Adds, edits and deletes a note about the test athlete as the signed-in admin. One point each when:
+-- every other admin with an email gets an "added" email, the admin who wrote it gets none, an edit while
+-- that email waits adds nothing, an edit after it went out emails the same admins, and deleting the note
+-- drops its waiting emails.
+create function pg_temp.athlete_note_emails() returns int language plpgsql as $f$
+declare
+  note uuid;
+  others int := (select count(*) from public.profiles where role = 'admin' and coalesce(btrim(email), '') <> '' and id <> auth.uid());
+  score int := 0;
+begin
+  insert into public.notes (athlete_id, body) values ('0000ace5-0000-4000-8000-0000000b0003', 'Athlete note') returning id into note;
+  score := score + (select (count(*) = others)::int from public.email_outbox where note_id = note and kind = 'athlete_note_added' and status = 'pending');
+  score := score + (select (count(*) = 0)::int from public.email_outbox where note_id = note and recipient_id = auth.uid());
+  update public.notes set body = 'Athlete note, edited' where id = note;
+  score := score + (select (count(*) = 0)::int from public.email_outbox where note_id = note and kind = 'athlete_note_edited');
+  update public.email_outbox set status = 'cancelled' where note_id = note;
+  update public.notes set body = 'Athlete note, edited again' where id = note;
+  score := score + (select (count(*) = others)::int from public.email_outbox where note_id = note and kind = 'athlete_note_edited' and status = 'pending');
+  delete from public.notes where id = note;
+  score := score + (select (count(*) = 0)::int from public.email_outbox where note_id = note);
+  return score;
+end $f$;
+
+-- Turns kinds of email off and on as the signed-in admin. One point each when: turning order request
+-- emails off cancels the waiting one, a quote request while quote emails are off is logged as cancelled
+-- for every admin, a sample still goes out while its kind is off, and turning both on again empties the list.
+create function pg_temp.turn_emails_off() returns int language plpgsql as $f$
+declare
+  score int := 0;
+begin
+  perform public.set_email_kind_enabled('order_request', false);
+  score := score + (select (count(*) > 0 and count(*) filter (where status = 'pending') = 0)::int from public.email_outbox
+                    where order_request_id = '0000ace5-0000-4000-8000-0000000b0006' and last_error = 'Not sent: these emails were turned off.');
+  perform public.set_email_kind_enabled('quote_request', false);
+  perform public.submit_quote_request('Off', 'Test', '', 'off-test@example.invalid', '', '', 'Hi', '');
+  score := score + (select (count(*) > 0 and bool_and(o.status = 'cancelled'))::int
+                    from public.email_outbox o join public.leads l on l.id = o.lead_id where l.email = 'off-test@example.invalid');
+  perform public.send_sample_email('quote_request');
+  score := score + (select (count(*) = 1)::int from public.email_outbox where sample and kind = 'quote_request' and status = 'pending' and recipient_id = auth.uid());
+  perform public.set_email_kind_enabled('order_request', true);
+  perform public.set_email_kind_enabled('quote_request', true);
+  score := score + (select (disabled_kinds = '{}')::int from public.email_settings);
+  return score;
+end $f$;
+-- The signed-in admin stops getting quote request emails, then gets them again. One point each when:
+-- stopping cancels the one waiting for them, it's recorded on their profile, the next quote request
+-- queues nothing for them, a sample still reaches them, and getting them again empties the list.
+create function pg_temp.mute_admin_email() returns int language plpgsql as $f$
+declare
+  score int := 0;
+begin
+  perform public.submit_quote_request('Mute', 'One', '', 'mute-one@example.invalid', '', '', 'Hi', '');
+  perform public.set_admin_email(auth.uid(), 'quote_request', false);
+  score := score + (select (count(*) = 1 and bool_and(o.status = 'cancelled'))::int
+                    from public.email_outbox o join public.leads l on l.id = o.lead_id
+                    where l.email = 'mute-one@example.invalid' and o.recipient_id = auth.uid());
+  score := score + (select ('quote_request' = any (muted_email_kinds))::int from public.profiles where id = auth.uid());
+  perform public.submit_quote_request('Mute', 'Two', '', 'mute-two@example.invalid', '', '', 'Hi', '');
+  score := score + (select (count(*) = 0)::int from public.email_outbox o join public.leads l on l.id = o.lead_id
+                    where l.email = 'mute-two@example.invalid' and o.recipient_id = auth.uid());
+  perform public.send_sample_email('quote_request');
+  score := score + (select (count(*) = 1)::int from public.email_outbox where sample and kind = 'quote_request' and recipient_id = auth.uid());
+  perform public.set_admin_email(auth.uid(), 'quote_request', true);
+  score := score + (select (muted_email_kinds = '{}')::int from public.profiles where id = auth.uid());
+  return score;
+end $f$;
+-- Changes the sender and wait as the signed-in user: 1 when the settings then have them.
+create function pg_temp.change_sender() returns int language plpgsql as $f$
+begin
+  perform public.set_email_sender('  Access Test <test@example.invalid> ', 7);
+  return (select (from_address = 'Access Test <test@example.invalid>' and delay_minutes = 7)::int from public.email_settings);
+end $f$;
+-- Pauses sending as the signed-in user: 1 when the settings then say paused.
+create function pg_temp.pause_sending() returns int language plpgsql as $f$
+begin
+  perform public.set_email_sending_paused(true);
+  return (select paused::int from public.email_settings);
+end $f$;
+
 -- Admin-only tables: everyone but admins sees nothing and can't add, change or delete.
 -- (The linked client also sees its own organization: checked further down.)
 do $$
@@ -286,10 +365,12 @@ select pg_temp.check('profiles: can''t make themselves admin', 'client', $q$with
 select pg_temp.check('profiles: factory can''t switch to another factory', 'factory', $q$with x as (update public.profiles set factory_id = '0000ace5-0000-4000-8000-0000000f0002' where id = auth.uid() returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('profiles: client can''t switch to another organization', 'client', $q$with x as (update public.profiles set organization_id = null where id = auth.uid() returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('profiles: can''t change their first name', 'client', $q$with x as (update public.profiles set first_name = 'X' where id = auth.uid() returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('profiles: can''t change their last name', 'client', $q$with x as (update public.profiles set last_name = 'X' where id = auth.uid() returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('profiles: can''t change their email', 'admin', $q$update public.profiles set email = 'x@y.co' where id = auth.uid()$q$, 'denied');
 select pg_temp.check('profiles: can''t add', 'client', $q$insert into public.profiles (id, email) values (gen_random_uuid(), 'x@y.co')$q$, 'denied');
 select pg_temp.check('profiles: admin can change a role', 'admin', $q$with x as (update public.profiles set role = 'factory' where id = '0000ace5-0000-4000-8000-000000000004' returning 1) select count(*) from x$q$, '1');
 select pg_temp.check('profiles: admin can set a first name', 'admin', $q$with x as (update public.profiles set first_name = 'Test' where id = '0000ace5-0000-4000-8000-000000000004' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('profiles: admin can set a last name', 'admin', $q$with x as (update public.profiles set last_name = 'Test' where id = '0000ace5-0000-4000-8000-000000000004' returning 1) select count(*) from x$q$, '1');
 select pg_temp.check('profiles: designer is no longer a level', 'admin', $q$update public.profiles set role = 'designer' where id = '0000ace5-0000-4000-8000-000000000004'$q$, 'error');
 
 -- Scrapbooks: each user sees and changes only their own.
@@ -341,6 +422,8 @@ select pg_temp.check('email_outbox: shipped order emails its organization''s def
 select pg_temp.check('email_outbox: shipping to an organization without contacts is skipped', 'admin', $q$select pg_temp.ship_to_org_without_contacts()$q$, '1');
 select pg_temp.check('email_outbox: order request emails admins', 'admin', $q$select count(*) from public.email_outbox where kind = 'order_request' and order_request_id = '0000ace5-0000-4000-8000-0000000b0006' and recipient_id = '0000ace5-0000-4000-8000-000000000001'$q$, '1');
 select pg_temp.check('email_outbox: order request emails only admins', 'admin', $q$select count(*) from public.email_outbox o join public.profiles p on p.id = o.recipient_id where o.order_request_id = '0000ace5-0000-4000-8000-0000000b0006' and p.role <> 'admin'$q$, '0');
+select pg_temp.check('email_outbox: athlete notes email the other admins', 'admin', $q$select pg_temp.athlete_note_emails()$q$, '5');
+select pg_temp.check('email_outbox: other notes email nobody', 'admin', $q$select count(*) from public.email_outbox where note_id = '0000ace5-0000-4000-8000-0000000b0005'$q$, '0');
 select pg_temp.check('email_outbox: undoing shipped cancels the waiting email', 'admin', $q$select pg_temp.undo_shipping()$q$, '1');
 select pg_temp.check('email_outbox: reassigning swaps the factory email', 'admin', $q$select pg_temp.reassign_order()$q$, '2');
 select pg_temp.check('email_outbox: admin can''t send a skipped email', 'admin', $q$update public.email_outbox set status = 'pending' where status = 'skipped'$q$, 'error');
@@ -395,6 +478,23 @@ select pg_temp.check('organization_contacts: unlinked client can''t unlink', 'cl
 select pg_temp.check('email_settings: admin sees them', 'admin', $q$select count(*) from public.email_settings$q$, '1');
 select pg_temp.check('email_settings: sees nothing', 'client', $q$select count(*) from public.email_settings$q$, '0');
 select pg_temp.check('email_settings: admin can''t change them in the app', 'admin', $q$with x as (update public.email_settings set mode = 'live' returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('set_email_sending_paused: admin pauses sending', 'admin', $q$select pg_temp.pause_sending()$q$, '1');
+select pg_temp.check('set_email_sending_paused: client can''t', 'client', $q$select public.set_email_sending_paused(true)$q$, 'denied');
+select pg_temp.check('set_email_sending_paused: the public can''t', 'anon', $q$select public.set_email_sending_paused(true)$q$, 'denied');
+select pg_temp.check('set_email_kind_enabled: admin turns emails off and on', 'admin', $q$select pg_temp.turn_emails_off()$q$, '4');
+select pg_temp.check('set_email_kind_enabled: refuses an unknown kind', 'admin', $q$select public.set_email_kind_enabled('nonsense', false)$q$, 'error');
+select pg_temp.check('set_email_kind_enabled: factory can''t', 'factory', $q$select public.set_email_kind_enabled('order_request', false)$q$, 'denied');
+select pg_temp.check('send_sample_email: goes to the admin who asks', 'admin', $q$select (public.send_sample_email('order_shipped') = 'admin@access-test.invalid')::int$q$, '1');
+select pg_temp.check('send_sample_email: client can''t', 'client', $q$select public.send_sample_email('order_shipped')$q$, 'denied');
+select pg_temp.check('set_admin_email: admin chooses who gets admin emails', 'admin', $q$select pg_temp.mute_admin_email()$q$, '5');
+select pg_temp.check('set_admin_email: only for admins', 'admin', $q$select public.set_admin_email('0000ace5-0000-4000-8000-000000000004', 'quote_request', false)$q$, 'error');
+select pg_temp.check('set_admin_email: refuses an email that isn''t for admins', 'admin', $q$select public.set_admin_email(auth.uid(), 'order_shipped', false)$q$, 'error');
+select pg_temp.check('set_admin_email: factory can''t', 'factory', $q$select public.set_admin_email(auth.uid(), 'quote_request', false)$q$, 'denied');
+select pg_temp.check('set_admin_email: the public can''t', 'anon', $q$select public.set_admin_email('0000ace5-0000-4000-8000-000000000004', 'quote_request', false)$q$, 'denied');
+select pg_temp.check('set_email_sender: admin changes the sender and wait', 'admin', $q$select pg_temp.change_sender()$q$, '1');
+select pg_temp.check('set_email_sender: refuses a sender that isn''t an address', 'admin', $q$select public.set_email_sender('MARGEN', 5)$q$, 'error');
+select pg_temp.check('set_email_sender: refuses a wait over an hour', 'admin', $q$select public.set_email_sender('test@example.invalid', 61)$q$, 'error');
+select pg_temp.check('set_email_sender: client can''t', 'client', $q$select public.set_email_sender('test@example.invalid', 5)$q$, 'denied');
 select pg_temp.check('claim_due_emails: the public can''t call it', 'anon', $q$select public.claim_due_emails('x', 1)$q$, 'denied');
 select pg_temp.check('claim_due_emails: admin can''t call it', 'admin', $q$select public.claim_due_emails('x', 1)$q$, 'denied');
 select pg_temp.check('finish_email: signed-in users can''t call it', 'factory', $q$select public.finish_email('x', '0000ace5-0000-4000-8000-000000000000', null, null)$q$, 'denied');

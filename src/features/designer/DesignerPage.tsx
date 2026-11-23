@@ -1,7 +1,20 @@
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import { Logo } from "../../components/Layout";
-import { BACK_NAME, BACK_NUMBER, PLACEMENTS, SWATCHES, ZONES, shapes, type View } from "./garment";
+import {
+  BACK_NAME,
+  BACK_NUMBER,
+  DIRECTIONS,
+  MAX_GRADIENT_COLORS,
+  PLACEMENTS,
+  SWATCHES,
+  ZONES,
+  shapes,
+  type Direction,
+  type Gradient,
+  type View,
+  type Zone,
+} from "./garment";
 import "./designer.css";
 
 // DEMO kit designer (#/design): a public page where a client colours a garment, adds a logo, a name
@@ -14,6 +27,8 @@ const startColors = () => Object.fromEntries(ZONES.map((z) => [z.id, z.color]));
 export function DesignerPage() {
   const [view, setView] = useState<View>("front");
   const [colors, setColors] = useState<Record<string, string>>(startColors);
+  // Zones filled with a gradient instead of their single colour.
+  const [gradients, setGradients] = useState<Record<string, Gradient>>({});
   const [logo, setLogo] = useState<{ src: string; name: string } | null>(null);
   const [placement, setPlacement] = useState(PLACEMENTS[0].id);
   const [logoScale, setLogoScale] = useState(100);
@@ -22,6 +37,24 @@ export function DesignerPage() {
   const [textColor, setTextColor] = useState("#ffffff");
   const [error, setError] = useState<string | null>(null);
   const svg = useRef<SVGSVGElement>(null);
+  // SVG ids must be unique on the page, and only letters, digits and dashes.
+  const idPrefix = `kit${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const gradientId = (zone: string) => `${idPrefix}-${zone}`;
+  const fillOf = (zone: string) => (gradients[zone] ? `url(#${gradientId(zone)})` : colors[zone]);
+
+  // Shows the view a zone is on while it's being coloured.
+  const showZone = (z: Zone) => {
+    if (z.view) setView(z.view);
+  };
+  const setGradient = (z: Zone, gradient: Gradient | null) => {
+    showZone(z);
+    setGradients((all) => {
+      const next = { ...all };
+      if (gradient) next[z.id] = gradient;
+      else delete next[z.id];
+      return next;
+    });
+  };
 
   const spot = PLACEMENTS.find((p) => p.id === placement)!;
 
@@ -45,6 +78,7 @@ export function DesignerPage() {
 
   function startAgain() {
     setColors(startColors());
+    setGradients({});
     setLogo(null);
     setPlacement(PLACEMENTS[0].id);
     setLogoScale(100);
@@ -73,7 +107,7 @@ export function DesignerPage() {
         <div className="designer-intro">
           <h1>Design your kit</h1>
           <p className="muted">
-            Pick your colours, add your logo, name and number, and see it on the garment. <span className="designer-demo">Demo</span>
+            Pick your colours (gradients too, on the front and back panels), add your logo, name and number, and see it on the garment. <span className="designer-demo">Demo</span>
           </p>
         </div>
 
@@ -86,8 +120,20 @@ export function DesignerPage() {
             ))}
           </div>
           <svg ref={svg} viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label={`Rash guard, ${view} view`} className="designer-svg">
+            <defs>
+              {Object.entries(gradients).map(([zone, g]) => {
+                const dir = DIRECTIONS.find((d) => d.id === g.direction)!;
+                return (
+                  <linearGradient key={zone} id={gradientId(zone)} x1="0" y1="0" x2={dir.x2} y2={dir.y2}>
+                    {g.stops.map((c, i) => (
+                      <stop key={i} offset={i / (g.stops.length - 1)} stopColor={c} />
+                    ))}
+                  </linearGradient>
+                );
+              })}
+            </defs>
             {shapes(view).map((s, i) => (
-              <path key={i} d={s.d} fill={colors[s.zone]} data-zone={s.zone} />
+              <path key={i} d={s.d} fill={fillOf(s.zone)} data-zone={s.zone} />
             ))}
             {/* Seams and outlines on top, so they show whatever the colours. */}
             <g fill="none" stroke="#000c1c" strokeOpacity="0.55" strokeWidth="1.5" strokeLinejoin="round">
@@ -119,31 +165,73 @@ export function DesignerPage() {
         <div className="designer-controls">
           <section className="card section">
             <h2>Colours</h2>
-            {ZONES.map((z) => (
-              <div key={z.id} className="designer-zone">
-                <span className="strong">{z.label}</span>
-                <div className="designer-swatches">
-                  {SWATCHES.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      className={`designer-swatch${colors[z.id] === c ? " chosen" : ""}`}
-                      style={{ backgroundColor: c }}
-                      aria-label={`${z.label}: ${c}`}
-                      aria-pressed={colors[z.id] === c}
-                      onClick={() => setColors((all) => ({ ...all, [z.id]: c }))}
-                    />
-                  ))}
-                  <input
-                    type="color"
-                    className="color-input"
-                    value={colors[z.id]}
-                    aria-label={`Any colour for ${z.label}`}
-                    onChange={(e) => setColors((all) => ({ ...all, [z.id]: e.target.value }))}
-                  />
+            {ZONES.map((z) => {
+              const gradient = gradients[z.id];
+              const setColor = (c: string) => {
+                showZone(z);
+                setColors((all) => ({ ...all, [z.id]: c }));
+              };
+              return (
+                <div key={z.id} className="designer-zone">
+                  <div className="designer-zone-head">
+                    <span className="strong">{z.label}</span>
+                    {z.gradient && (
+                      <div className="designer-fill-kind" role="group" aria-label={`${z.label} fill`}>
+                        <button type="button" className={gradient ? "small" : "primary small"} aria-pressed={!gradient} onClick={() => setGradient(z, null)}>
+                          Solid
+                        </button>
+                        <button
+                          type="button"
+                          className={gradient ? "primary small" : "small"}
+                          aria-pressed={!!gradient}
+                          // Starts from the zone's colour, fading to green.
+                          onClick={() => !gradient && setGradient(z, { stops: [colors[z.id], "#7ef84d"], direction: "vertical" })}
+                        >
+                          Gradient
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {gradient ? (
+                    <div className="designer-gradient">
+                      {gradient.stops.map((c, i) => (
+                        <div key={i} className="designer-stop">
+                          <span className="muted small">Colour {i + 1}</span>
+                          <Swatches
+                            label={`${z.label}, colour ${i + 1}`}
+                            value={c}
+                            onChange={(next) => setGradient(z, { ...gradient, stops: gradient.stops.map((s, j) => (j === i ? next : s)) })}
+                          />
+                        </div>
+                      ))}
+                      <div className="designer-gradient-options">
+                        <label>
+                          Direction
+                          <select value={gradient.direction} onChange={(e) => setGradient(z, { ...gradient, direction: e.target.value as Direction })}>
+                            {DIRECTIONS.map((d) => (
+                              <option key={d.id} value={d.id}>
+                                {d.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        {gradient.stops.length < MAX_GRADIENT_COLORS ? (
+                          <button type="button" className="ghost small" onClick={() => setGradient(z, { ...gradient, stops: [...gradient.stops, "#ffffff"] })}>
+                            Add a third colour
+                          </button>
+                        ) : (
+                          <button type="button" className="ghost small" onClick={() => setGradient(z, { ...gradient, stops: gradient.stops.slice(0, 2) })}>
+                            Remove the third colour
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <Swatches label={z.label} value={colors[z.id]} onChange={setColor} />
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </section>
 
           <section className="card section">
@@ -208,6 +296,26 @@ export function DesignerPage() {
           </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+// The choices for one colour: the swatches, and any colour from the picker.
+function Swatches({ label, value, onChange }: { label: string; value: string; onChange: (color: string) => void }) {
+  return (
+    <div className="designer-swatches">
+      {SWATCHES.map((c) => (
+        <button
+          key={c}
+          type="button"
+          className={`designer-swatch${value === c ? " chosen" : ""}`}
+          style={{ backgroundColor: c }}
+          aria-label={`${label}: ${c}`}
+          aria-pressed={value === c}
+          onClick={() => onChange(c)}
+        />
+      ))}
+      <input type="color" className="color-input" value={value} aria-label={`Any colour for ${label}`} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

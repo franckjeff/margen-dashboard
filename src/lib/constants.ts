@@ -43,8 +43,9 @@ export const ORDER_TONES: Record<string, string> = {
   cancelled: "danger",
 };
 // The grids on the Orders page, top to bottom, and the order statuses each one holds.
-export const ORDER_GRIDS: { key: string; title: string; statuses: string[] }[] = [
-  { key: "new", title: "Pre-Production", statuses: ["received", "accepted", "on_hold"] },
+// Each time the page opens, only Pre-Production is open; the others start collapsed.
+export const ORDER_GRIDS: { key: string; title: string; statuses: string[]; startOpen?: boolean }[] = [
+  { key: "new", title: "Pre-Production", statuses: ["received", "accepted", "on_hold"], startOpen: true },
   { key: "in_production", title: "In production", statuses: ["in_production"] },
   { key: "done", title: "Done", statuses: ["done"] },
   { key: "cancelled", title: "Cancelled", statuses: ["cancelled"] },
@@ -104,7 +105,7 @@ export const PAGES: Page[] = [
   { name: "factories", label: "Factories", roles: ["admin"], group: "Admin" },
   { name: "organizations", label: "Organizations", roles: ["admin"], group: "Admin" },
   { name: "users", label: "Users", roles: ["admin"], group: "Admin" },
-  { name: "emails", label: "Email log", roles: ["admin"], group: "Admin" },
+  { name: "emails", label: "Email Admin and Logs", roles: ["admin"], group: "Admin" },
   // The colour of each status badge, for everyone.
   { name: "status-colors", label: "Status colors", roles: ["admin"], group: "Admin" },
   // How the app works, written for factory or client users; admins can read either version.

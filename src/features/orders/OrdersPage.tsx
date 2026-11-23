@@ -207,7 +207,7 @@ export function OrdersPage({ id, editing = false, archived = false }: { id?: str
       placeholder={archived ? "Search archived orders" : "Search orders"}
       loading={loadingState([orders, orderItems])}
       empty={archived ? "No archived orders." : "No orders yet."}
-      groups={archived ? undefined : ORDER_GRIDS.map((g) => ({ key: g.key, title: g.title, empty: "No orders." }))}
+      groups={archived ? undefined : ORDER_GRIDS.map((g) => ({ key: g.key, title: g.title, empty: "No orders.", startOpen: !!g.startOpen }))}
       selection={{
         noun: "order",
         summary: (ids) => plural(ids.reduce((sum, id) => sum + piecesIn(lines, id), 0), "piece"),

@@ -2,7 +2,7 @@
 //
 // Creating accounts needs the project's secret key, which must never reach the browser, so it runs
 // here on Supabase's servers. The new account gets its profile from the on_auth_user_created trigger,
-// then this sets its access level, first name, and the factory or organization it's linked to.
+// then this sets its access level, first and last name, and the factory or organization it's linked to.
 //
 // Without a password, the person chooses one with "Forgot your password?" on the sign-in page.
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -23,6 +23,7 @@ type Request = {
   email?: string;
   password?: string;
   first_name?: string;
+  last_name?: string;
   role?: string;
   factory_id?: string | null;
   organization_id?: string | null;
@@ -52,7 +53,11 @@ Deno.serve(async (req) => {
   const email = (body.email ?? "").trim().toLowerCase();
   const password = body.password ?? "";
   const role = body.role ?? "client";
+  const firstName = body.first_name?.trim() ?? "";
+  const lastName = body.last_name?.trim() ?? "";
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return reply(400, { error: "Enter a valid email address." });
+  if (!firstName || !lastName) return reply(400, { error: "Enter a first and last name." });
+  if (firstName.length > 100 || lastName.length > 100) return reply(400, { error: "The name is too long." });
   if (!ROLES.includes(role)) return reply(400, { error: "Choose an access level." });
   if (password && password.length < MIN_PASSWORD) return reply(400, { error: `The password needs at least ${MIN_PASSWORD} characters.` });
 
@@ -71,7 +76,8 @@ Deno.serve(async (req) => {
     .from("profiles")
     .update({
       role,
-      first_name: body.first_name?.trim() || null,
+      first_name: firstName,
+      last_name: lastName,
       factory_id: role === "factory" ? body.factory_id || null : null,
       organization_id: role === "client" ? body.organization_id || null : null,
     })

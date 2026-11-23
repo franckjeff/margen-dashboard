@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSignedIn } from "../../auth/AuthProvider";
 import { SearchBox, useSearch } from "../../components/ListPage";
+import { useNotice } from "../../components/Notice";
 import { Count, Dash, DateTime, OrDash, Optional, loadingState } from "../../components/ui";
 import { expectRows, useDbAction } from "../../data/mutations";
 import { useFactories, useOrganizations, useUsers, type User } from "../../data/queries";
@@ -10,10 +11,14 @@ import { formValues } from "../../lib/forms";
 import { supabase, unwrap } from "../../lib/supabase";
 import { useUiState } from "../../lib/uiState";
 
+type NameField = "first_name" | "last_name";
+// Kept short: shown next to the user's email on the Users page.
+const NAME_LABELS: Record<NameField, string> = { first_name: "First name", last_name: "Last name" };
+
 const notChanged = (user: User) => `${user.email} wasn't changed. You may not have permission.`;
 const MIN_PASSWORD = 8;
 
-type NewUser = { email: string; first_name: string; role: Role; factory_id: string | null; organization_id: string | null; password: string };
+type NewUser = { email: string; first_name: string; last_name: string; role: Role; factory_id: string | null; organization_id: string | null; password: string };
 
 // Accounts are created by the create-user function on Supabase's servers (supabase/functions/create-user),
 // because that needs the project's secret key. It refuses anyone who isn't an admin.
@@ -49,6 +54,7 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
             {
               email: v.email,
               first_name: v.first_name,
+              last_name: v.last_name,
               role,
               factory_id: role === "factory" ? v.factory_id || null : null,
               organization_id: role === "client" ? v.organization_id || null : null,
@@ -58,14 +64,18 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
           );
         }}
       >
+        <label>
+          Email
+          <input type="email" name="email" required autoFocus autoComplete="off" />
+        </label>
         <div className="field-row">
           <label>
-            Email
-            <input type="email" name="email" required autoFocus autoComplete="off" />
+            First name
+            <input name="first_name" required maxLength={100} autoComplete="off" />
           </label>
           <label>
-            <Optional>First name</Optional>
-            <input name="first_name" autoComplete="off" />
+            Last name
+            <input name="last_name" required maxLength={100} autoComplete="off" />
           </label>
         </div>
         <div className="field-row">
@@ -132,6 +142,7 @@ export function UsersPage() {
   const factories = useFactories();
   const organizations = useOrganizations();
   const { userId } = useSignedIn();
+  const { notify } = useNotice();
   const { query, setQuery, matches } = useSearch();
   const [failedSaves, setFailedSaves] = useState(0);
   const [adding, setAdding] = useState(false);
@@ -147,12 +158,12 @@ export function UsersPage() {
     failure: ({ user }) => `Couldn't change ${user.email}`,
   });
 
-  // The first name is how the Dashboard greets each person.
-  const setFirstName = useDbAction({
+  // Every user has a first and last name; the first name is how the Dashboard greets them.
+  const setName = useDbAction({
     tables: ["profiles"],
-    run: async ({ user, first_name }: { user: User; first_name: string | null }) =>
-      expectRows(unwrap(await supabase.from("profiles").update({ first_name }).eq("id", user.id).select("id")), notChanged(user)),
-    success: ({ user, first_name }) => (first_name ? `${user.email} is now called ${first_name}.` : `Removed ${user.email}'s name.`),
+    run: async ({ user, field, value }: { user: User; field: NameField; value: string }) =>
+      expectRows(unwrap(await supabase.from("profiles").update(field === "first_name" ? { first_name: value } : { last_name: value }).eq("id", user.id).select("id")), notChanged(user)),
+    success: ({ user, field, value }) => `${user.email}'s ${NAME_LABELS[field].toLowerCase()} is now ${value}.`,
     failure: ({ user }) => `Couldn't change ${user.email}`,
   });
 
@@ -184,7 +195,7 @@ export function UsersPage() {
 
   // The factory or organization the account is linked to, for the roles that have one.
   const linkedName = (u: User) => (u.role === "factory" ? factoryName(u.factory_id) : u.role === "client" ? organizationName(u.organization_id) : "");
-  const searchText = (u: User) => `${u.email} ${u.first_name ?? ""} ${ROLE_LABELS[u.role]} ${linkedName(u)}`.toLowerCase();
+  const searchText = (u: User) => `${u.email} ${u.first_name ?? ""} ${u.last_name ?? ""} ${ROLE_LABELS[u.role]} ${linkedName(u)}`.toLowerCase();
   const visible = all.filter((u) => (!roleFilter || u.role === roleFilter) && matches(searchText(u)));
   const countOf = (role: Role) => all.filter((u) => u.role === role).length;
 
@@ -218,6 +229,7 @@ export function UsersPage() {
                 <tr>
                   <th>Email</th>
                   <th>First name</th>
+                  <th>Last name</th>
                   <th>Access level</th>
                   <th>Linked to</th>
                   <th>Last signed in</th>
@@ -233,27 +245,34 @@ export function UsersPage() {
                       </span>
                       {u.id === userId && <span className="muted small"> (you)</span>}
                     </td>
-                    <td>
-                      <input
-                        className="name-input"
-                        // Remounts with the saved name whenever it changes, or when a change fails.
-                        key={`${u.first_name}-${failedSaves}`}
-                        defaultValue={u.first_name ?? ""}
-                        placeholder="Add a name"
-                        autoComplete="off"
-                        aria-label={`First name for ${u.email}`}
-                        disabled={setFirstName.isPending && setFirstName.variables?.user.id === u.id}
-                        onBlur={(event) => {
-                          const first_name = event.target.value.trim() || null;
-                          if (first_name !== u.first_name) {
-                            setFirstName.mutate({ user: u, first_name }, { onError: () => setFailedSaves((n) => n + 1) });
-                          }
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") event.currentTarget.blur();
-                        }}
-                      />
-                    </td>
+                    {(["first_name", "last_name"] as const).map((field) => (
+                      <td key={field}>
+                        <input
+                          className={`name-input${u[field] ? "" : " missing"}`}
+                          // Remounts with the saved name whenever it changes, or when a change fails.
+                          key={`${u[field]}-${failedSaves}`}
+                          defaultValue={u[field] ?? ""}
+                          placeholder={`Add a ${NAME_LABELS[field].toLowerCase()}`}
+                          autoComplete="off"
+                          maxLength={100}
+                          aria-label={`${NAME_LABELS[field]} for ${u.email}`}
+                          disabled={setName.isPending && setName.variables?.user.id === u.id}
+                          onBlur={(event) => {
+                            const value = event.target.value.trim();
+                            if (value === (u[field] ?? "")) return;
+                            // A name can be changed but not removed.
+                            if (!value) {
+                              event.target.value = u[field] ?? "";
+                              return notify("error", `${u.email} needs a ${NAME_LABELS[field].toLowerCase()}.`);
+                            }
+                            setName.mutate({ user: u, field, value }, { onError: () => setFailedSaves((n) => n + 1) });
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") event.currentTarget.blur();
+                          }}
+                        />
+                      </td>
+                    ))}
                     <td className="role-cell">
                       <select
                         aria-label={`Access level for ${u.email}`}
@@ -316,7 +335,7 @@ export function UsersPage() {
       </section>
       <p className="muted small hint">
         New users are added with Add user. You can't change your own level, and there must
-        always be at least one Admin. The first name is how the Dashboard greets each person. A Factory account sees only the
+        always be at least one Admin. Every user has a first and last name; the first name is how the Dashboard greets them. A Factory account sees only the
         orders of the factory it's linked to, and can change only their production status and shipping details. A Client account
         sees only the orders of the organization it's linked to, and can't change anything.
       </p>

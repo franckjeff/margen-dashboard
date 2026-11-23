@@ -103,6 +103,9 @@ The app emails people when something happens:
 - **Order assigned to a factory:** that factory's default contact.
 - **Order shipped** (production set to Shipped): the default contact of the order's organization.
 - **New order request** from the Order Entry page: the admins (their user accounts).
+- **New quote request** from the public Request a quote page: the admins.
+- **Athlete note added or edited:** the admins, except the one who made the change. The email shows the
+  note as it is when sent, so edits made before it goes out don't send a second one.
 
 Factories and organizations each link to contacts, one of them the default, and the default contact's email
 address gets their emails, so people at a factory or club don't need an account. Admins link contacts on the
@@ -115,22 +118,33 @@ per person, with recipients always taken from the database (contacts, or admin `
 (`delay_minutes`), and undoing the change in that time cancels them. Every minute a `pg_cron` job checks for
 emails that are due and calls the `send-emails` function (`supabase/functions/send-emails`). The function
 writes each email from fixed templates, sends it through [Resend](https://resend.com) and records the result.
-Failures are tried again, up to 5 times. Admins see every email on the **Email log** page, where they can
-cancel one or send it again.
+Failures are tried again, up to 5 times. Admins see every email on the **Email Admin and Logs** page, where they can
+cancel one or send it again. The page also lets admins:
 
-How each project sends is set in the one-row `email_settings` table, changed in the SQL editor (the app
-only shows it):
+- **Pause all sending** (`paused`): emails keep queuing and go out on resume.
+- **Turn each kind of email on or off** (`disabled_kinds`): one that's off is still logged, as cancelled, and
+  turning a kind off cancels those still waiting.
+- **Send themselves a sample** of any kind (`send_sample_email()`), with made-up details, to their own address.
+- **Choose who gets admin emails** (`set_admin_email()`): each admin, for each kind of admin email, is on or off
+  (`profiles.muted_email_kinds`). Turning one off cancels those still waiting for them.
+- **Change the sender and the wait** before order emails (`set_email_sender()`, 0 to 60 minutes).
+- **Preview** each email with made-up details. The page writes it with the same templates as the function
+  (`supabase/functions/send-emails/templates.ts`), so the preview is what gets sent.
+- See **warnings** at the top: failures in the last day, emails being retried, and why emails reached nobody.
+
+Admins change these through database functions that check they're an admin; they can't edit
+`email_settings` directly. The rest of the settings are changed in the SQL editor:
 
 - `mode`: `off` (nothing is sent; emails wait), `redirect` (every email goes to `redirect_to`, with
   its real recipient in the subject; use this on MARGEN TEST) or `live`.
-- `from_address`: the sender, on a domain verified in Resend. Resend's test sender
+- `from_address` (also on the page): the sender, on a domain verified in Resend. Resend's test sender
   `MARGEN <onboarding@resend.dev>` works without a domain, but only delivers to the Resend account's own address.
 - `app_url`: where the email buttons link to.
 
 Setting up sending on a project:
 
 1. Deploy the function with "Verify JWT" turned off (`npx supabase functions deploy send-emails --no-verify-jwt`).
-   It checks a shared secret instead.
+   It checks a shared secret instead. Deploy `index.ts` and `templates.ts` together.
 2. In the dashboard, under Edge Functions → Secrets, add `RESEND_API_KEY`. Until it's set, nothing is sent.
 3. In the SQL editor, store the function's address and a new random secret in the vault:
    ```sql
@@ -173,12 +187,12 @@ restore it from the Supabase dashboard; nothing is lost.
 
 ## Access tests
 
-`supabase/tests/access_rules.sql` checks the access rules above automatically: 269 checks of what
+`supabase/tests/access_rules.sql` checks the access rules above automatically: 290 checks of what
 admins, factories, clients and visitors who aren't signed in can see and change, table by
 table, plus the public and admin-only database functions and which emails are queued for whom. To run it, open the **MARGEN TEST** project,
 paste the whole file into the SQL editor and click Run.
 
 It always ends with an error, on purpose: that is how everything it did is undone, including the test
-users and records it creates. The error message is the result: `ACCESS TESTS PASSED: 269 checks`, or
+users and records it creates. The error message is the result: `ACCESS TESTS PASSED: 290 checks`, or
 `ACCESS TESTS FAILED` followed by each check that failed. It's also safe to run on the live database,
 which is worth doing once after each change goes live.

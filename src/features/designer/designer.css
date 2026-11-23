@@ -24,6 +24,12 @@
 .designer-controls h2 { margin: 0; }
 .designer-controls .notice { margin: 0; }
 .designer-zone { display: grid; gap: 6px; }
+.designer-zone-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.designer-fill-kind { display: flex; gap: 6px; }
+.designer-gradient { display: grid; gap: 8px; padding: 10px 12px; border-left: 3px solid var(--border); }
+.designer-stop { display: grid; gap: 4px; }
+.designer-gradient-options { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+.designer-gradient-options label { flex: 1 1 160px; }
 .designer-swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .designer-swatch {
   width: 26px; height: 26px; padding: 0; border-radius: 50%;

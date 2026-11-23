@@ -3,11 +3,13 @@
 
 export type View = "front" | "back";
 
-export type Zone = { id: string; label: string; color: string };
+// gradient: the zone can also be a gradient of up to three colours. view: the zone shows on that view only.
+export type Zone = { id: string; label: string; color: string; gradient?: boolean; view?: View };
 
 // The colourable zones, with their starting colours (MARGEN navy and green).
 export const ZONES: Zone[] = [
-  { id: "body", label: "Body", color: "#002138" },
+  { id: "front-panel", label: "Front panel", color: "#002138", gradient: true, view: "front" },
+  { id: "back-panel", label: "Back panel", color: "#002138", gradient: true, view: "back" },
   { id: "side-panels", label: "Side panels", color: "#7ef84d" },
   { id: "sleeves", label: "Sleeves", color: "#002138" },
   { id: "cuffs", label: "Cuffs", color: "#7ef84d" },
@@ -34,12 +36,22 @@ export function shapes(view: View): { zone: string; d: string }[] {
     { zone: "sleeves", d: poly(mirror(leftSleeve)) },
     { zone: "cuffs", d: poly(leftCuff) },
     { zone: "cuffs", d: poly(mirror(leftCuff)) },
-    { zone: "body", d: `M146,62 L172,54 Q200,${neck} 228,54 L254,62 L282,150 L282,372 Q200,386 118,372 L118,150 Z` },
+    { zone: view === "front" ? "front-panel" : "back-panel", d: `M146,62 L172,54 Q200,${neck} 228,54 L254,62 L282,150 L282,372 Q200,386 118,372 L118,150 Z` },
     { zone: "side-panels", d: poly(leftSide) },
     { zone: "side-panels", d: poly(mirror(leftSide)) },
     { zone: "collar", d: `M172,54 Q200,${neck} 228,54 L222,46 Q200,${band} 178,46 Z` },
   ];
 }
+
+// A gradient across a zone: two or three colours, evenly spaced, in one direction.
+export type Direction = "vertical" | "horizontal" | "diagonal";
+export type Gradient = { stops: string[]; direction: Direction };
+export const MAX_GRADIENT_COLORS = 3;
+export const DIRECTIONS: { id: Direction; label: string; x2: number; y2: number }[] = [
+  { id: "vertical", label: "Top to bottom", x2: 0, y2: 1 },
+  { id: "horizontal", label: "Left to right", x2: 1, y2: 0 },
+  { id: "diagonal", label: "Diagonal", x2: 1, y2: 1 },
+];
 
 // Where a logo can go, as a box on one view.
 export type Placement = { id: string; label: string; view: View; x: number; y: number; w: number; h: number };

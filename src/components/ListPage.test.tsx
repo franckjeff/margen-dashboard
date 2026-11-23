@@ -137,6 +137,42 @@ describe("ListPage", () => {
     localStorage.clear();
   });
 
+  it("opens only the start-open grids on every visit, and remembers nothing", async () => {
+    const user = userEvent.setup();
+    const page = () => (
+      <MemoryRouter>
+        <ListPage
+          title="Starts"
+          count={2}
+          placeholder="Search things"
+          head={<th>Name</th>}
+          rows={[{ ...row("1", "A"), group: "first" }, { ...row("2", "B"), group: "second" }]}
+          loading={null}
+          groups={[
+            { key: "first", title: "First", startOpen: true },
+            { key: "second", title: "Second", startOpen: false },
+          ]}
+        />
+      </MemoryRouter>
+    );
+    const { unmount } = render(page());
+    const button = (name: string) => screen.getByRole("button", { name: new RegExp(name) });
+    expect(button("First")).toHaveAttribute("aria-expanded", "true");
+    // Closed even though it has rows.
+    expect(button("Second")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("B")).not.toBeVisible();
+    await user.click(button("Second"));
+    await user.click(button("First"));
+    expect(screen.getByText("B")).toBeVisible();
+    expect(screen.getByText("A")).not.toBeVisible();
+    expect(localStorage.getItem("list-collapsed:Starts")).toBeNull();
+    // The next visit starts over.
+    unmount();
+    render(page());
+    expect(button("First")).toHaveAttribute("aria-expanded", "true");
+    expect(button("Second")).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("counts only the selected rows still shown", async () => {
     const user = userEvent.setup();
     renderList([row("1", "Outrigger"), row("2", "Puff")], true);

@@ -2,7 +2,7 @@ import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
 import logo from "../assets/margen-logo.svg";
 import { useSignedIn } from "../auth/AuthProvider";
-import { useOpenOrderCount } from "../data/queries";
+import { hasMenuCount, useMenuCount } from "../data/queries";
 import { ROLE_LABELS, visiblePages, type Page } from "../lib/constants";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
@@ -16,15 +16,12 @@ export const Logo = () => <img src={logo} alt="MARGEN" className="logo" />;
 
 type MenuEntry = Page | { group: string; pages: Page[] };
 
-// The number of orders in progress, beside that menu item. Nothing shows until it has loaded.
-function OpenOrderCount() {
-  const count = useOpenOrderCount();
+// How many records a menu item's page lists, beside it. Nothing shows until it has loaded.
+function MenuCount({ page }: { page: Page }) {
+  const { role } = useSignedIn();
+  const count = useMenuCount(page.name, role);
   if (count.data === undefined) return null;
-  return (
-    <span className="tab-count" aria-label={`${count.data} orders`}>
-      ({count.data})
-    </span>
-  );
+  return <span className="tab-count">({count.data})</span>;
 }
 
 // Whether the menu is folded away, remembered in this browser. Storage can be blocked, so it's optional.
@@ -77,7 +74,7 @@ export function Layout() {
   const tab = (p: Page) => (
     <NavLink key={p.name} to={`/${p.name}`} className={({ isActive }) => `tab${isActive ? " active" : ""}`}>
       {p.label}
-      {p.name === "customs" && <OpenOrderCount />}
+      {hasMenuCount(p.name) && <MenuCount page={p} />}
     </NavLink>
   );
 

@@ -297,8 +297,8 @@ function OrdersSection({ factory }: { factory: boolean }) {
       </div>
       <ul>
         <li>
-          <strong>Grid headings</strong>: click one to collapse or expand that grid. Your browser remembers which grids you
-          closed.
+          <strong>Grid headings</strong>: click one to collapse or expand that grid. Each time you open the page, only{" "}
+          <em>Pre-Production</em> is open; click another grid's heading to see its orders.
         </li>
         <li>
           <strong>Search</strong> by order ID{factory ? ", factory order ID" : ""} or status. All four grids narrow as you type,

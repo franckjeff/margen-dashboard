@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { ADDRESS_FIELDS, type Role } from "../lib/constants";
+import type { PostgrestError } from "@supabase/supabase-js";
+import { ADDRESS_FIELDS, type PageName, type Role } from "../lib/constants";
 import type { Tables } from "../lib/database.types";
 import { byName, byPerson } from "../lib/format";
 import { DbError, supabase, unwrap } from "../lib/supabase";
@@ -63,7 +64,7 @@ export type Note = Pick<Tables<"notes">, "id" | "contact_id" | "athlete_id" | "f
   organization: { name: string } | null;
   factory: { name: string } | null;
 };
-export type User = Pick<Tables<"profiles">, "id" | "email" | "first_name" | "factory_id" | "organization_id" | "created_at"> & {
+export type User = Pick<Tables<"profiles">, "id" | "email" | "first_name" | "last_name" | "muted_email_kinds" | "factory_id" | "organization_id" | "created_at"> & {
   role: Role;
   last_sign_in_at: string | null;
 };
@@ -174,13 +175,41 @@ export function useOrders() {
   });
 }
 
-// How many orders are on the Orders in progress page (every order not archived), for the menu.
-// Only the number comes back. It sits under keys.orders, so any change to orders refreshes it.
-export function useOpenOrderCount() {
+// The menu items that show how many records their page lists, and how each is counted.
+// Each count sits under its page's query key, so whatever refreshes the page refreshes the count.
+// The database's access rules apply as usual: everyone counts only what they can see.
+const MENU_COUNTS: Partial<Record<PageName, { key: readonly string[]; count: (role: Role) => PromiseLike<{ count: number | null; error: PostgrestError | null }> }>> = {
+  customs: { key: keys.orders, count: () => supabase.from("orders").select("id", { count: "exact", head: true }).is("archived_at", null) },
+  "archived-orders": {
+    key: keys.orders,
+    count: () => supabase.from("orders").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
+  },
+  leads: { key: keys.leads, count: () => supabase.from("leads").select("id", { count: "exact", head: true }) },
+  contacts: { key: keys.contacts, count: () => supabase.from("contacts").select("id", { count: "exact", head: true }) },
+  // Factory and client users' Contacts page lists their own factory's or organization's contacts.
+  "my-contacts": {
+    key: keys.myContacts,
+    count: (role) =>
+      role === "factory"
+        ? supabase.from("factory_contacts").select("contact_id", { count: "exact", head: true })
+        : supabase.from("organization_contacts").select("contact_id", { count: "exact", head: true }),
+  },
+  athletes: { key: keys.athletes, count: () => supabase.from("athletes").select("id", { count: "exact", head: true }) },
+  factories: { key: keys.factories, count: () => supabase.from("factories").select("id", { count: "exact", head: true }) },
+  organizations: { key: keys.organizations, count: () => supabase.from("organizations").select("id", { count: "exact", head: true }) },
+  users: { key: keys.users, count: () => supabase.from("profiles").select("id", { count: "exact", head: true }) },
+};
+
+export const hasMenuCount = (page: PageName) => page in MENU_COUNTS;
+
+// How many records a menu item's page lists. Only the number comes back, not the records.
+export function useMenuCount(page: PageName, role: Role) {
+  const spec = MENU_COUNTS[page];
   return useQuery({
-    queryKey: [...keys.orders, "openCount"],
+    queryKey: [...(spec?.key ?? []), "menuCount", page],
+    enabled: !!spec,
     queryFn: async (): Promise<number> => {
-      const { count, error } = await supabase.from("orders").select("id", { count: "exact", head: true }).is("archived_at", null);
+      const { count, error } = await spec!.count(role);
       if (error) throw new DbError(error);
       return count ?? 0;
     },
@@ -303,6 +332,7 @@ export type Email = Tables<"email_outbox"> & {
   order: { id: string; margen_order_id: string } | null;
   request: { id: string; organization_name: string } | null;
   lead: { id: string; first_name: string; last_name: string; organization_name: string | null } | null;
+  note: { id: string; athlete: { id: string; first_name: string; last_name: string } | null } | null;
 };
 
 // Admins only: the latest emails in the outbox, with what each one is about.
@@ -313,7 +343,7 @@ export function useEmails() {
       unwrap(
         await supabase
           .from("email_outbox")
-          .select("*, order:orders(id, margen_order_id), request:order_requests(id, organization_name), lead:leads(id, first_name, last_name, organization_name)")
+          .select("*, order:orders(id, margen_order_id), request:order_requests(id, organization_name), lead:leads(id, first_name, last_name, organization_name), note:notes(id, athlete:athletes(id, first_name, last_name))")
           .order("created_at", { ascending: false })
           .limit(500),
       ),
@@ -402,7 +432,7 @@ export function useUsers() {
     queryKey: keys.users,
     queryFn: async (): Promise<User[]> => {
       const [users, signIns] = await Promise.all([
-        supabase.from("profiles").select("id, email, first_name, role, factory_id, organization_id, created_at").order("email"),
+        supabase.from("profiles").select("id, email, first_name, last_name, muted_email_kinds, role, factory_id, organization_id, created_at").order("email"),
         supabase.rpc("user_last_sign_ins"),
       ]);
       const lastSignIn = new Map(unwrap(signIns).map((s) => [s.id, s.last_sign_in_at]));
