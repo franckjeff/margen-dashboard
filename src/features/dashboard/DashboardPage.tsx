@@ -4,7 +4,7 @@ import { useSignedIn } from "../../auth/AuthProvider";
 import { useNotice } from "../../components/Notice";
 import { Count, loadingState } from "../../components/ui";
 import { keys, useDashboardCounts, useDismissals, useFactories, useNotes, useOrders, useOrganizations } from "../../data/queries";
-import { ROLE_LABELS, isOpenOrder } from "../../lib/constants";
+import { ROLE_LABELS, isOpenOrder, orderListOf } from "../../lib/constants";
 import { fullName } from "../../lib/format";
 import { DbError, messageOf, supabase } from "../../lib/supabase";
 import { NoteMeta } from "../notes/NotesSection";
@@ -98,9 +98,9 @@ function FactoryStats() {
           <span className="stat-label">Open orders</span>
           <span className="stat-value">{open.length}</span>
         </Link>
-        <Link to="/customs" className="card stat">
+        <Link to="/production-orders" className="card stat">
           <span className="stat-label">In production</span>
-          <span className="stat-value">{open.filter((o) => o.production_status).length}</span>
+          <span className="stat-value">{all.filter((o) => orderListOf(o) === "production-orders").length}</span>
         </Link>
         <Link to="/customs" className="card stat">
           <span className="stat-label">All orders</span>
@@ -131,9 +131,9 @@ function ClientStats() {
           <span className="stat-label">Open orders</span>
           <span className="stat-value">{open.length}</span>
         </Link>
-        <Link to="/customs" className="card stat">
+        <Link to="/production-orders" className="card stat">
           <span className="stat-label">In production</span>
-          <span className="stat-value">{open.filter((o) => o.production_status).length}</span>
+          <span className="stat-value">{all.filter((o) => orderListOf(o) === "production-orders").length}</span>
         </Link>
         <Link to="/customs" className="card stat">
           <span className="stat-label">All orders</span>
@@ -167,7 +167,7 @@ function AdminStats() {
   );
 }
 
-// Notes this user hasn't hidden yet, newest first, each with the contact, organization, athlete or factory it's about.
+// Notes this user hasn't hidden yet, newest first, each with the contact, organization, athlete, factory or order it's about.
 function DashboardNotes() {
   const notes = useNotes();
   const dismissals = useDismissals();
@@ -197,6 +197,7 @@ function DashboardNotes() {
     if (n.contact_id) return { kind: "Contact", to: `/contacts/${n.contact_id}`, name: n.contact && fullName(n.contact) };
     if (n.organization_id) return { kind: "Organization", to: `/organizations/${n.organization_id}`, name: n.organization?.name };
     if (n.factory_id) return { kind: "Factory", to: `/factories/${n.factory_id}`, name: n.factory?.name };
+    if (n.order_id) return { kind: "Order", to: `/customs/${n.order_id}`, name: n.order?.margen_order_id };
     return { kind: "Athlete", to: `/athletes/${n.athlete_id}`, name: n.athlete && fullName(n.athlete) };
   };
 

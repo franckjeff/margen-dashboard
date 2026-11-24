@@ -3,7 +3,14 @@
 // Used by the send-emails function to write each email, and by the app's Email Admin and Logs page to preview
 // them, so the preview is always the real thing. Plain TypeScript only: it runs on Deno and in the browser.
 
-export type Kind = "order_assigned" | "order_shipped" | "order_request" | "quote_request" | "athlete_note_added" | "athlete_note_edited";
+export type Kind =
+  | "order_assigned"
+  | "order_shipped"
+  | "order_request"
+  | "quote_request"
+  | "athlete_note_added"
+  | "order_note_from_factory"
+  | "order_note_from_admin";
 export type Details = Record<string, string | number | null>;
 
 // What a template needs to know about the email it writes.
@@ -24,8 +31,7 @@ const ORDER_STATUSES: Record<string, string> = {
   received: "Received",
   accepted: "Accepted",
   in_production: "In production",
-  done: "Done",
-  on_hold: "On hold",
+  shipped: "Shipped",
   cancelled: "Cancelled",
 };
 
@@ -147,14 +153,12 @@ export function write(email: EmailFacts, appUrl: string, today = new Date()): Me
           ),
         };
       // To the admins, except the one who made the change.
-      case "athlete_note_added":
-      case "athlete_note_edited": {
-        const added = email.kind === "athlete_note_added";
+      case "athlete_note_added": {
         return {
-          subject: `${added ? "New note" : "Note edited"} for ${d.athlete_name}`,
+          subject: `New note for ${d.athlete_name}`,
           ...layout(
-            `${added ? "New note" : "Note edited"} for ${d.athlete_name}`,
-            [hello, added ? `A note was added for the athlete ${d.athlete_name}.` : `A note for the athlete ${d.athlete_name} was edited.`],
+            `New note for ${d.athlete_name}`,
+            [hello, `A note was added for the athlete ${d.athlete_name}.`],
             [
               ["Athlete", d.athlete_name],
               ["Note", d.body],
@@ -164,6 +168,38 @@ export function write(email: EmailFacts, appUrl: string, today = new Date()): Me
           ),
         };
       }
+      // To the admins: the factory added a note to one of its orders.
+      case "order_note_from_factory":
+        return {
+          subject: `${d.factory_name} added a note to order ${d.margen_order_id}`,
+          ...layout(
+            `Note from ${d.factory_name} on order ${d.margen_order_id}`,
+            [hello, `${d.factory_name} added a note to order ${d.margen_order_id}.`],
+            [
+              ["Order", d.margen_order_id],
+              ["Factory order ID", d.factory_order_id],
+              ["Note", d.body],
+              ["Written by", d.written_by],
+            ],
+            { label: "Open the order", url: open(`customs/${d.order_id}`) },
+          ),
+        };
+      // To the factory's default contact: MARGEN added a note to one of the factory's orders. No client details.
+      case "order_note_from_admin":
+        return {
+          subject: `MARGEN added a note to order ${d.margen_order_id}`,
+          ...layout(
+            `Note from MARGEN on order ${d.margen_order_id}`,
+            [hello, `MARGEN added a note to order ${d.margen_order_id}. You can reply with a note on the order in the Dashboard.`],
+            [
+              ["Order", d.margen_order_id],
+              ["Factory order ID", d.factory_order_id],
+              ["Note", d.body],
+              ["Written by", d.written_by],
+            ],
+            { label: "Open the order", url: open(`customs/${d.order_id}`) },
+          ),
+        };
     }
   })();
   return email.sample ? { ...message, subject: `[Sample] ${message.subject}` } : message;
@@ -190,8 +226,9 @@ export function sampleDetails(today = new Date()): Details {
     country: "France",
     notes: "This is a sample email. Nothing was ordered or requested.",
     athlete_id: null,
+    order_id: null,
     athlete_name: "Sam Sample",
-    body: "This is a sample email. No note was added or edited.",
+    body: "This is a sample email. No note was added.",
     written_by: "Alex Sample",
   };
 }

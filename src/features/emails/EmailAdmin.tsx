@@ -11,8 +11,8 @@ import { supabase, unwrap } from "../../lib/supabase";
 const ADMIN_KINDS: Record<string, string> = {
   order_request: "Order requests",
   quote_request: "Quote requests",
-  athlete_note_added: "Athlete note added",
-  athlete_note_edited: "Athlete note edited",
+  athlete_note_added: "Athlete notes",
+  order_note_from_factory: "Factory order notes",
 };
 
 const adminName = (u: User) => (u.first_name && u.last_name ? fullName({ first_name: u.first_name, last_name: u.last_name }) : (u.first_name ?? u.email));

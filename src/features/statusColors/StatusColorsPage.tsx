@@ -116,7 +116,7 @@ function ColorsForm({ saved }: { saved: StatusColors }) {
                           className="color-input"
                           value={color ?? builtInColor(key)}
                           onChange={(e) => choose(key, e.target.value)}
-                          aria-label={`Color for ${label}`}
+                          aria-label={`Color for ${title.toLowerCase()} ${label}`}
                         />
                       </td>
                       <td className="num">
@@ -125,7 +125,7 @@ function ColorsForm({ saved }: { saved: StatusColors }) {
                             type="button"
                             className="ghost small"
                             onClick={() => choose(key, null)}
-                            aria-label={`Use the built-in color for ${label}`}
+                            aria-label={`Use the built-in color for ${title.toLowerCase()} ${label}`}
                           >
                             Use built-in color
                           </button>

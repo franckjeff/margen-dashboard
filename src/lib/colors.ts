@@ -12,8 +12,7 @@ export const BUILT_IN_COLORS: Record<string, string> = {
   "order:received": "#ffa94d",
   "order:accepted": "#ffe066",
   "order:in_production": "#ffe066",
-  "order:done": "#7ef84d",
-  "order:on_hold": "#fdf1dc",
+  "order:shipped": "#7ef84d",
   "order:cancelled": "#e5484d",
   "production:shipped": "#7ef84d",
 };

@@ -10,27 +10,26 @@ export const LEAD_STATUSES: Record<string, string> = {
   converted: "Converted",
   lost: "Lost",
 };
-// Must match the open leads counted by the dashboard_counts database function.
-export const OPEN_LEAD_STATUSES = ["new", "contacted", "qualified"];
 
 // Must match the check constraints on orders.order_status and orders.production_status.
 export const ORDER_STATUSES: Record<string, string> = {
   received: "Received",
   accepted: "Accepted",
   in_production: "In production",
-  done: "Done",
-  on_hold: "On hold",
+  shipped: "Shipped",
   cancelled: "Cancelled",
 };
 export const PRODUCTION_STATUSES: Record<string, string> = {
+  received: "Received",
+  accepted: "Accepted",
   artwork_in_progress: "Artwork in progress",
   in_printing_queue: "In printing queue",
   sewing: "Sewing",
   trimming: "Trimming",
   shipped: "Shipped",
 };
-// Orders still being worked on, as opposed to done or cancelled.
-export const OPEN_ORDER_STATUSES = ["received", "accepted", "in_production", "on_hold"];
+// Orders still being worked on, as opposed to shipped or cancelled.
+export const OPEN_ORDER_STATUSES = ["received", "accepted", "in_production"];
 // An archived order doesn't count as open, whatever its status.
 export const isOpenOrder = (o: { order_status: string; archived_at: string | null }) =>
   !o.archived_at && OPEN_ORDER_STATUSES.includes(o.order_status);
@@ -38,18 +37,22 @@ export const ORDER_TONES: Record<string, string> = {
   received: "orange",
   accepted: "yellow",
   in_production: "yellow",
-  done: "success",
-  on_hold: "warn",
+  shipped: "success",
   cancelled: "danger",
 };
-// The grids on the Orders page, top to bottom, and the order statuses each one holds.
-// Each time the page opens, only Pre-Production is open; the others start collapsed.
-export const ORDER_GRIDS: { key: string; title: string; statuses: string[]; startOpen?: boolean }[] = [
-  { key: "new", title: "Pre-Production", statuses: ["received", "accepted", "on_hold"], startOpen: true },
-  { key: "in_production", title: "In production", statuses: ["in_production"] },
-  { key: "done", title: "Done", statuses: ["done"] },
-  { key: "cancelled", title: "Cancelled", statuses: ["cancelled"] },
-];
+// The order pages in the menu, and the order statuses each one lists. Cancelled orders and archived
+// ones (whatever their status) are on Cancelled & Archived instead.
+export type OrderList = "customs" | "production-orders" | "shipped-orders";
+export const ORDER_LISTS: Record<OrderList, string[]> = {
+  customs: ["received", "accepted"],
+  "production-orders": ["in_production"],
+  "shipped-orders": ["shipped"],
+};
+// The page an order is listed on.
+export const orderListOf = (o: { order_status: string; archived_at: string | null }): OrderList | "archived-orders" =>
+  o.archived_at || o.order_status === "cancelled"
+    ? "archived-orders"
+    : ((Object.keys(ORDER_LISTS) as OrderList[]).find((l) => ORDER_LISTS[l].includes(o.order_status)) ?? "customs");
 export const productionLabel = (status: string | null) => (status ? PRODUCTION_STATUSES[status] : "Not started");
 
 // Must match the check constraint on order_items.size. Adult sizes, then junior, in display order.
@@ -57,12 +60,25 @@ export const ADULT_SIZES = ["XS", "S", "M", "L", "XL", "2XL", "3XL"];
 export const JUNIOR_SIZES = ["2", "4", "6", "8", "10", "12", "14", "16"];
 export const SIZES = [...ADULT_SIZES, ...JUNIOR_SIZES];
 
+// A contact's delivery address, and its billing address when that isn't the same.
 export const ADDRESS_FIELDS = ["address_line1", "address_line2", "city", "state", "postal_code", "country"] as const;
+export const BILLING_FIELDS = [
+  "billing_address_line1",
+  "billing_address_line2",
+  "billing_city",
+  "billing_state",
+  "billing_postal_code",
+  "billing_country",
+] as const;
+// The contact columns for its phone and addresses.
+export const CONTACT_DETAIL_COLUMNS = ["phone", "whatsapp", "billing_same_as_delivery", ...ADDRESS_FIELDS, ...BILLING_FIELDS].join(", ");
 export const LEAD_TEXT_FIELDS = ["organization_name", "email", "phone", "state", "country", "source", "notes"] as const;
 
 export type PageName =
   | "dashboard"
   | "customs"
+  | "production-orders"
+  | "shipped-orders"
   | "order"
   | "archived-orders"
   | "order-requests"
@@ -87,14 +103,18 @@ export const PAGES: Page[] = [
   { name: "dashboard", label: "Dashboard", roles: ["admin", "factory", "client"] },
   // Consecutive pages with the same group sit under that heading in the menu.
   // Factory users see only the orders assigned to their factory; client users only their organization's.
-  { name: "customs", label: "Orders in progress", roles: ["admin", "factory", "client"], group: "Customs" },
-  // Orders an admin has archived, whatever their status; they leave the Orders page.
-  { name: "archived-orders", label: "Archived orders", roles: ["admin", "factory", "client"], group: "Customs" },
+  // Orders are listed by order status: new ones (received or accepted), those in production, and shipped
+  // ones. Each order opens at #/customs/<id>.
+  { name: "customs", label: "New", roles: ["admin", "factory", "client"], group: "Custom Orders" },
+  { name: "production-orders", label: "In Production", roles: ["admin", "factory", "client"], group: "Custom Orders" },
+  { name: "shipped-orders", label: "Shipped", roles: ["admin", "factory", "client"], group: "Custom Orders" },
+  // Cancelled orders, and orders an admin has archived whatever their status; they leave the other pages.
+  { name: "archived-orders", label: "Cancelled & Archived", roles: ["admin", "factory", "client"], group: "Custom Orders" },
   // Signed-in clients send orders with items and sizes here; admins can send one for a client.
-  { name: "order", label: "Place an order", roles: ["admin", "client"], group: "Customs" },
+  { name: "order", label: "Submit an order", roles: ["admin", "client"], group: "Custom Orders" },
   // Orders sent from the Order Entry page (#/order), waiting to be turned into orders.
-  { name: "order-requests", label: "Order requests", roles: ["admin"], group: "Customs" },
-  { name: "items", label: "Items", roles: ["admin"], group: "Customs" },
+  { name: "order-requests", label: "Order requests", roles: ["admin"], group: "Custom Orders" },
+  { name: "items", label: "Items", roles: ["admin"], group: "Custom Orders" },
   // Factory and client users' own contacts; the default one gets the app's emails.
   { name: "my-contacts", label: "Contacts", roles: ["factory", "client"] },
   { name: "leads", label: "Leads", roles: ["admin"] },

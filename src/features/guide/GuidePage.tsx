@@ -2,21 +2,23 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useSignedIn } from "../../auth/AuthProvider";
 import { OrderBadge, ProductionBadge } from "../../components/ui";
-import { ORDER_GRIDS, ORDER_STATUSES, PRODUCTION_STATUSES } from "../../lib/constants";
+import { ORDER_LISTS, ORDER_STATUSES, PAGES, PRODUCTION_STATUSES, orderListOf, type OrderList } from "../../lib/constants";
 import { useUiState } from "../../lib/uiState";
 import { ORDER_STATUS_MEANINGS, type Audience } from "./guideText";
+import { StatusFlow } from "./StatusFlow";
 
 // The User guide: how the app works for the signed-in account. Factory and client users each see only
 // what their own account can do and see; admins choose which of the two guides to read.
 const AUDIENCE_LABELS: Record<Audience, string> = { factory: "Factory users", client: "Client users" };
 
-// What each grid of the Orders page holds, in plain words.
-const GRID_DESCRIPTIONS: Record<string, string> = {
-  new: "Orders not in production yet.",
-  in_production: "Orders being made.",
-  done: "Completed orders.",
-  cancelled: "Orders that won't go ahead.",
+// What each order page holds, in plain words.
+const LIST_DESCRIPTIONS: Record<OrderList | "archived-orders", string> = {
+  customs: "Orders not assigned to a factory yet.",
+  "production-orders": "Orders assigned to a factory and being made.",
+  "shipped-orders": "Orders on their way or delivered.",
+  "archived-orders": "Orders that won't go ahead, and shipped orders MARGEN has archived.",
 };
+const pageLabel = (name: string) => PAGES.find((p) => p.name === name)?.label;
 
 // The name of something on screen: a button, link, menu entry or field.
 const Ui = ({ children }: { children: ReactNode }) => <b className="ui-name">{children}</b>;
@@ -138,7 +140,7 @@ function AccountSection({ factory }: { factory: boolean }) {
             <li>
               Manage {factory ? "your factory's" : "your organization's"} <strong>contacts</strong>, and choose who gets MARGEN's emails.
             </li>
-            {!factory && <li>Send MARGEN a new order from the Place an order page.</li>}
+            {!factory && <li>Send MARGEN a new order from the Submit an order page.</li>}
             <li>Keep private notes in your Scrapbook.</li>
             <li>Change your own password.</li>
           </ul>
@@ -180,9 +182,10 @@ function AccountSection({ factory }: { factory: boolean }) {
       </p>
       <h3>The menu</h3>
       <p>
-        Your menu has <Ui>Dashboard</Ui>, your home page; <Ui>Orders in progress</Ui> and <Ui>Archived orders</Ui>, under <em>Customs</em>;{" "}
+        Your menu has <Ui>Dashboard</Ui>, your home page; <Ui>New</Ui>, <Ui>In Production</Ui>, <Ui>Shipped</Ui> and{" "}
+        <Ui>Cancelled &amp; Archived</Ui>, under <em>Custom Orders</em>;{" "}
         <Ui>Contacts</Ui>, the people at {factory ? "your factory" : "your organization"}; and this <Ui>User guide</Ui>. Click{" "}
-        <em>Customs</em> to open or close its group. At the bottom you'll find your email, your access level (
+        <em>Custom Orders</em> to open or close its group. At the bottom you'll find your email, your access level (
         <em>{factory ? "Factory" : "Client"}</em>), a button that switches between light and dark mode, and the links{" "}
         <Ui>Change password</Ui> and <Ui>Sign out</Ui>.
       </p>
@@ -236,19 +239,19 @@ function DashboardSection({ factory, yours }: { factory: boolean; yours: string 
     <>
       <p>
         The Dashboard opens when you sign in. It greets you, shows the name of {yours} and gives you three counts. Click any of
-        them to open your Orders.
+        them to open your orders.
       </p>
       <ul>
         <li>
-          <strong>Open orders</strong>: orders that are <em>Received</em>, <em>Accepted</em>, <em>In production</em> or{" "}
-          <em>On hold</em>, meaning still being worked on. Archived orders don't count.
+          <strong>Open orders</strong>: orders that are <em>Received</em>, <em>Accepted</em> or <em>In production</em>,
+          meaning still being worked on. Archived orders don't count.
         </li>
         <li>
-          <strong>In production</strong>: open orders whose production status is set, so production has started.
+          <strong>In production</strong>: orders whose order status is <em>In production</em>, the ones on <Ui>In Production</Ui>.
         </li>
         <li>
           <strong>All orders</strong>: every order {factory ? "ever assigned to your factory" : "of your organization"}, including
-          done, cancelled and archived ones.
+          shipped, cancelled and archived ones.
         </li>
       </ul>
       <p>
@@ -267,29 +270,32 @@ function OrdersSection({ factory }: { factory: boolean }) {
   return (
     <>
       <p>
-        Click <Ui>Orders in progress</Ui> in the menu, or any count on the Dashboard, to see {factory ? "the orders assigned to your factory" : "your organization's orders"}, newest first. They're split into four grids by order status:
+        {factory ? "The orders assigned to your factory" : "Your organization's orders"} are on four pages under <em>Custom Orders</em>,
+        newest first, one for each stage of an order, decided by its order status. Click one in the menu, or any count on the
+        Dashboard. Each menu entry shows how many orders its page lists.
       </p>
       <div className="table-wrap">
         <table className="static">
           <thead>
             <tr>
-              <th>Grid</th>
-              <th>Order statuses in it</th>
+              <th>Page</th>
+              <th>Order statuses on it</th>
               <th>What it holds</th>
             </tr>
           </thead>
           <tbody>
-            {ORDER_GRIDS.map((g) => (
-              <tr key={g.key}>
-                <td className="strong">{g.title}</td>
+            {[...(Object.keys(ORDER_LISTS) as OrderList[]), "archived-orders" as const].map((list) => (
+              <tr key={list}>
+                <td className="strong">{pageLabel(list)}</td>
                 <td>
                   <span className="guide-badges">
-                    {g.statuses.map((s) => (
+                    {(list === "archived-orders" ? ["cancelled"] : ORDER_LISTS[list]).map((s) => (
                       <OrderBadge key={s} status={s} />
                     ))}
+                    {list === "archived-orders" && <span className="muted small">or archived</span>}
                   </span>
                 </td>
-                <td>{GRID_DESCRIPTIONS[g.key]}</td>
+                <td>{LIST_DESCRIPTIONS[list]}</td>
               </tr>
             ))}
           </tbody>
@@ -297,12 +303,8 @@ function OrdersSection({ factory }: { factory: boolean }) {
       </div>
       <ul>
         <li>
-          <strong>Grid headings</strong>: click one to collapse or expand that grid. Each time you open the page, only{" "}
-          <em>Pre-Production</em> is open; click another grid's heading to see its orders.
-        </li>
-        <li>
-          <strong>Search</strong> by order ID{factory ? ", factory order ID" : ""} or status. All four grids narrow as you type,
-          and their counts follow.
+          <strong>Search</strong> by order ID{factory ? ", factory order ID" : ""} or status. The list narrows as you type, and
+          its count follows.
         </li>
         <li>
           <strong>Columns</strong>: Margen order ID, {factory ? "factory order ID, " : ""}order status, production status,
@@ -345,7 +347,6 @@ function OrdersSection({ factory }: { factory: boolean }) {
               <td className="strong">Select several in a row</td>
               <td>
                 Click the first one and drag down or up, or click the first one, then hold <kbd>Shift</kbd> and click the last.
-                This works across grids.
               </td>
             </tr>
             <tr>
@@ -369,14 +370,15 @@ function OrdersSection({ factory }: { factory: boolean }) {
           </tbody>
         </table>
       </div>
-      <p className="muted small">Only orders you can see count: orders hidden by the search or in a collapsed grid drop out of the total.</p>
+      <p className="muted small">Only orders you can see count: orders hidden by the search drop out of the total.</p>
 
-      <h3>Archived orders</h3>
+      <h3>Archived and cancelled orders</h3>
       <p>
-        When MARGEN is finished with an order, it may archive it. The order then leaves your Orders page and moves to{" "}
-        <Link to="/archived-orders">Archived orders</Link>, under <em>Customs</em>. It keeps its status, items and shipping
+        A cancelled order is listed on <Link to="/archived-orders">Cancelled &amp; Archived</Link>, under <em>Custom Orders</em>.
+        Once an order has shipped, MARGEN may also archive it; the order then leaves <Ui>Shipped</Ui> and moves there too. Only
+        shipped orders are archived, and an archived order's statuses don't change until MARGEN unarchives it. It keeps its status, items and shipping
         details, and you can still open it, search for it and select it the same way. Archived orders don't count as open on
-        your Dashboard. Only MARGEN archives orders and brings them back; ask them if you need one back on your Orders page.
+        your Dashboard. Only MARGEN archives orders and brings them back; ask them if you need one back.
       </p>
     </>
   );
@@ -387,8 +389,8 @@ function OrderPageSection({ factory }: { factory: boolean }) {
     return (
       <>
         <p>
-          Click an order's ID to open its page. Everything on it is read only. Click <Ui>← Orders</Ui> to go back to the list
-          (or <Ui>← Archived orders</Ui> for an archived order, which also shows <em>Archived</em> and the date under its ID).
+          Click an order's ID to open its page. Everything on it is read only. The link at the top goes back to the page it's
+          listed on, such as <Ui>← New</Ui>. An archived order also shows <em>Archived</em> and the date under its ID.
         </p>
         <ul>
           <li>
@@ -406,13 +408,13 @@ function OrderPageSection({ factory }: { factory: boolean }) {
   return (
     <>
       <p>
-        Click an order's ID to open its page. It has everything your factory needs to produce and ship it. Click{" "}
-        <Ui>← Orders</Ui> to go back to the list (or <Ui>← Archived orders</Ui> for an archived order, which also shows{" "}
-        <em>Archived</em> and the date under its ID).
+        Click an order's ID to open its page. It has everything your factory needs to produce and ship it. The link at{" "}
+        the top goes back to the page it's listed on, such as <Ui>← In Production</Ui>. An archived order also shows{" "}
+        <em>Archived</em> and the date under its ID.
       </p>
       <ul>
         <li>
-          <strong>Production</strong>, at the top right: the same list as on the Orders page, saved as soon as you pick a status.
+          <strong>Production</strong>, at the top right: the same list as on the order pages, saved as soon as you pick a status.
         </li>
         <li>
           <strong>Details</strong>: the IDs, the order status set by MARGEN and the production status.
@@ -475,6 +477,10 @@ function StatusesSection({ audience }: { audience: Audience }) {
   const factory = audience === "factory";
   return (
     <>
+      <h3>How an order moves</h3>
+      <p>Every order has two statuses. This is how they move, and where one changes the other.</p>
+      <StatusFlow audience={audience} />
+
       <h3>{factory ? "Production status: yours to update" : "Production status: updated by the factory"}</h3>
       <p>
         {factory
@@ -491,17 +497,30 @@ function StatusesSection({ audience }: { audience: Audience }) {
           </li>
         ))}
       </ol>
-      <p className="muted small">An order counts as “In production” on your Dashboard as soon as it has any status other than Not started.</p>
+      <p className="muted small">
+        When MARGEN assigns an order to {factory ? "your factory" : "a factory"}, production starts at <em>Not started</em>.{" "}
+        {factory
+          ? "Set it to Received when you get it, then Accepted once you've checked it and agreed to make it."
+          : "The factory sets it to Received when it gets the order, then Accepted once it has agreed to make it."}{" "}
+        Production moves one step at a time, in this order: the menu offers only the next step, or the one before to undo a mistake.
+      </p>
 
       <h3>Order status: set by MARGEN</h3>
-      <p>The order status tells you where the order stands for MARGEN, and decides which grid of your Orders page it's in.</p>
+      <p>
+        The order status tells you where the order stands for MARGEN, and decides which page it's listed on. Two changes
+        happen on their own: assigning the order to a factory moves it to <em>In production</em>, and setting production to{" "}
+        <em>Shipped</em> marks the order <em>Shipped</em> too (taking production back off Shipped puts it back to{" "}
+        <em>In production</em>). Statuses follow the flow one step at a time, for everyone: a new order starts as{" "}
+        <em>Received</em>, MARGEN accepts it, then assigns a factory. An order can be cancelled until it ships; a shipped or
+        cancelled order's status doesn't change any more.
+      </p>
       <div className="table-wrap">
         <table className="static">
           <thead>
             <tr>
               <th>Status</th>
               <th>What it means for you</th>
-              <th>Grid</th>
+              <th>Listed on</th>
             </tr>
           </thead>
           <tbody>
@@ -511,16 +530,12 @@ function StatusesSection({ audience }: { audience: Audience }) {
                   <OrderBadge status={s} />
                 </td>
                 <td>{ORDER_STATUS_MEANINGS[audience][s]}</td>
-                <td className="guide-nowrap">{ORDER_GRIDS.find((g) => g.statuses.includes(s))?.title}</td>
+                <td className="guide-nowrap">{pageLabel(orderListOf({ order_status: s, archived_at: null }))}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="muted small">
-        The <em>In production</em> order status is set by MARGEN; the <em>In production</em> count on your Dashboard comes from
-        the production status. They usually agree, but not always.
-      </p>
     </>
   );
 }
@@ -573,7 +588,7 @@ function NewOrderSection() {
   return (
     <>
       <p>
-        To order more, open <Link to="/order">Place an order</Link> in the menu. Only signed-in clients can send orders, so
+        To order more, open <Link to="/order">Submit an order</Link> in the menu. Only signed-in clients can send orders, so
         anyone at your organization who orders needs their own client account; ask MARGEN for one.
       </p>
       <ol className="guide-steps">
@@ -588,7 +603,7 @@ function NewOrderSection() {
         </li>
       </ol>
       <p>
-        MARGEN confirms the order by email. Once they've turned your request into an order, it appears on your Orders page as{" "}
+        MARGEN confirms the order by email. Once they've turned your request into an order, it appears on <Ui>New</Ui> as{" "}
         <em>Received</em> or <em>Accepted</em>.
       </p>
     </>
@@ -599,7 +614,8 @@ function HabitsSection() {
   return (
     <ol className="guide-steps">
       <li>
-        <strong>When an order arrives</strong>, check its items and sizes and set an estimated shipping date as soon as you can.
+        <strong>When an order arrives</strong>, set production to <em>Received</em>. Check its items and sizes, set production to{" "}
+        <em>Accepted</em>, and set an estimated shipping date as soon as you can.
       </li>
       <li>
         <strong>As work moves on</strong>, update the production status at each stage, the same day if possible.
@@ -609,11 +625,12 @@ function HabitsSection() {
         surprised.
       </li>
       <li>
-        <strong>When the order ships</strong>, set production to <em>Shipped</em>, then on the order's page enter the actual
+        <strong>When the order ships</strong>, set production to <em>Shipped</em>; the order moves to
+        <Ui>Shipped</Ui> by itself. Then on the order's page enter the actual
         shipping date, the shipping method and the tracking link, and click <Ui>Save shipping</Ui>.
       </li>
       <li>
-        <strong>Once a week</strong>, go through the Pre-Production and In production grids and make sure every open order is
+        <strong>Once a week</strong>, go through <Ui>New</Ui> and <Ui>In Production</Ui> and make sure every open order is
         up to date.
       </li>
       <li>
@@ -645,11 +662,11 @@ function QuestionsSection({ factory, yours }: { factory: boolean; yours: string 
     [
       `An order disappeared from my list.`,
       <>
-        Look in <Ui>Archived orders</Ui>: MARGEN may have archived it. Also check that its grid isn't collapsed and that the
-        search box is empty.{factory ? " Otherwise MARGEN may have assigned it to another factory; contact them if that's unexpected." : ""}
+        Look in <Ui>Cancelled &amp; Archived</Ui>: MARGEN may have archived or cancelled it. MARGEN may also have changed its order status, which moves it
+        to another page. Also check that the search box is empty.{factory ? " Otherwise MARGEN may have assigned it to another factory; contact them if that's unexpected." : ""}
       </>,
     ],
-    ["An order moved to another grid.", "MARGEN changed its order status, for example from Accepted to In production. Each status has its grid."],
+    ["An order moved to another page.", "MARGEN changed its order status, for example from Accepted to In production. Each status is listed on its own page."],
     [
       `Nobody at ${yours} gets MARGEN's emails.`,
       <>

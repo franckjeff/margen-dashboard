@@ -12,15 +12,15 @@ export type ReadinessCheck = {
 
 type Context = {
   lines: OrderLine[];
-  // The order's organization's and factory's linked contacts, or undefined when the order has none.
+  // The order's organization's linked contacts, or undefined when the order has none.
   organizationContacts?: LinkedContact[];
-  factoryContacts?: LinkedContact[];
 };
 
 const defaultEmail = (contacts?: LinkedContact[]) => contacts?.find((c) => c.is_default)?.email ?? null;
 
-// Whether a Received order seems to have everything it needs to be Accepted.
-export function readinessOf(order: Order, { lines, organizationContacts, factoryContacts }: Context): ReadinessCheck[] {
+// Whether a Received order seems to have everything it needs to be Accepted. The factory isn't one of
+// them: it is assigned once the order is Accepted, which starts production.
+export function readinessOf(order: Order, { lines, organizationContacts }: Context): ReadinessCheck[] {
   const ownLines = lines.filter((l) => l.order_id === order.id);
   const pieces = ownLines.reduce((sum, l) => sum + l.quantity, 0);
   const checks: (ReadinessCheck | false)[] = [
@@ -29,12 +29,6 @@ export function readinessOf(order: Order, { lines, organizationContacts, factory
       ok: Boolean(order.organization_id),
       needed: true,
       missing: "No organization: choose who the order is for (Edit).",
-    },
-    {
-      label: "Factory",
-      ok: Boolean(order.factory_id),
-      needed: true,
-      missing: "No factory: assign one with the Factory menu above.",
     },
     {
       label: "Items",
@@ -48,18 +42,12 @@ export function readinessOf(order: Order, { lines, organizationContacts, factory
       needed: false,
       missing: "No estimated shipping date yet (Edit).",
     },
-    // Emails are only checked once there's an organization or factory to email.
+    // The email is only checked once there's an organization to email.
     Boolean(order.organization_id) && {
       label: "Organization email",
       ok: Boolean(defaultEmail(organizationContacts)),
       needed: false,
       missing: "The organization's default contact has no email, so they won't be told when the order ships.",
-    },
-    Boolean(order.factory_id) && {
-      label: "Factory email",
-      ok: Boolean(defaultEmail(factoryContacts)),
-      needed: false,
-      missing: "The factory's default contact has no email, so the factory won't be emailed about the order.",
     },
   ];
   return checks.filter((c): c is ReadinessCheck => Boolean(c));

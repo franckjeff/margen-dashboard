@@ -17,7 +17,8 @@ const KIND_LABELS: Record<string, string> = {
   order_request: "New order request (to admins)",
   quote_request: "New quote request (to admins)",
   athlete_note_added: "Athlete note added (to admins)",
-  athlete_note_edited: "Athlete note edited (to admins)",
+  order_note_from_factory: "Order note from the factory (to admins)",
+  order_note_from_admin: "Order note from MARGEN (to the factory's default contact)",
 };
 const STATUS_LABELS: Record<string, string> = {
   pending: "Waiting",
@@ -162,6 +163,7 @@ function About({ email }: { email: Email }) {
   if (email.request) return <Link to={`/order-requests/${email.request.id}`}>{email.request.organization_name}</Link>;
   if (email.lead) return <Link to={`/leads/${email.lead.id}`}>{email.lead.organization_name ?? `${email.lead.first_name} ${email.lead.last_name}`}</Link>;
   if (email.sample) return <span className="muted">Sample</span>;
+  if (email.note?.order) return <Link to={`/customs/${email.note.order.id}`} className="mono">{email.note.order.margen_order_id}</Link>;
   if (email.note?.athlete) return <Link to={`/athletes/${email.note.athlete.id}`}>{`${email.note.athlete.first_name} ${email.note.athlete.last_name}`}</Link>;
   return <span className="muted">Deleted</span>;
 }
@@ -202,7 +204,7 @@ export function EmailsPage() {
       e.request?.organization_name ?? ""
     } ${e.lead ? `${e.lead.first_name} ${e.lead.last_name} ${e.lead.organization_name ?? ""}` : ""} ${
       e.note?.athlete ? `${e.note.athlete.first_name} ${e.note.athlete.last_name}` : ""
-    } ${e.last_error ?? ""}`.toLowerCase();
+    } ${e.note?.order?.margen_order_id ?? ""} ${e.last_error ?? ""}`.toLowerCase();
   const visible = all.filter((e) => (!statusFilter || e.status === statusFilter) && matches(searchText(e)));
   const countOf = (status: string) => all.filter((e) => e.status === status).length;
   const warnings = emailWarnings(all);
@@ -314,13 +316,13 @@ export function EmailsPage() {
               </p>
             </>
           ) : (
-            <p className="empty">No emails yet. They appear here when an order is assigned to a factory, an order ships, an order or quote request arrives, or an athlete note is added or edited.</p>
+            <p className="empty">No emails yet. They appear here when an order is assigned to a factory, an order ships, an order or quote request arrives, an athlete note is added, or a note is added to an order.</p>
           ))}
       </section>
       <p className="muted small hint">
         The app emails a factory's default contact when an order is assigned to the factory, an organization's default contact when
-        its order ships, and the admins when an order or quote request arrives or an athlete note is added or edited (except the admin
-        who did it). With no default contact, or one without an email address, the
+        its order ships, and the admins when an order or quote request arrives or an athlete note is added (except the admin
+        who did it). A note on an order from its factory emails the admins; one from an admin emails the factory's default contact. With no default contact, or one without an email address, the
         email shows as Nobody to email. Failed emails are tried again up to 5 times. The latest 500 emails are shown.
       </p>
     </>

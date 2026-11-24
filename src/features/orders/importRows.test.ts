@@ -25,13 +25,13 @@ describe("sheetToRows", () => {
     const rows = sheetToRows(
       [
         ["Margen ID", "Factory Order-ID", "Client", "Status", "Production"],
-        ["A1", "F1", "Outrigger", "on hold", "Sewing"],
+        ["A1", "F1", "Outrigger", "in production", "Sewing"],
         ["", "", "", "", ""],
       ],
       "orders.xlsx",
     );
     expect(rows).toEqual([
-      { line: 2, margen_order_id: "A1", factory_order_id: "F1", organization: "Outrigger", order_status: "on hold", production_status: "Sewing" },
+      { line: 2, margen_order_id: "A1", factory_order_id: "F1", organization: "Outrigger", order_status: "in production", production_status: "Sewing" },
     ]);
   });
 
@@ -46,8 +46,8 @@ describe("sheetToRows", () => {
 
 describe("parseStatus", () => {
   it("accepts keys and labels in any case or spacing", () => {
-    expect(parseStatus(ORDER_STATUSES, "ON HOLD")).toBe("on_hold");
-    expect(parseStatus(ORDER_STATUSES, "on_hold")).toBe("on_hold");
+    expect(parseStatus(ORDER_STATUSES, "IN PRODUCTION")).toBe("in_production");
+    expect(parseStatus(ORDER_STATUSES, "in_production")).toBe("in_production");
     expect(parseStatus(ORDER_STATUSES, "nope")).toBeUndefined();
   });
 });
@@ -68,16 +68,43 @@ describe("checkImportRows", () => {
     const rows = checkImportRows(
       [
         raw({ margen_order_id: "B2", organization: "outrigger  canoe club" }),
-        raw({ margen_order_id: "A1", order_status: "Done" }, 3),
+        raw({ margen_order_id: "A1", order_status: "Received" }, 3),
         raw({ margen_order_id: "A1", order_status: "Accepted" }, 4),
       ],
       orders,
       orgs,
     );
     expect(rows[0]).toMatchObject({ action: "new", change: { organization_id: "o1" } });
-    expect(rows[1]).toMatchObject({ action: "update", change: { order_status: "done" } });
+    expect(rows[1]).toMatchObject({ action: "update", change: { order_status: "received" } });
     // The same Margen order ID twice in one file is an error.
     expect(rows[2]).toMatchObject({ action: "error", errors: ["Margen order ID is in the file twice"] });
+  });
+
+  it("reads Done, the old name of Shipped, as Shipped", () => {
+    const shipped = [order({ id: "1", margen_order_id: "A1", order_status: "shipped", production_status: "shipped" })];
+    const [row] = checkImportRows([raw({ margen_order_id: "A1", order_status: "Done" })], shipped, orgs);
+    expect(row).toMatchObject({ action: "same", errors: [] });
+  });
+
+  it("refuses status changes that don't follow the flow", () => {
+    const inProduction = [order({ id: "1", margen_order_id: "A1", order_status: "in_production", production_status: "received", factory_id: "f" })];
+    const rows = checkImportRows(
+      [raw({ margen_order_id: "A1", order_status: "Shipped", production_status: "Sewing" }), raw({ margen_order_id: "N1", order_status: "Accepted", production_status: "Sewing" }, 3)],
+      inProduction,
+      orgs,
+    );
+    expect(rows[0].action).toBe("error");
+    expect(rows[0].errors).toEqual([
+      "An order is marked Shipped when its production is set to Shipped",
+      "Production can't go from Received to Sewing: one step at a time",
+    ]);
+    expect(rows[1].errors).toEqual(["A new order starts as Received", "A new order starts with production Not started"]);
+  });
+
+  it("takes production one step on", () => {
+    const inProduction = [order({ id: "1", margen_order_id: "A1", order_status: "in_production", production_status: "received", factory_id: "f" })];
+    const [row] = checkImportRows([raw({ margen_order_id: "A1", production_status: "Accepted" })], inProduction, orgs);
+    expect(row).toMatchObject({ action: "update", change: { production_status: "accepted" } });
   });
 
   it("reports every problem on a row", () => {
@@ -96,7 +123,7 @@ describe("checkImportRows", () => {
   });
 
   it('clears a production status with "Not started"', () => {
-    const started = [order({ id: "1", margen_order_id: "A1", production_status: "sewing" })];
+    const started = [order({ id: "1", margen_order_id: "A1", order_status: "in_production", production_status: "received", factory_id: "f" })];
     const [row] = checkImportRows([raw({ margen_order_id: "A1", production_status: "not started" })], started, orgs);
     expect(row).toMatchObject({ action: "update", change: { production_status: null } });
   });

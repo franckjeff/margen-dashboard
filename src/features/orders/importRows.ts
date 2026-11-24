@@ -1,5 +1,6 @@
 import type { Order, Organization } from "../../data/queries";
 import { ORDER_STATUSES, PRODUCTION_STATUSES } from "../../lib/constants";
+import { orderStatusProblem, productionProblem } from "../../lib/statusFlow";
 
 export type ImportField = "margen_order_id" | "factory_order_id" | "organization" | "order_status" | "production_status";
 export type OrderChange = Partial<Pick<Order, "factory_order_id" | "organization_id" | "order_status" | "production_status">>;
@@ -38,7 +39,7 @@ const squash = (text: unknown) => String(text ?? "").toLowerCase().replace(/[^a-
 const sameName = (a: string, b: string) =>
   a.trim().toLowerCase().replace(/\s+/g, " ") === b.trim().toLowerCase().replace(/\s+/g, " ");
 
-// Status key for a cell such as "On hold", "on_hold" or "ON HOLD"; undefined if it isn't one.
+// Status key for a cell such as "In production", "in_production" or "IN PRODUCTION"; undefined if it isn't one.
 export const parseStatus = (labels: Record<string, string>, text: string) =>
   Object.keys(labels).find((key) => squash(key) === squash(text) || squash(labels[key]) === squash(text));
 
@@ -93,7 +94,8 @@ export function checkImportRows(raw: RawRow[], orders: Order[], organizations: O
       else errors.push(`No organization called "${row.organization}"`);
     }
     if (row.order_status) {
-      const status = parseStatus(ORDER_STATUSES, row.order_status);
+      // Done was renamed Shipped; older sheets still say Done.
+      const status = parseStatus(ORDER_STATUSES, row.order_status) ?? (squash(row.order_status) === "done" ? "shipped" : undefined);
       if (status) change.order_status = status;
       else errors.push(`"${row.order_status}" isn't an order status`);
     }
@@ -101,6 +103,21 @@ export function checkImportRows(raw: RawRow[], orders: Order[], organizations: O
       const status = squash(row.production_status) === "notstarted" ? null : parseStatus(PRODUCTION_STATUSES, row.production_status);
       if (status !== undefined) change.production_status = status;
       else errors.push(`"${row.production_status}" isn't a production status`);
+    }
+
+    // Statuses follow the flow: a new order starts Received at Not started, and an existing one moves one step.
+    if (!existing) {
+      if (change.order_status !== undefined && change.order_status !== "received") errors.push("A new order starts as Received");
+      if (change.production_status !== undefined && change.production_status !== null) errors.push("A new order starts with production Not started");
+    } else {
+      if (change.order_status !== undefined && change.order_status !== existing.order_status) {
+        const problem = orderStatusProblem(existing, change.order_status);
+        if (problem) errors.push(problem[0].toUpperCase() + problem.slice(1));
+      }
+      if (change.production_status !== undefined && change.production_status !== existing.production_status) {
+        const problem = productionProblem(existing, change.production_status);
+        if (problem) errors.push(problem[0].toUpperCase() + problem.slice(1));
+      }
     }
 
     if (existing) {

@@ -2,7 +2,10 @@ import { auditValue } from "./OrderHistory";
 
 describe("auditValue", () => {
   it("shows status labels, Not started and None", () => {
+    expect(auditValue("order_status", "in_production")).toBe("In production");
+    // Statuses that no longer exist keep their old names in older changes.
     expect(auditValue("order_status", "on_hold")).toBe("On hold");
+    expect(auditValue("order_status", "done")).toBe("Done");
     expect(auditValue("production_status", null)).toBe("Not started");
     expect(auditValue("production_status", "in_printing_queue")).toBe("In printing queue");
     expect(auditValue("factory_order_id", null)).toBe("None");

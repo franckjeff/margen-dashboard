@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { ADDRESS_FIELDS, type PageName, type Role } from "../lib/constants";
+import { CONTACT_DETAIL_COLUMNS, ORDER_LISTS, type OrderList, type PageName, type Role } from "../lib/constants";
 import type { Tables } from "../lib/database.types";
 import { byName, byPerson } from "../lib/format";
 import { DbError, supabase, unwrap } from "../lib/supabase";
@@ -35,7 +35,7 @@ export const keys = {
 };
 
 export type Profile = { role: Role | null; firstName: string | null };
-export type LinkedContact = Pick<Tables<"contacts">, "id" | "first_name" | "last_name" | "email" | "city" | "country"> & { is_default: boolean };
+export type LinkedContact = Pick<Tables<"contacts">, "id" | "first_name" | "last_name" | "email" | "phone" | "whatsapp" | "city" | "country"> & { is_default: boolean };
 export type LinkedOrganization = Pick<Tables<"organizations">, "id" | "name" | "state" | "country"> & { is_default: boolean };
 export type LinkedFactory = Pick<Tables<"factories">, "id" | "name" | "country"> & { is_default: boolean };
 export type Organization = Tables<"organizations"> & { contacts: LinkedContact[] };
@@ -50,19 +50,23 @@ export type Order = Omit<Tables<"orders">, "created_at"> & {
 export type Item = Tables<"items">;
 export type Factory = Tables<"factories"> & { contacts: LinkedContact[] };
 // A factory or client user's own contacts (see the emails_to_default_contacts migration).
-export type MyContact = Pick<Tables<"contacts">, "id" | "first_name" | "last_name" | "email"> & { owner_id: string; is_default: boolean };
+export type MyContact = Omit<Tables<"contacts">, "created_at"> & { owner_id: string; is_default: boolean };
 export type OrderLine = Pick<Tables<"order_items">, "id" | "order_id" | "item_id" | "size" | "quantity">;
 export type OrderEvent = Pick<Tables<"order_events">, "id" | "order_id" | "action" | "changed_at"> & {
   changes: Record<string, { from?: unknown; to?: unknown }>;
   author: { email: string | null } | null;
 };
-export type Note = Pick<Tables<"notes">, "id" | "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "body" | "created_at"> & {
+export type Note = Pick<
+  Tables<"notes">,
+  "id" | "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "order_id" | "body" | "created_at" | "created_by" | "author_name" | "from_factory"
+> & {
   author: { email: string | null } | null;
   // The name of what the note is about, so the Dashboard needn't load every contact, athlete, organization and factory.
   contact: { first_name: string; last_name: string } | null;
   athlete: { first_name: string; last_name: string } | null;
   organization: { name: string } | null;
   factory: { name: string } | null;
+  order: { margen_order_id: string } | null;
 };
 export type User = Pick<Tables<"profiles">, "id" | "email" | "first_name" | "last_name" | "muted_email_kinds" | "factory_id" | "organization_id" | "created_at"> & {
   role: Role;
@@ -81,7 +85,7 @@ export function useProfile(userId: string) {
   });
 }
 
-const LINKED_CONTACT = "id, first_name, last_name, email, city, country";
+const LINKED_CONTACT = "id, first_name, last_name, email, phone, whatsapp, city, country";
 
 // Flattens link rows so each linked contact carries the link's is_default flag.
 const flattenContacts = (links: { is_default: boolean; contacts: Omit<LinkedContact, "is_default"> | null }[]): LinkedContact[] =>
@@ -113,7 +117,7 @@ export function useContacts() {
         await supabase
           .from("contacts")
           .select(
-            `id, first_name, last_name, email, created_at, ${ADDRESS_FIELDS.join(", ")}, organization_contacts(is_default, organizations(id, name, state, country)), factory_contacts(is_default, factories(id, name, country))`,
+            `id, first_name, last_name, email, created_at, ${CONTACT_DETAIL_COLUMNS}, organization_contacts(is_default, organizations(id, name, state, country)), factory_contacts(is_default, factories(id, name, country))`,
           )
           .order("last_name")
           .order("first_name"),
@@ -175,14 +179,23 @@ export function useOrders() {
   });
 }
 
+// The orders an order page lists (archived ones aside), counted.
+const orderListCount = (list: OrderList) => ({
+  key: keys.orders,
+  count: () => supabase.from("orders").select("id", { count: "exact", head: true }).is("archived_at", null).in("order_status", ORDER_LISTS[list]),
+});
+
 // The menu items that show how many records their page lists, and how each is counted.
 // Each count sits under its page's query key, so whatever refreshes the page refreshes the count.
 // The database's access rules apply as usual: everyone counts only what they can see.
 const MENU_COUNTS: Partial<Record<PageName, { key: readonly string[]; count: (role: Role) => PromiseLike<{ count: number | null; error: PostgrestError | null }> }>> = {
-  customs: { key: keys.orders, count: () => supabase.from("orders").select("id", { count: "exact", head: true }).is("archived_at", null) },
+  customs: orderListCount("customs"),
+  "production-orders": orderListCount("production-orders"),
+  "shipped-orders": orderListCount("shipped-orders"),
   "archived-orders": {
     key: keys.orders,
-    count: () => supabase.from("orders").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
+    // Cancelled orders and archived ones.
+    count: () => supabase.from("orders").select("id", { count: "exact", head: true }).or("archived_at.not.is.null,order_status.eq.cancelled"),
   },
   leads: { key: keys.leads, count: () => supabase.from("leads").select("id", { count: "exact", head: true }) },
   contacts: { key: keys.contacts, count: () => supabase.from("contacts").select("id", { count: "exact", head: true }) },
@@ -259,7 +272,7 @@ export function useMyContacts(role: Role) {
   return useQuery({
     queryKey: keys.myContacts,
     queryFn: async (): Promise<MyContact[]> => {
-      const contact = "contacts(id, first_name, last_name, email)";
+      const contact = `contacts(id, first_name, last_name, email, ${CONTACT_DETAIL_COLUMNS})`;
       const links = (
         role === "factory"
           ? unwrap(await supabase.from("factory_contacts").select(`owner_id:factory_id, is_default, ${contact}`))
@@ -291,7 +304,7 @@ export function useNotes() {
         await supabase
           .from("notes")
           .select(
-            "id, contact_id, athlete_id, factory_id, organization_id, body, created_at, author:profiles!notes_created_by_fkey(email), contact:contacts(first_name, last_name), athlete:athletes(first_name, last_name), organization:organizations(name), factory:factories(name)",
+            "id, contact_id, athlete_id, factory_id, organization_id, order_id, body, created_at, created_by, author_name, from_factory, author:profiles!notes_created_by_fkey(email), contact:contacts(first_name, last_name), athlete:athletes(first_name, last_name), organization:organizations(name), factory:factories(name), order:orders(margen_order_id)",
           )
           .order("created_at", { ascending: false }),
       ),
@@ -332,7 +345,11 @@ export type Email = Tables<"email_outbox"> & {
   order: { id: string; margen_order_id: string } | null;
   request: { id: string; organization_name: string } | null;
   lead: { id: string; first_name: string; last_name: string; organization_name: string | null } | null;
-  note: { id: string; athlete: { id: string; first_name: string; last_name: string } | null } | null;
+  note: {
+    id: string;
+    athlete: { id: string; first_name: string; last_name: string } | null;
+    order: { id: string; margen_order_id: string } | null;
+  } | null;
 };
 
 // Admins only: the latest emails in the outbox, with what each one is about.
@@ -343,7 +360,7 @@ export function useEmails() {
       unwrap(
         await supabase
           .from("email_outbox")
-          .select("*, order:orders(id, margen_order_id), request:order_requests(id, organization_name), lead:leads(id, first_name, last_name, organization_name), note:notes(id, athlete:athletes(id, first_name, last_name))")
+          .select("*, order:orders(id, margen_order_id), request:order_requests(id, organization_name), lead:leads(id, first_name, last_name, organization_name), note:notes(id, athlete:athletes(id, first_name, last_name), order:orders(id, margen_order_id))")
           .order("created_at", { ascending: false })
           .limit(500),
       ),

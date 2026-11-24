@@ -19,13 +19,15 @@ import {
 } from "../../components/ui";
 import { expectRows, useDbAction, useDeleteRecord, useSaveRecord } from "../../data/mutations";
 import { useFactories, useOrderItems, useOrders, useOrganizations, type Order } from "../../data/queries";
-import { ORDER_GRIDS, ORDER_STATUSES, PRODUCTION_STATUSES, productionLabel } from "../../lib/constants";
+import { ORDER_STATUSES, PAGES, orderListOf, productionLabel, type OrderList } from "../../lib/constants";
 import type { TablesUpdate } from "../../lib/database.types";
 import { formatDate, formatDay, plural } from "../../lib/format";
 import { deleteMessage, formValues, orNull } from "../../lib/forms";
+import { canArchive, canChangeFactory, canRemoveFactory, notStartedAllowed, orderStatusLabels, productionLabels } from "../../lib/statusFlow";
 import { supabase, unwrap } from "../../lib/supabase";
 import { ImportPage } from "./ImportPage";
 import { piecesIn } from "./lines";
+import { NotesSection } from "../notes/NotesSection";
 import { OrderHistory } from "./OrderHistory";
 import { OrderLines } from "./OrderLines";
 import { isReady, readinessOf } from "./readiness";
@@ -82,12 +84,12 @@ const shippingRow = (v: Record<string, string>) => ({
 });
 const shippingKey = (o: Order) => [o.estimated_ship_date, o.actual_ship_date, o.shipping_method, o.tracking_number].join("|");
 
-// The factory choices; new orders start with no factory until an admin assigns one.
-function FactoryOptions() {
+// The factory choices. "Not assigned" is left out once the factory can no longer be taken off the order.
+function FactoryOptions({ allowNone = true }: { allowNone?: boolean }) {
   const factories = useFactories();
   return (
     <>
-      <option value="">Not assigned</option>
+      {allowNone && <option value="">Not assigned</option>}
       {factories.data?.map((f) => (
         <option key={f.id} value={f.id}>
           {f.name}
@@ -114,10 +116,13 @@ function OrderForm({ order }: { order?: Order }) {
             margen_order_id: v.margen_order_id,
             factory_order_id: orNull(v.factory_order_id),
             organization_id: orNull(v.organization_id),
-            factory_id: orNull(v.factory_id),
-            order_status: v.order_status,
-            production_status: orNull(v.production_status),
             ...shippingRow(v),
+            // A new order starts Received, with production Not started and no factory: the database sets them.
+            ...(order && {
+              factory_id: canChangeFactory(order) ? orNull(v.factory_id) : order.factory_id,
+              order_status: v.order_status,
+              production_status: orNull(v.production_status),
+            }),
           };
           if (!row.margen_order_id) return notify("error", "The order needs a Margen order ID.");
           save.mutate({ row, id: order?.id, label: `order ${row.margen_order_id}` });
@@ -143,26 +148,40 @@ function OrderForm({ order }: { order?: Order }) {
             ))}
           </select>
         </label>
-        <label>
-          <Optional>Factory</Optional>
-          <select name="factory_id" key={factories.data ? "ready" : "loading"} defaultValue={order?.factory_id ?? ""}>
-            <FactoryOptions />
-          </select>
-        </label>
-        <div className="field-row">
-          <label>
-            Order status
-            <select name="order_status" defaultValue={order?.order_status ?? "received"}>
-              <Options labels={ORDER_STATUSES} />
-            </select>
-          </label>
-          <label>
-            Production status
-            <select name="production_status" defaultValue={order?.production_status ?? ""}>
-              <Options labels={PRODUCTION_STATUSES} emptyLabel="Not started" />
-            </select>
-          </label>
-        </div>
+        {order ? (
+          <>
+            <label>
+              <Optional>Factory</Optional>
+              <select
+                name="factory_id"
+                key={factories.data ? "ready" : "loading"}
+                defaultValue={order.factory_id ?? ""}
+                disabled={!canChangeFactory(order)}
+                title={canChangeFactory(order) ? undefined : "A factory is assigned once the order is Accepted."}
+              >
+                <FactoryOptions allowNone={!order.factory_id || canRemoveFactory(order)} />
+              </select>
+            </label>
+            <div className="field-row">
+              <label>
+                Order status
+                <select name="order_status" defaultValue={order.order_status}>
+                  <Options labels={orderStatusLabels(order)} />
+                </select>
+              </label>
+              <label>
+                Production status
+                <select name="production_status" defaultValue={order.production_status ?? ""}>
+                  <Options labels={productionLabels(order)} emptyLabel={notStartedAllowed(order) ? "Not started" : undefined} />
+                </select>
+              </label>
+            </div>
+          </>
+        ) : (
+          <p className="muted small">
+            The order starts as Received, with production Not started. Accept it, then assign a factory to start production.
+          </p>
+        )}
         <ShippingFields order={order} />
         <FormButtons label={order ? "Save changes" : "Create order"} cancel={back} busy={save.isPending} />
       </form>
@@ -170,11 +189,14 @@ function OrderForm({ order }: { order?: Order }) {
   );
 }
 
-// The Orders page, under the Customs menu: its URL is #/customs, its data the "orders" table.
+// The order pages, under the Custom Orders menu, and each order's own page (#/customs/<id>); the data is the
+// "orders" table. `list` picks which orders are listed: New (#/customs, the default), In Production,
+// Shipped, or Cancelled & Archived: cancelled orders, and the shipped ones an admin has archived (older
+// orders may have been archived at another status).
 // Factory users see the same pages without client details, and change only production and shipping;
 // client users see them read only, without factory details. The database only returns each one's own orders.
-// With `archived`, the Archived orders page: only the orders an admin has archived, in one list.
-export function OrdersPage({ id, editing = false, archived = false }: { id?: string; editing?: boolean; archived?: boolean }) {
+export function OrdersPage({ id, editing = false, list = "customs" }: { id?: string; editing?: boolean; list?: OrderList | "archived-orders" }) {
+  const archived = list === "archived-orders";
   const orders = useOrders();
   const orderItems = useOrderItems();
   const { role } = useSignedIn();
@@ -188,7 +210,7 @@ export function OrdersPage({ id, editing = false, archived = false }: { id?: str
       <QueryGate queries={[orders]}>
         {() => {
           const order = orders.data!.find((o) => o.id === id);
-          if (!order) return <Missing back="/customs" backLabel="Orders" what="order" />;
+          if (!order) return <Missing back="/customs" backLabel="New" what="order" />;
           if (adminView) return <OrderPage order={order} editing={editing} />;
           return factoryView ? <FactoryOrderPage order={order} /> : <ClientOrderPage order={order} />;
         }}
@@ -196,25 +218,26 @@ export function OrdersPage({ id, editing = false, archived = false }: { id?: str
     );
   }
 
-  const all = (orders.data ?? []).filter((o) => Boolean(o.archived_at) === archived);
+  const all = (orders.data ?? []).filter((o) => orderListOf(o) === list);
+  const title = PAGES.find((p) => p.name === list)!.label;
   const lines = orderItems.data ?? [];
+  const isNew = list === "customs";
   return (
     <ListPage
-      title={archived ? "Archived orders" : "Orders"}
+      title={title}
       count={all.length}
-      newTo={adminView && !archived ? "/customs/new" : undefined}
+      newTo={adminView && isNew ? "/customs/new" : undefined}
       newLabel="New order"
-      placeholder={archived ? "Search archived orders" : "Search orders"}
+      placeholder="Search orders"
       loading={loadingState([orders, orderItems])}
-      empty={archived ? "No archived orders." : "No orders yet."}
-      groups={archived ? undefined : ORDER_GRIDS.map((g) => ({ key: g.key, title: g.title, empty: "No orders.", startOpen: !!g.startOpen }))}
+      empty="No orders here."
       selection={{
         noun: "order",
         summary: (ids) => plural(ids.reduce((sum, id) => sum + piecesIn(lines, id), 0), "piece"),
       }}
       actions={
         adminView &&
-        !archived && (
+        isNew && (
           <Link to="/customs/import" className="button">
             Import from Excel
           </Link>
@@ -236,7 +259,6 @@ export function OrdersPage({ id, editing = false, archived = false }: { id?: str
       rows={all.map((o) => ({
         key: o.id,
         to: `/customs/${o.id}`,
-        group: ORDER_GRIDS.find((g) => g.statuses.includes(o.order_status))?.key,
         search: `${o.margen_order_id} ${o.factory_order_id ?? ""} ${o.organization?.name ?? ""} ${o.factory?.name ?? ""} ${ORDER_STATUSES[o.order_status]} ${productionLabel(
           o.production_status,
         )}`.toLowerCase(),
@@ -279,7 +301,7 @@ export function OrdersPage({ id, editing = false, archived = false }: { id?: str
               </>
             )}
             <td className="num hide-sm">{piecesIn(lines, o.id) || <Dash />}</td>
-            {archived && <td className="hide-sm">{o.archived_at && formatDate(o.archived_at)}</td>}
+            {archived && <td className="hide-sm">{o.archived_at ? formatDate(o.archived_at) : <Dash />}</td>}
           </>
         ),
       }))}
@@ -300,8 +322,10 @@ const QUICK_CHANGES: Record<QuickField, (value: string) => TablesUpdate<"orders"
 };
 
 // Back to the list the order is on.
-const OrdersBackLink = ({ order }: { order: Order }) =>
-  order.archived_at ? <BackLink to="/archived-orders">Archived orders</BackLink> : <BackLink to="/customs">Orders</BackLink>;
+function OrdersBackLink({ order }: { order: Order }) {
+  const list = orderListOf(order);
+  return <BackLink to={`/${list}`}>{PAGES.find((p) => p.name === list)?.label}</BackLink>;
+}
 
 const archivedNote = (order: Order) => (order.archived_at ? ` · Archived ${formatDate(order.archived_at)}` : "");
 
@@ -320,7 +344,7 @@ function useSetOrderField(order: Order) {
       const id = order.margen_order_id;
       if (field === "order_status") return `Order ${id} is now ${ORDER_STATUSES[value]}.`;
       if (field === "production_status") return `Order ${id} production: ${productionLabel(value || null)}.`;
-      if (field === "archived") return value ? `Archived order ${id}.` : `Order ${id} is back on the Orders page.`;
+      if (field === "archived") return value ? `Archived order ${id}.` : `Order ${id} is no longer archived.`;
       if (field === "estimated_ship_date")
         return value ? `Order ${id} is estimated to ship on ${formatDay(value)}.` : `Removed the estimated shipping date of order ${id}.`;
       return value ? `Order ${id} is assigned to ${factoryName(value)}.` : `Order ${id} is no longer assigned to a factory.`;
@@ -339,7 +363,7 @@ function ProductionSelect({ order, setField }: { order: Order; setField: ReturnT
         disabled={setField.isPending}
         onChange={(e) => setField.mutate({ field: "production_status", value: e.target.value })}
       >
-        <Options labels={PRODUCTION_STATUSES} emptyLabel="Not started" />
+        <Options labels={productionLabels(order)} emptyLabel={notStartedAllowed(order) ? "Not started" : undefined} />
       </select>
     </label>
   );
@@ -359,7 +383,7 @@ function FactoryRowCells({ order }: { order: Order }) {
           disabled={setField.isPending}
           onChange={(e) => setField.mutate({ field: "production_status", value: e.target.value })}
         >
-          <Options labels={PRODUCTION_STATUSES} emptyLabel="Not started" />
+          <Options labels={productionLabels(order)} emptyLabel={notStartedAllowed(order) ? "Not started" : undefined} />
         </select>
       </td>
       <td>
@@ -404,12 +428,10 @@ export function ReadinessBar({ order }: { order: Order }) {
   const setField = useSetOrderField(order);
   const orderItems = useOrderItems();
   const organizations = useOrganizations();
-  const factories = useFactories();
-  if (!orderItems.data || !organizations.data || !factories.data) return null;
+  if (!orderItems.data || !organizations.data) return null;
   const checks = readinessOf(order, {
     lines: orderItems.data,
     organizationContacts: organizations.data.find((o) => o.id === order.organization_id)?.contacts,
-    factoryContacts: factories.data.find((f) => f.id === order.factory_id)?.contacts,
   });
   const ready = isReady(checks);
   const needed = checks.filter((c) => !c.ok && c.needed);
@@ -491,7 +513,7 @@ function OrderPage({ order, editing }: { order: Order; editing: boolean }) {
                 disabled={setField.isPending}
                 onChange={(e) => setField.mutate({ field: "order_status", value: e.target.value })}
               >
-                <Options labels={ORDER_STATUSES} />
+                <Options labels={orderStatusLabels(order)} />
               </select>
             </label>
             <label className="inline-select">
@@ -499,24 +521,27 @@ function OrderPage({ order, editing }: { order: Order; editing: boolean }) {
               <select
                 aria-label="Factory"
                 value={order.factory_id ?? ""}
-                disabled={setField.isPending || factories.isPending}
+                disabled={setField.isPending || factories.isPending || !canChangeFactory(order)}
+                title={canChangeFactory(order) ? undefined : "A factory is assigned once the order is Accepted."}
                 onChange={(e) => setField.mutate({ field: "factory_id", value: e.target.value })}
               >
-                <FactoryOptions />
+                <FactoryOptions allowNone={!order.factory_id || canRemoveFactory(order)} />
               </select>
             </label>
             <ProductionSelect order={order} setField={setField} />
             <Link to={`/customs/${order.id}/edit`} className="button">
               Edit
             </Link>
-            {/* Archiving keeps the order's status; it only moves the order to Archived orders. */}
-            <button
-              type="button"
-              disabled={setField.isPending}
-              onClick={() => setField.mutate({ field: "archived", value: order.archived_at ? "" : "yes" })}
-            >
-              {order.archived_at ? "Unarchive" : "Archive"}
-            </button>
+            {/* Archiving keeps the order's status; it only moves the order to Cancelled & Archived. Only Shipped orders. */}
+            {(order.archived_at || canArchive(order)) && (
+              <button
+                type="button"
+                disabled={setField.isPending}
+                onClick={() => setField.mutate({ field: "archived", value: order.archived_at ? "" : "yes" })}
+              >
+                {order.archived_at ? "Unarchive" : "Archive"}
+              </button>
+            )}
             <button type="button" className="danger" onClick={confirmDelete} disabled={remove.isPending}>
               Delete
             </button>
@@ -549,10 +574,24 @@ function OrderPage({ order, editing }: { order: Order; editing: boolean }) {
           <OrderLines order={order} editing={editing} />
         </section>
         <section className="card section">
+          <OrderNotes order={order} />
+        </section>
+        <section className="card section">
           <OrderHistory orderId={order.id} />
         </section>
       </div>
     </>
+  );
+}
+
+// Internal notes on an order, shared between the admins and the order's factory. Clients never see them.
+function OrderNotes({ order }: { order: Order }) {
+  return (
+    <NotesSection
+      subject={{ order_id: order.id }}
+      placeholder="Add a note about this order…"
+      hint="Shared between MARGEN and the factory, never the client. A note emails the other side."
+    />
   );
 }
 
@@ -625,6 +664,9 @@ function FactoryOrderPage({ order }: { order: Order }) {
         </section>
         <section className="card section">
           <OrderLines order={order} editing={false} canEdit={false} />
+        </section>
+        <section className="card section">
+          <OrderNotes order={order} />
         </section>
       </div>
     </>

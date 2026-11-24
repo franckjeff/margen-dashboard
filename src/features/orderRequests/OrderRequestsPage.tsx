@@ -38,11 +38,11 @@ export function OrderRequestsPage({ id }: { id?: string }) {
       count={all.length}
       placeholder="Search requests"
       loading={loadingState([requests])}
-      empty="No order requests yet. Signed-in clients send them from the Place an order page."
+      empty="No order requests yet. Signed-in clients send them from the Submit an order page."
       actions={
         // The page signed-in clients use; admins can send an order for a client here too.
         <Link to="/order" className="button">
-          Place an order
+          Submit an order
         </Link>
       }
       head={

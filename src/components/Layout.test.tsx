@@ -9,8 +9,8 @@ vi.mock("../auth/AuthProvider", () => ({
 }));
 vi.mock("../lib/supabase", () => ({ supabase: { auth: { signOut: vi.fn() } } }));
 vi.mock("../data/queries", () => ({
-  hasMenuCount: (page: string) => ["customs", "archived-orders", "my-contacts"].includes(page),
-  useMenuCount: (page: string) => ({ data: { customs: 7, "archived-orders": 3, "my-contacts": 2 }[page] }),
+  hasMenuCount: (page: string) => ["customs", "production-orders", "shipped-orders", "archived-orders", "my-contacts"].includes(page),
+  useMenuCount: (page: string) => ({ data: { customs: 7, "production-orders": 4, "shipped-orders": 5, "archived-orders": 3, "my-contacts": 2 }[page] }),
 }));
 
 // jsdom has no media queries; pretend the window is wide, or narrow.
@@ -73,8 +73,10 @@ describe("folding the menu", () => {
 describe("the menu counts", () => {
   it("show beside the menu items that have one", () => {
     renderLayout();
-    expect(screen.getByRole("link", { name: /Orders in progress/ })).toHaveTextContent("Orders in progress(7)");
-    expect(screen.getByRole("link", { name: /Archived orders/ })).toHaveTextContent("Archived orders(3)");
+    expect(screen.getByRole("link", { name: /^New/ })).toHaveTextContent("New(7)");
+    expect(screen.getByRole("link", { name: /In Production/ })).toHaveTextContent("In Production(4)");
+    expect(screen.getByRole("link", { name: /Shipped/ })).toHaveTextContent("Shipped(5)");
+    expect(screen.getByRole("link", { name: /Cancelled & Archived/ })).toHaveTextContent("Cancelled & Archived(3)");
     expect(screen.getByRole("link", { name: /Contacts/ })).toHaveTextContent("Contacts(2)");
   });
 });

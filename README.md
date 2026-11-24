@@ -71,6 +71,21 @@ not just the app's menus.
 
 Admins change roles on the Users page, and link each factory account to its factory and each client account to its organization there.
 
+Orders are listed by order status on pages under Custom Orders: **New** (Received and Accepted),
+**In Production** and **Shipped**. **Cancelled & Archived** lists cancelled orders, and
+archived ones: archiving is a flag on the order (`archived_at`), not a status, so an
+archived order keeps its status. Only Shipped orders can be archived, and an archived order's statuses and factory
+don't change until it is unarchived (`private.check_status_flow()`); unarchiving is always allowed. Assigning an order to a factory moves it to In production with production at Not started
+(`private.production_on_assignment()`); the factory then sets production to Received, Accepted and the production steps. Setting production to Shipped also marks the order Shipped, and taking
+production back off Shipped puts a Shipped order back to In production (a database trigger,
+`private.ship_order_with_production()`, so it applies to factory users and imports too). Statuses follow the
+flow one step at a time, for admins too (`private.check_status_flow()`): a new order starts Received at Not started with
+no factory; by hand an order goes Received ↔ Accepted, or to Cancelled until it ships; a factory is assigned, moved or taken
+off only while the order is Accepted or In production (not taken off once production is past Accepted); production moves one
+step either way while the order is In production, and only back from Shipped once it has shipped. Changes from outside the
+app (SQL editor, service key) aren't checked, so data can be repaired. `src/lib/statusFlow.ts` mirrors these rules so the
+menus offer only allowed steps. `ORDER_LISTS` in `src/lib/constants.ts` says which statuses each page lists.
+
 Admins add accounts with **Add user** on the Users page: email, access level, first name, and the factory
 or organization to link. That calls the `create-user` function (`supabase/functions/create-user`), which
 runs on Supabase's servers because creating accounts needs the secret key, and refuses anyone who isn't
@@ -104,13 +119,16 @@ The app emails people when something happens:
 - **Order shipped** (production set to Shipped): the default contact of the order's organization.
 - **New order request** from the Order Entry page: the admins (their user accounts).
 - **New quote request** from the public Request a quote page: the admins.
-- **Athlete note added or edited:** the admins, except the one who made the change. The email shows the
-  note as it is when sent, so edits made before it goes out don't send a second one.
+- **Athlete note added:** the admins, except the one who added it.
+- **Note on an order:** from the order's factory, the admins; from an admin, the factory's default contact. Order notes
+  are internal: only admins and the order's factory see them, never the client.
 
 Factories and organizations each link to contacts, one of them the default, and the default contact's email
 address gets their emails, so people at a factory or club don't need an account. Admins link contacts on the
 Factory, Organization and Contacts pages. Factory and client users manage their own on their Contacts page:
 they add contacts (`add_my_contact()`), edit them, choose the default and remove them, and see no one else's.
+Each contact has an optional phone number (marked when it's on WhatsApp, with a link to open a chat), a delivery
+address and a billing address, which is the delivery address unless `billing_same_as_delivery` is turned off.
 With no default contact, or one without an email address, the event is still logged, as "Nobody to email".
 
 The browser never sends email. Database triggers write each email into the `email_outbox` table, one row
@@ -187,12 +205,12 @@ restore it from the Supabase dashboard; nothing is lost.
 
 ## Access tests
 
-`supabase/tests/access_rules.sql` checks the access rules above automatically: 290 checks of what
+`supabase/tests/access_rules.sql` checks the access rules above automatically: 329 checks of what
 admins, factories, clients and visitors who aren't signed in can see and change, table by
 table, plus the public and admin-only database functions and which emails are queued for whom. To run it, open the **MARGEN TEST** project,
 paste the whole file into the SQL editor and click Run.
 
 It always ends with an error, on purpose: that is how everything it did is undone, including the test
-users and records it creates. The error message is the result: `ACCESS TESTS PASSED: 290 checks`, or
+users and records it creates. The error message is the result: `ACCESS TESTS PASSED: 329 checks`, or
 `ACCESS TESTS FAILED` followed by each check that failed. It's also safe to run on the live database,
 which is worth doing once after each change goes live.

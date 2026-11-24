@@ -148,6 +148,11 @@ fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 legend { padding: 0; margin-bottom: 6px; font: 500 0.75rem var(--heading); text-transform: uppercase; letter-spacing: 0.25em; color: var(--muted); }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .address { font-style: normal; line-height: 1.6; }
+/* Phone input with its WhatsApp box beside it, and a phone number with its WhatsApp link. */
+.contact-phone { align-items: end; }
+.contact-phone .check { padding-bottom: 10px; }
+.phone { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.phone .badge:hover { text-decoration: none; filter: brightness(1.08); }
 
 /* ---------- login ---------- */
 
@@ -436,7 +441,7 @@ td .cell-input { width: auto; min-width: 0; padding: 4px 8px; font-size: 0.85rem
 
 /* The admin Dashboard's order flow: each status badge with its count, linked by arrows. */
 .order-flow { margin-bottom: 20px; }
-/* One compact line: each badge with its count in brackets, › between the main steps. On hold and Cancelled after a divider. */
+/* One compact line: each badge with its count in brackets, › between the main steps. Cancelled after a divider. */
 .flow-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
 .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .flow-side { padding-left: 18px; border-left: 1px solid var(--border); }
@@ -596,16 +601,6 @@ table.selectable tbody tr { cursor: default; user-select: none; }
 tbody tr.selected, tbody tr.selected:hover { background: var(--accent-soft); }
 .selection-bar { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 12px 16px; border-top: 1px solid var(--border); background: var(--surface-2); }
-/* A list split into grids, one card each, with the selection total stuck to the bottom of the screen. */
-.list-groups { display: grid; gap: 16px; min-width: 0; }
-.list-group-title { margin: 0; font-size: 15px; }
-.list-group-title button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 14px; border: 0; border-radius: 0;
-  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.list-group-title button:hover { background: var(--surface-2); }
-.list-group.open .list-group-title button { padding-bottom: 10px; }
-.list-group.open .chevron { transform: rotate(90deg); }
-.list-groups-bar { position: sticky; bottom: 0; overflow: hidden; }
-.list-groups-bar .selection-bar { position: static; border-top: 0; }
 .my-contact-form { position: static; margin-bottom: 16px; max-width: 560px; }
 .import-help { margin: 10px 0 0; }
 .report-description { margin: 6px 0 18px; }
@@ -712,6 +707,16 @@ input.qty { width: 76px; padding: 4px 8px; text-align: right; }
 .guide .guide-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; list-style: none; padding: 0; }
 .guide-flow li { display: flex; align-items: center; gap: 6px; margin: 0; }
 .guide-flow li + li::before { content: "›"; color: var(--muted); }
+/* The status flow in the User guide: order status left, production status right, links between them. */
+.status-flow { margin: 4px 0 16px; }
+.status-flow-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; justify-items: center;
+  column-gap: 12px; row-gap: 2px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
+.status-flow-head { display: grid; justify-items: center; margin-bottom: 8px; text-align: center; }
+.status-flow-down { display: flex; flex-direction: column; align-items: center; color: var(--muted); line-height: 1.2; text-align: center; }
+.status-flow-line { align-self: stretch; width: 0; border-left: 2px solid var(--border); }
+.status-flow-link { white-space: nowrap; color: var(--muted); }
+.status-flow-cancelled { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 12px; }
+.status-flow figcaption { margin-top: 8px; }
 .guide-faq { margin: 0 0 12px; display: grid; gap: 14px; }
 .guide-faq dt { font-weight: 600; }
 .guide-faq dd { margin: 2px 0 0; }

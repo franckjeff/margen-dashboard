@@ -27,8 +27,11 @@ const AUDIT_ACTIONS: Record<string, string> = {
   item_removed: "Item removed",
 };
 
+// Statuses that no longer exist, which older changes still hold: Done was renamed Shipped, and On hold removed.
+const OLD_ORDER_STATUSES: Record<string, string> = { done: "Done", on_hold: "On hold" };
+
 export function auditValue(field: string, value: unknown): string {
-  if (field === "order_status") return ORDER_STATUSES[value as string] ?? String(value);
+  if (field === "order_status") return ORDER_STATUSES[value as string] ?? OLD_ORDER_STATUSES[value as string] ?? String(value);
   if (field === "production_status") return value ? (PRODUCTION_STATUSES[value as string] ?? String(value)) : "Not started";
   if (field === "archived_at") return value ? "Yes" : "No";
   if (value == null) return "None";

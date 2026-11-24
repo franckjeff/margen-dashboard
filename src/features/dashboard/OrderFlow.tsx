@@ -1,17 +1,19 @@
 import { Link } from "react-router";
 import { loadingState, OrderBadge } from "../../components/ui";
 import { useDashboardCounts } from "../../data/queries";
+import { orderListOf } from "../../lib/constants";
 import { FLOW_STATUSES, SIDE_STATUSES } from "./statusCounts";
 
-// The admin Dashboard's order flow: Received › Accepted › In production › Done, each with the number
-// of orders in that status now, in the status colors. On hold and Cancelled sit beside the flow.
+// The admin Dashboard's order flow: Received › Accepted › In production › Shipped, each with the number
+// of orders in that status now, in the status colors, each opening the page that lists them.
+// Cancelled sits beside the flow.
 export function OrderFlow() {
   // Counted by the database, leaving out archived orders.
   const counts = useDashboardCounts();
   const waiting = loadingState([counts]);
 
   const step = (status: string) => (
-    <Link to="/customs" className="flow-step" key={status}>
+    <Link to={`/${orderListOf({ order_status: status, archived_at: null })}`} className="flow-step" key={status}>
       <OrderBadge status={status} />
       <span className="flow-count" data-testid={`flow-count-${status}`}>
         ({counts.data?.order_statuses[status] ?? 0})

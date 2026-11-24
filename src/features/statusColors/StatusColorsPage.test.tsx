@@ -5,10 +5,10 @@ import { MemoryRouter } from "react-router";
 import { NoticeBar, NoticeProvider } from "../../components/Notice";
 import { StatusColorsPage } from "./StatusColorsPage";
 
-// One color already saved: Done is dark green.
+// One color already saved: Shipped is dark green.
 vi.mock("../../data/queries", async (original) => ({
   ...(await original<typeof import("../../data/queries")>()),
-  useStatusColors: () => ({ data: { "order:done": "#006400" }, isPending: false, isError: false }),
+  useStatusColors: () => ({ data: { "order:shipped": "#006400" }, isPending: false, isError: false }),
 }));
 
 // Records what the page writes to the database.
@@ -43,22 +43,22 @@ describe("Status colors page", () => {
     renderPage();
     const save = screen.getByRole("button", { name: "Save colors" });
     expect(save).toBeDisabled();
-    expect(screen.getByTestId("badge-order:done")).toHaveStyle({ backgroundColor: "#006400", color: "#ffffff" });
+    expect(screen.getByTestId("badge-order:shipped")).toHaveStyle({ backgroundColor: "#006400", color: "#ffffff" });
 
     // Pick a color for Received: the badge previews it with readable text.
-    fireEvent.change(screen.getByLabelText("Color for Received"), { target: { value: "#ffe066" } });
+    fireEvent.change(screen.getByLabelText("Color for order status Received"), { target: { value: "#ffe066" } });
     expect(screen.getByTestId("badge-order:received")).toHaveStyle({ backgroundColor: "#ffe066", color: "#000c1c" });
     expect(screen.getByText("1 change not saved yet.")).toBeInTheDocument();
 
-    // Set Done back to its built-in color.
-    await user.click(screen.getByRole("button", { name: "Use the built-in color for Done" }));
-    expect(screen.getByTestId("badge-order:done").style.backgroundColor).toBe("");
+    // Set Shipped back to its built-in color.
+    await user.click(screen.getByRole("button", { name: "Use the built-in color for order status Shipped" }));
+    expect(screen.getByTestId("badge-order:shipped").style.backgroundColor).toBe("");
 
     await user.click(save);
     await waitFor(() => expect(screen.getByText("Saved the status colors. Everyone sees them now.")).toBeInTheDocument());
     expect(writes).toEqual([
       { table: "status_colors", upsert: [expect.objectContaining({ kind: "order", status: "received", background: "#ffe066" })] },
-      { table: "status_colors", delete: "order:done" },
+      { table: "status_colors", delete: "order:shipped" },
     ]);
     expect(save).toBeDisabled();
   });

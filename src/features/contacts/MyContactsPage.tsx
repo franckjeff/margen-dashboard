@@ -8,8 +8,10 @@ import { fullName } from "../../lib/format";
 import { formValues } from "../../lib/forms";
 import { supabase, unwrap } from "../../lib/supabase";
 import { isBusyWith, useLinkActions, type LinkOwner } from "../organizations/links";
+import { ContactDetailsFields, Phone } from "./ContactDetails";
+import { contactDetailsRow, type ContactDetails } from "./details";
 
-type Fields = { first_name: string; last_name: string; email: string | null };
+type Fields = { first_name: string; last_name: string; email: string | null } & ContactDetails;
 
 // Adds a contact (linked to the user's own factory or organization by the database), or saves one.
 function ContactForm({ contact }: { contact?: MyContact }) {
@@ -18,11 +20,12 @@ function ContactForm({ contact }: { contact?: MyContact }) {
   const save = useDbAction({
     tables: ["contacts", "factory_contacts", "organization_contacts"],
     run: async (f: Fields) => {
-      if (!contact) {
-        return unwrap(await supabase.rpc("add_my_contact", { first_name: f.first_name, last_name: f.last_name, email: f.email ?? undefined }));
-      }
+      // A new contact is added and linked by the database first, then given its phone and addresses.
+      const id = contact
+        ? contact.id
+        : unwrap(await supabase.rpc("add_my_contact", { first_name: f.first_name, last_name: f.last_name, email: f.email ?? undefined }));
       expectRows(
-        unwrap(await supabase.from("contacts").update(f).eq("id", contact.id).select("id")),
+        unwrap(await supabase.from("contacts").update(f).eq("id", id).select("id")),
         "The contact wasn't saved. You may not have permission.",
       );
     },
@@ -43,7 +46,7 @@ function ContactForm({ contact }: { contact?: MyContact }) {
         onSubmit={(event) => {
           const v = formValues(event);
           if (!v.first_name || !v.last_name) return notify("error", "The contact needs a first and last name.");
-          save.mutate({ first_name: v.first_name, last_name: v.last_name, email: v.email.toLowerCase() || null });
+          save.mutate({ first_name: v.first_name, last_name: v.last_name, email: v.email.toLowerCase() || null, ...contactDetailsRow(v) });
         }}
       >
         <div className="field-row">
@@ -60,6 +63,7 @@ function ContactForm({ contact }: { contact?: MyContact }) {
           <Optional>Email</Optional>
           <input name="email" type="email" autoComplete="off" defaultValue={contact?.email ?? ""} placeholder="Where the app sends this contact's emails" />
         </label>
+        <ContactDetailsFields contact={contact} />
         <FormButtons label={contact ? "Save changes" : "Add contact"} cancel="/my-contacts" busy={save.isPending} />
       </form>
     </section>
@@ -105,6 +109,7 @@ export function MyContactsPage({ id, editing = false }: { id?: string; editing?:
                 <tr>
                   <th>Name</th>
                   <th>Email</th>
+                  <th className="hide-sm">Phone</th>
                   <th>Gets emails</th>
                   <th>
                     <span className="sr-only">Actions</span>
@@ -119,6 +124,9 @@ export function MyContactsPage({ id, editing = false }: { id?: string; editing?:
                       <td className="strong">{fullName(c)}</td>
                       <td>
                         <OrDash>{c.email}</OrDash>
+                      </td>
+                      <td className="hide-sm">
+                        <Phone contact={c} />
                       </td>
                       <td>
                         {c.is_default ? (

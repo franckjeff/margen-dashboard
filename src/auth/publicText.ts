@@ -35,6 +35,6 @@ export const QUOTE = {
   text: "Tell us about your team and what you have in mind, and we'll come back to you with a quote. No account needed.",
   button: "Request a quote",
   // Orders with items and sizes need a client account.
-  ordersNote: "Already a MARGEN client? Only signed-in clients can send orders. Sign in to place an order with your items, sizes and quantities.",
+  ordersNote: "Already a MARGEN client? Only signed-in clients can send orders. Sign in to submit an order with your items, sizes and quantities.",
   signInButton: "Sign in to order",
 };

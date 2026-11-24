@@ -4,7 +4,7 @@
 -- (it's also safe on MARGEN PROD, the live project). It always ends with
 -- an error, on purpose, so that nothing it does is kept: the test users and records it creates,
 -- and every change it tries, are all undone. Read the result in the error message:
---   "ACCESS TESTS PASSED: 290 checks"  or  "ACCESS TESTS FAILED: 2 of 290 checks" followed by each failure.
+--   "ACCESS TESTS PASSED: 329 checks"  or  "ACCESS TESTS FAILED: 2 of 329 checks" followed by each failure.
 --
 -- Each check runs one query as one user, then undoes it, so checks don't affect each other.
 -- Expected results:
@@ -119,15 +119,39 @@ insert into public.app_errors (kind, message) values ('background', 'Access test
 -- the order request. All were queued above.
 update public.orders set production_status = 'shipped' where id = '0000ace5-0000-4000-8000-0000000d0001';
 
+-- Steps an order's production, one status at a time, up to the target (statuses follow the flow).
+create function pg_temp.walk_production(order_id uuid, target text) returns void language plpgsql as $f$
+declare
+  steps text[] := array['received', 'accepted', 'artwork_in_progress', 'in_printing_queue', 'sewing', 'trimming', 'shipped'];
+  current_step int := coalesce(array_position(steps, (select production_status from public.orders where id = order_id)), 0);
+begin
+  for i in current_step + 1 .. array_position(steps, target) loop
+    update public.orders set production_status = steps[i] where id = order_id;
+  end loop;
+end $f$;
+-- Adds an order as the signed-in user, accepts it and assigns it to factory A: 1 when it's then
+-- In production at Not started.
+create function pg_temp.accept_and_assign() returns int language plpgsql as $f$
+declare
+  made uuid;
+begin
+  insert into public.orders (margen_order_id) values ('ACCESS_TEST_C') returning id into made;
+  update public.orders set order_status = 'accepted' where id = made;
+  update public.orders set factory_id = '0000ace5-0000-4000-8000-0000000f0001' where id = made;
+  return (select count(*) from public.orders where id = made and order_status = 'in_production' and production_status is null);
+end $f$;
+
 -- Changes that cancel or queue emails, run as the signed-in user, counting what the outbox then holds.
 create function pg_temp.undo_shipping() returns int language plpgsql as $f$
 begin
-  update public.orders set production_status = 'sewing' where id = '0000ace5-0000-4000-8000-0000000d0001';
+  update public.orders set production_status = 'trimming' where id = '0000ace5-0000-4000-8000-0000000d0001';
   return (select count(*) from public.email_outbox where order_id = '0000ace5-0000-4000-8000-0000000d0001'
           and kind = 'order_shipped' and status = 'cancelled');
 end $f$;
 create function pg_temp.reassign_order() returns int language plpgsql as $f$
 begin
+  -- Order A is shipped: step production back so it's In production again, then move it.
+  update public.orders set production_status = 'trimming' where id = '0000ace5-0000-4000-8000-0000000d0001';
   update public.orders set factory_id = '0000ace5-0000-4000-8000-0000000f0002' where id = '0000ace5-0000-4000-8000-0000000d0001';
   return (select count(*) from public.email_outbox where order_id = '0000ace5-0000-4000-8000-0000000d0001' and kind = 'order_assigned'
           and ((contact_id = '0000ace5-0000-4000-8000-0000000f0011' and status = 'cancelled')
@@ -137,8 +161,8 @@ end $f$;
 create function pg_temp.ship_to_org_without_contacts() returns int language plpgsql as $f$
 begin
   insert into public.organizations (id, name) values ('0000ace5-0000-4000-8000-0000000b0010', 'Access test organization without contacts');
-  update public.orders set organization_id = '0000ace5-0000-4000-8000-0000000b0010', production_status = 'shipped'
-  where id = '0000ace5-0000-4000-8000-0000000d0002';
+  update public.orders set organization_id = '0000ace5-0000-4000-8000-0000000b0010' where id = '0000ace5-0000-4000-8000-0000000d0002';
+  perform pg_temp.walk_production('0000ace5-0000-4000-8000-0000000d0002', 'shipped');
   return (select count(*) from public.email_outbox where order_id = '0000ace5-0000-4000-8000-0000000d0002' and kind = 'order_shipped'
           and status = 'skipped' and last_error like '%has no default contact.');
 end $f$;
@@ -177,9 +201,8 @@ begin
 end $f$;
 
 -- Adds, edits and deletes a note about the test athlete as the signed-in admin. One point each when:
--- every other admin with an email gets an "added" email, the admin who wrote it gets none, an edit while
--- that email waits adds nothing, an edit after it went out emails the same admins, and deleting the note
--- drops its waiting emails.
+-- every other admin with an email gets an "added" email, the admin who wrote it gets none, an edit sends
+-- nothing more, and deleting the note drops its waiting emails.
 create function pg_temp.athlete_note_emails() returns int language plpgsql as $f$
 declare
   note uuid;
@@ -190,10 +213,7 @@ begin
   score := score + (select (count(*) = others)::int from public.email_outbox where note_id = note and kind = 'athlete_note_added' and status = 'pending');
   score := score + (select (count(*) = 0)::int from public.email_outbox where note_id = note and recipient_id = auth.uid());
   update public.notes set body = 'Athlete note, edited' where id = note;
-  score := score + (select (count(*) = 0)::int from public.email_outbox where note_id = note and kind = 'athlete_note_edited');
-  update public.email_outbox set status = 'cancelled' where note_id = note;
-  update public.notes set body = 'Athlete note, edited again' where id = note;
-  score := score + (select (count(*) = others)::int from public.email_outbox where note_id = note and kind = 'athlete_note_edited' and status = 'pending');
+  score := score + (select (count(*) = others)::int from public.email_outbox where note_id = note);
   delete from public.notes where id = note;
   score := score + (select (count(*) = 0)::int from public.email_outbox where note_id = note);
   return score;
@@ -248,6 +268,105 @@ begin
   perform public.set_email_sender('  Access Test <test@example.invalid> ', 7);
   return (select (from_address = 'Access Test <test@example.invalid>' and delay_minutes = 7)::int from public.email_settings);
 end $f$;
+-- Order notes. The test's owner (who sees everything) adds a note to each test order, signed out for a
+-- moment so the notes aren't in the signed-in user's name, then the signed-in user counts the order notes they can see.
+create function pg_temp.add_owner_order_notes() returns void language plpgsql security definer as $f$
+declare
+  claims text := current_setting('request.jwt.claims', true);
+begin
+  perform set_config('request.jwt.claims', '', true);
+  insert into public.notes (order_id, body) values
+    ('0000ace5-0000-4000-8000-0000000d0001', 'Order A note'),
+    ('0000ace5-0000-4000-8000-0000000d0002', 'Order B note');
+  perform set_config('request.jwt.claims', claims, true);
+end $f$;
+create function pg_temp.order_notes_seen() returns int language plpgsql as $f$
+begin
+  perform pg_temp.add_owner_order_notes();
+  return (select count(*) from public.notes where order_id in ('0000ace5-0000-4000-8000-0000000d0001', '0000ace5-0000-4000-8000-0000000d0002'));
+end $f$;
+-- How many emails of a kind a note queued, counted by the test's owner (factories can't read the outbox).
+create function pg_temp.note_emails(note uuid, kind text) returns int language sql security definer as $f$
+  select count(*)::int from public.email_outbox o where o.note_id = note and o.kind = note_emails.kind and o.status = 'pending';
+$f$;
+create function pg_temp.admins_with_email() returns int language sql security definer as $f$
+  select count(*)::int from public.profiles where role = 'admin' and coalesce(btrim(email), '') <> '';
+$f$;
+-- The signed-in factory user adds a note to their order: 1 when it's marked as the factory's and
+-- emails every admin with an email address.
+create function pg_temp.factory_note_emails() returns int language plpgsql as $f$
+declare
+  note uuid;
+  admins int;
+begin
+  insert into public.notes (order_id, body) values ('0000ace5-0000-4000-8000-0000000d0001', 'From the factory') returning id into note;
+  admins := pg_temp.admins_with_email();
+  return (select (n.from_factory and pg_temp.note_emails(note, 'order_note_from_factory') = admins and admins > 0)::int
+          from public.notes n where n.id = note);
+end $f$;
+-- The signed-in admin adds order notes. One point each when: a note on order A emails factory A's default
+-- contact, one on order B is logged as Nobody to email (factory B's contact has no email), and a note
+-- about an organization sends no order note email.
+create function pg_temp.admin_note_emails() returns int language plpgsql as $f$
+declare
+  note uuid;
+  score int := 0;
+begin
+  insert into public.notes (order_id, body) values ('0000ace5-0000-4000-8000-0000000d0001', 'From MARGEN') returning id into note;
+  score := score + (select (count(*) = 1)::int from public.email_outbox
+                    where note_id = note and kind = 'order_note_from_admin' and status = 'pending' and recipient_email = 'factory-a@access-test.invalid');
+  insert into public.notes (order_id, body) values ('0000ace5-0000-4000-8000-0000000d0002', 'From MARGEN') returning id into note;
+  score := score + (select (count(*) = 1)::int from public.email_outbox where note_id = note and kind = 'order_note_from_admin' and status = 'skipped');
+  insert into public.notes (organization_id, body) values ('0000ace5-0000-4000-8000-0000000b0001', 'Not about an order') returning id into note;
+  score := score + (select (count(*) = 0)::int from public.email_outbox where note_id = note);
+  return score;
+end $f$;
+-- The signed-in factory user deletes notes on their order: 1 per own note deleted, 10 per note by someone else.
+create function pg_temp.factory_deletes_notes() returns int language plpgsql as $f$
+declare
+  own int;
+  others int;
+begin
+  perform pg_temp.add_owner_order_notes();
+  insert into public.notes (order_id, body) values ('0000ace5-0000-4000-8000-0000000d0001', 'Mine');
+  with x as (delete from public.notes where order_id is not null and created_by = auth.uid() returning 1) select count(*) into own from x;
+  with x as (delete from public.notes where order_id is not null returning 1) select count(*) into others from x;
+  return own + 10 * others;
+end $f$;
+-- The signed-in user takes order A off Shipped in production, then ships it: 1 when the order then
+-- goes back to In production, 10 when it then becomes Shipped.
+create function pg_temp.unship_and_ship() returns int language plpgsql as $f$
+declare
+  score int := 0;
+begin
+  update public.orders set production_status = 'trimming' where id = '0000ace5-0000-4000-8000-0000000d0001';
+  score := score + (select (order_status = 'in_production')::int from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001');
+  update public.orders set production_status = 'shipped' where id = '0000ace5-0000-4000-8000-0000000d0001';
+  score := score + 10 * (select (order_status = 'shipped')::int from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001');
+  return score;
+end $f$;
+-- Assigns order B around as the signed-in user, checking its order and production status after each step:
+-- 1 when moving it to factory A from production Accepted leaves it In production at Not started, 10 when
+-- taking the factory off puts it back to Accepted, 100 when assigning it again puts it In production, 1000
+-- when a move after work started leaves production alone.
+create function pg_temp.assign_around() returns int language plpgsql as $f$
+declare
+  score int := 0;
+  o text;
+  p text;
+begin
+  perform pg_temp.walk_production('0000ace5-0000-4000-8000-0000000d0002', 'accepted');
+  update public.orders set factory_id = '0000ace5-0000-4000-8000-0000000f0001' where id = '0000ace5-0000-4000-8000-0000000d0002' returning order_status, production_status into o, p;
+  score := score + (o = 'in_production' and p is null)::int;
+  update public.orders set factory_id = null where id = '0000ace5-0000-4000-8000-0000000d0002' returning order_status, production_status into o, p;
+  score := score + 10 * (o = 'accepted' and p is null)::int;
+  update public.orders set factory_id = '0000ace5-0000-4000-8000-0000000f0002' where id = '0000ace5-0000-4000-8000-0000000d0002' returning order_status, production_status into o, p;
+  score := score + 100 * (o = 'in_production' and p is null)::int;
+  perform pg_temp.walk_production('0000ace5-0000-4000-8000-0000000d0002', 'sewing');
+  update public.orders set factory_id = '0000ace5-0000-4000-8000-0000000f0001' where id = '0000ace5-0000-4000-8000-0000000d0002' returning order_status, production_status into o, p;
+  score := score + 1000 * (o = 'in_production' and p = 'sewing')::int;
+  return score;
+end $f$;
 -- Pauses sending as the signed-in user: 1 when the settings then say paused.
 create function pg_temp.pause_sending() returns int language plpgsql as $f$
 begin
@@ -300,19 +419,42 @@ select pg_temp.check('orders: factory sees its order', 'factory', $q$select coun
 select pg_temp.check('orders: other factory doesn''t see it', 'factory_b', $q$select count(*) from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, '0');
 select pg_temp.check('orders: unlinked client sees nothing', 'client_b', $q$select count(*) from public.orders$q$, '0');
 select pg_temp.check('orders: sees nothing', 'anon', $q$select count(*) from public.orders$q$, '0');
-select pg_temp.check('orders: factory updates production status', 'factory', $q$with x as (update public.orders set production_status = 'sewing' where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('orders: factory updates production status', 'factory', $q$with x as (update public.orders set production_status = 'trimming' where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '1');
 select pg_temp.check('orders: factory updates shipping details', 'factory', $q$with x as (update public.orders set tracking_number = 'T1', shipping_method = 'Air', estimated_ship_date = current_date, actual_ship_date = current_date where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '1');
 select pg_temp.check('orders: factory can''t update another factory''s order', 'factory', $q$with x as (update public.orders set production_status = 'sewing' where id = '0000ace5-0000-4000-8000-0000000d0002' returning 1) select count(*) from x$q$, '0');
-select pg_temp.check('orders: factory can''t change the order status', 'factory', $q$update public.orders set order_status = 'done' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'denied');
+select pg_temp.check('orders: factory can''t change the order status', 'factory', $q$update public.orders set order_status = 'received' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'denied');
 select pg_temp.check('orders: factory can''t change the Margen order ID', 'factory', $q$update public.orders set margen_order_id = 'X' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'denied');
 select pg_temp.check('orders: factory can''t change the organization', 'factory', $q$update public.orders set organization_id = null where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'denied');
 select pg_temp.check('orders: factory can''t hand the order to another factory', 'factory', $q$update public.orders set factory_id = '0000ace5-0000-4000-8000-0000000f0002' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'denied');
 select pg_temp.check('orders: factory can''t add', 'factory', $q$insert into public.orders (margen_order_id, factory_id) values ('ACCESS_TEST_NEW', '0000ace5-0000-4000-8000-0000000f0001')$q$, 'denied');
 select pg_temp.check('orders: factory can''t delete', 'factory', $q$with x as (delete from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('orders: can''t add', 'client', $q$insert into public.orders (margen_order_id) values ('ACCESS_TEST_NEW')$q$, 'denied');
-select pg_temp.check('orders: can''t change', 'client', $q$with x as (update public.orders set order_status = 'done' returning 1) select count(*) from x$q$, '0');
-select pg_temp.check('orders: admin can change the status', 'admin', $q$with x as (update public.orders set order_status = 'done' where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '1');
-select pg_temp.check('orders: admin can archive', 'admin', $q$with x as (update public.orders set archived_at = now() where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('orders: can''t change', 'client', $q$with x as (update public.orders set order_status = 'shipped' returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('orders: admin can cancel an order in production', 'admin', $q$with x as (update public.orders set order_status = 'cancelled' where id = '0000ace5-0000-4000-8000-0000000d0002' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('orders: Done is no longer an order status', 'admin', $q$update public.orders set order_status = 'done' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'error');
+select pg_temp.check('orders: On hold is no longer an order status', 'admin', $q$update public.orders set order_status = 'on_hold' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'error');
+select pg_temp.check('orders: shipping in production ships the order, and undoing it takes it back', 'factory', $q$select pg_temp.unship_and_ship()$q$, '11');
+select pg_temp.check('orders: shipping in production ships the order for admins too', 'admin', $q$select pg_temp.unship_and_ship()$q$, '11');
+select pg_temp.check('orders: a shipped order''s status can''t change', 'admin', $q$update public.orders set order_status = 'received' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'error');
+select pg_temp.check('orders: a shipped order can''t be cancelled', 'admin', $q$update public.orders set order_status = 'cancelled' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'error');
+select pg_temp.check('orders: admin can''t mark an order Shipped by hand', 'admin', $q$update public.orders set order_status = 'shipped' where id = '0000ace5-0000-4000-8000-0000000d0002'$q$, 'error');
+select pg_temp.check('orders: admin can''t move an order back from In production by hand', 'admin', $q$update public.orders set order_status = 'accepted' where id = '0000ace5-0000-4000-8000-0000000d0002'$q$, 'error');
+select pg_temp.check('orders: a new order can''t start at another status', 'admin', $q$insert into public.orders (margen_order_id, order_status) values ('ACCESS_TEST_C', 'accepted')$q$, 'error');
+select pg_temp.check('orders: a new order can''t start with production', 'admin', $q$insert into public.orders (margen_order_id, production_status) values ('ACCESS_TEST_C', 'received')$q$, 'error');
+select pg_temp.check('orders: a new order can''t start with a factory', 'admin', $q$insert into public.orders (margen_order_id, factory_id) values ('ACCESS_TEST_C', '0000ace5-0000-4000-8000-0000000f0001')$q$, 'error');
+select pg_temp.check('orders: an accepted order assigned to a factory goes In production, at Not started', 'admin', $q$select pg_temp.accept_and_assign()$q$, '1');
+select pg_temp.check('orders: a received order can''t be assigned to a factory', 'admin', $q$insert into public.orders (margen_order_id) values ('ACCESS_TEST_C'); update public.orders set factory_id = '0000ace5-0000-4000-8000-0000000f0001' where margen_order_id = 'ACCESS_TEST_C'$q$, 'error');
+select pg_temp.check('orders: production can''t jump a step', 'factory', $q$update public.orders set production_status = 'sewing' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'error');
+select pg_temp.check('orders: production can''t jump a step, for admins either', 'admin', $q$update public.orders set production_status = 'sewing' where id = '0000ace5-0000-4000-8000-0000000d0002'$q$, 'error');
+select pg_temp.check('orders: production steps on from Not started', 'factory_b', $q$with x as (update public.orders set production_status = 'received' where id = '0000ace5-0000-4000-8000-0000000d0002' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('orders: production can''t change on a cancelled order', 'admin', $q$update public.orders set order_status = 'cancelled' where id = '0000ace5-0000-4000-8000-0000000d0002'; update public.orders set production_status = 'received' where id = '0000ace5-0000-4000-8000-0000000d0002'$q$, 'error');
+select pg_temp.check('orders: the factory can''t be taken off once production has started', 'admin', $q$select pg_temp.walk_production('0000ace5-0000-4000-8000-0000000d0002', 'artwork_in_progress'); update public.orders set factory_id = null where id = '0000ace5-0000-4000-8000-0000000d0002'$q$, 'error');
+select pg_temp.check('orders: an order without a factory starts Received, at Not started', 'admin', $q$with x as (insert into public.orders (margen_order_id) values ('ACCESS_TEST_C') returning order_status, production_status) select count(*) from x where order_status = 'received' and production_status is null$q$, '1');
+select pg_temp.check('orders: moving, removing and adding the factory sets the order and production status', 'admin', $q$select pg_temp.assign_around()$q$, '1111');
+select pg_temp.check('orders: admin can archive a shipped order', 'admin', $q$with x as (update public.orders set archived_at = now() where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('orders: only shipped orders can be archived', 'admin', $q$update public.orders set archived_at = now() where id = '0000ace5-0000-4000-8000-0000000d0002'$q$, 'error');
+select pg_temp.check('orders: an archived order''s production can''t change', 'admin', $q$update public.orders set archived_at = now() where id = '0000ace5-0000-4000-8000-0000000d0001'; update public.orders set production_status = 'trimming' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'error');
+select pg_temp.check('orders: admin can unarchive, then change it', 'admin', $q$update public.orders set archived_at = now() where id = '0000ace5-0000-4000-8000-0000000d0001'; update public.orders set archived_at = null where id = '0000ace5-0000-4000-8000-0000000d0001'; update public.orders set production_status = 'trimming' where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'ok');
 select pg_temp.check('orders: factory can''t archive', 'factory', $q$update public.orders set archived_at = now() where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, 'denied');
 select pg_temp.check('orders: client can''t archive', 'client', $q$with x as (update public.orders set archived_at = now() returning 1) select count(*) from x$q$, '0');
 
@@ -340,7 +482,7 @@ select pg_temp.check('organizations: client sees only its own', 'client', $q$sel
 select pg_temp.check('organizations: client can''t rename its own', 'client', $q$with x as (update public.organizations set name = 'x' returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('orders: client sees only its organization''s', 'client', $q$select count(*) from public.orders where organization_id is distinct from '0000ace5-0000-4000-8000-0000000b0001'$q$, '0');
 select pg_temp.check('orders: client sees its order', 'client', $q$select count(*) from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, '1');
-select pg_temp.check('orders: client can''t change its order', 'client', $q$with x as (update public.orders set order_status = 'done' where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('orders: client can''t change its order', 'client', $q$with x as (update public.orders set order_status = 'shipped' where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('orders: client can''t delete its order', 'client', $q$with x as (delete from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('order_items: client sees only its orders'' lines', 'client', $q$select count(*) from public.order_items where id in ('0000ace5-0000-4000-8000-0000000c0001', '0000ace5-0000-4000-8000-0000000c0002')$q$, '1');
 select pg_temp.check('order_items: client can''t change quantities', 'client', $q$with x as (update public.order_items set quantity = 99 returning 1) select count(*) from x$q$, '0');
@@ -422,7 +564,7 @@ select pg_temp.check('email_outbox: shipped order emails its organization''s def
 select pg_temp.check('email_outbox: shipping to an organization without contacts is skipped', 'admin', $q$select pg_temp.ship_to_org_without_contacts()$q$, '1');
 select pg_temp.check('email_outbox: order request emails admins', 'admin', $q$select count(*) from public.email_outbox where kind = 'order_request' and order_request_id = '0000ace5-0000-4000-8000-0000000b0006' and recipient_id = '0000ace5-0000-4000-8000-000000000001'$q$, '1');
 select pg_temp.check('email_outbox: order request emails only admins', 'admin', $q$select count(*) from public.email_outbox o join public.profiles p on p.id = o.recipient_id where o.order_request_id = '0000ace5-0000-4000-8000-0000000b0006' and p.role <> 'admin'$q$, '0');
-select pg_temp.check('email_outbox: athlete notes email the other admins', 'admin', $q$select pg_temp.athlete_note_emails()$q$, '5');
+select pg_temp.check('email_outbox: athlete notes email the other admins', 'admin', $q$select pg_temp.athlete_note_emails()$q$, '4');
 select pg_temp.check('email_outbox: other notes email nobody', 'admin', $q$select count(*) from public.email_outbox where note_id = '0000ace5-0000-4000-8000-0000000b0005'$q$, '0');
 select pg_temp.check('email_outbox: undoing shipped cancels the waiting email', 'admin', $q$select pg_temp.undo_shipping()$q$, '1');
 select pg_temp.check('email_outbox: reassigning swaps the factory email', 'admin', $q$select pg_temp.reassign_order()$q$, '2');
@@ -450,6 +592,10 @@ select pg_temp.check('contacts: client changes its contact', 'client', $q$with x
 select pg_temp.check('contacts: factory can''t delete contacts', 'factory', $q$with x as (delete from public.contacts returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('contacts: factory can''t add directly', 'factory', $q$insert into public.contacts (first_name, last_name) values ('A', 'B')$q$, 'denied');
 select pg_temp.check('contacts: email must look like one', 'admin', $q$update public.contacts set email = 'not an email' where id = '0000ace5-0000-4000-8000-0000000b0002'$q$, 'error');
+select pg_temp.check('contacts: client sets its contact''s phone and billing address', 'client', $q$with x as (update public.contacts set phone = '+33 6 12 34 56 78', whatsapp = true, billing_same_as_delivery = false, billing_city = 'Paris' where id = '0000ace5-0000-4000-8000-0000000b0002' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('contacts: client can''t set other contacts'' phones', 'client', $q$with x as (update public.contacts set phone = '1' where id = '0000ace5-0000-4000-8000-0000000f0011' returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('contacts: factory sets its contact''s billing address', 'factory', $q$with x as (update public.contacts set billing_same_as_delivery = false, billing_country = 'France' where id = '0000ace5-0000-4000-8000-0000000f0011' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('contacts: phone is at most 50 characters', 'admin', $q$update public.contacts set phone = repeat('1', 51) where id = '0000ace5-0000-4000-8000-0000000b0002'$q$, 'error');
 select pg_temp.check('add_my_contact: factory adds one to its factory', 'factory', $q$select pg_temp.add_contact()$q$, '1');
 select pg_temp.check('add_my_contact: client adds one to its organization', 'client', $q$select pg_temp.add_contact()$q$, '10');
 select pg_temp.check('add_my_contact: unlinked client is refused', 'client_b', $q$select public.add_my_contact('A', 'B')$q$, 'denied');
@@ -495,18 +641,30 @@ select pg_temp.check('set_email_sender: admin changes the sender and wait', 'adm
 select pg_temp.check('set_email_sender: refuses a sender that isn''t an address', 'admin', $q$select public.set_email_sender('MARGEN', 5)$q$, 'error');
 select pg_temp.check('set_email_sender: refuses a wait over an hour', 'admin', $q$select public.set_email_sender('test@example.invalid', 61)$q$, 'error');
 select pg_temp.check('set_email_sender: client can''t', 'client', $q$select public.set_email_sender('test@example.invalid', 5)$q$, 'denied');
+select pg_temp.check('notes: admin sees every order''s notes', 'admin', $q$select pg_temp.order_notes_seen()$q$, '2');
+select pg_temp.check('notes: factory sees its order''s notes only', 'factory', $q$select pg_temp.order_notes_seen()$q$, '1');
+select pg_temp.check('notes: other factory sees its own order''s notes only', 'factory_b', $q$select pg_temp.order_notes_seen()$q$, '1');
+select pg_temp.check('notes: client sees no order notes', 'client', $q$select pg_temp.order_notes_seen()$q$, '0');
+select pg_temp.check('notes: factory adds a note to its order', 'factory', $q$insert into public.notes (order_id, body) values ('0000ace5-0000-4000-8000-0000000d0001', 'Hi')$q$, 'ok');
+select pg_temp.check('notes: factory can''t add a note to another factory''s order', 'factory', $q$insert into public.notes (order_id, body) values ('0000ace5-0000-4000-8000-0000000d0002', 'Hi')$q$, 'denied');
+select pg_temp.check('notes: factory can''t add other notes', 'factory', $q$insert into public.notes (factory_id, body) values ('0000ace5-0000-4000-8000-0000000f0001', 'Hi')$q$, 'denied');
+select pg_temp.check('notes: client can''t add a note to its order', 'client', $q$insert into public.notes (order_id, body) values ('0000ace5-0000-4000-8000-0000000d0001', 'Hi')$q$, 'denied');
+select pg_temp.check('notes: written in the signed-in user''s name', 'factory', $q$with x as (insert into public.notes (order_id, body, created_by) values ('0000ace5-0000-4000-8000-0000000d0001', 'Hi', '0000ace5-0000-4000-8000-000000000001') returning created_by) select count(*) from x where created_by = auth.uid()$q$, '1');
+select pg_temp.check('notes: factory deletes only its own order notes', 'factory', $q$select pg_temp.factory_deletes_notes()$q$, '1');
+select pg_temp.check('email_outbox: a factory''s order note emails the admins', 'factory', $q$select pg_temp.factory_note_emails()$q$, '1');
+select pg_temp.check('email_outbox: an admin''s order note emails the factory', 'admin', $q$select pg_temp.admin_note_emails()$q$, '3');
 select pg_temp.check('claim_due_emails: the public can''t call it', 'anon', $q$select public.claim_due_emails('x', 1)$q$, 'denied');
 select pg_temp.check('claim_due_emails: admin can''t call it', 'admin', $q$select public.claim_due_emails('x', 1)$q$, 'denied');
 select pg_temp.check('finish_email: signed-in users can''t call it', 'factory', $q$select public.finish_email('x', '0000ace5-0000-4000-8000-000000000000', null, null)$q$, 'denied');
 
 -- Status colours: everyone signed in reads them, only admins change them.
-insert into public.status_colors (kind, status, background) values ('order', 'done', '#00aa00')
+insert into public.status_colors (kind, status, background) values ('order', 'shipped', '#00aa00')
   on conflict (kind, status) do update set background = excluded.background;
 select pg_temp.check('status_colors: factory reads them', 'factory', $q$select (count(*) > 0)::int from public.status_colors$q$, '1');
 select pg_temp.check('status_colors: client reads them', 'client', $q$select (count(*) > 0)::int from public.status_colors$q$, '1');
 select pg_temp.check('status_colors: the public can''t read them', 'anon', $q$select count(*) from public.status_colors$q$, 'denied');
 select pg_temp.check('status_colors: admin can set one', 'admin', $q$insert into public.status_colors (kind, status, background) values ('order', 'received', '#123456') on conflict (kind, status) do update set background = excluded.background$q$, 'ok');
-select pg_temp.check('status_colors: admin can reset one', 'admin', $q$with x as (delete from public.status_colors where kind = 'order' and status = 'done' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('status_colors: admin can reset one', 'admin', $q$with x as (delete from public.status_colors where kind = 'order' and status = 'shipped' returning 1) select count(*) from x$q$, '1');
 select pg_temp.check('status_colors: only hex colours', 'admin', $q$update public.status_colors set background = 'red'$q$, 'error');
 select pg_temp.check('status_colors: only known statuses', 'admin', $q$insert into public.status_colors (kind, status, background) values ('order', 'closed', '#123456')$q$, 'error');
 select pg_temp.check('status_colors: factory can''t set one', 'factory', $q$insert into public.status_colors (kind, status, background) values ('order', 'cancelled', '#123456')$q$, 'denied');

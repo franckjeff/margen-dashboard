@@ -90,6 +90,13 @@ export type Database = {
         Row: {
           address_line1: string | null
           address_line2: string | null
+          billing_address_line1: string | null
+          billing_address_line2: string | null
+          billing_city: string | null
+          billing_country: string | null
+          billing_postal_code: string | null
+          billing_same_as_delivery: boolean
+          billing_state: string | null
           city: string | null
           country: string | null
           created_at: string
@@ -97,12 +104,21 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          phone: string | null
           postal_code: string | null
           state: string | null
+          whatsapp: boolean
         }
         Insert: {
           address_line1?: string | null
           address_line2?: string | null
+          billing_address_line1?: string | null
+          billing_address_line2?: string | null
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_postal_code?: string | null
+          billing_same_as_delivery?: boolean
+          billing_state?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -110,12 +126,21 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          phone?: string | null
           postal_code?: string | null
           state?: string | null
+          whatsapp?: boolean
         }
         Update: {
           address_line1?: string | null
           address_line2?: string | null
+          billing_address_line1?: string | null
+          billing_address_line2?: string | null
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_postal_code?: string | null
+          billing_same_as_delivery?: boolean
+          billing_state?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -123,8 +148,10 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          phone?: string | null
           postal_code?: string | null
           state?: string | null
+          whatsapp?: boolean
         }
         Relationships: []
       }
@@ -432,32 +459,41 @@ export type Database = {
       notes: {
         Row: {
           athlete_id: string | null
+          author_name: string | null
           body: string
           contact_id: string | null
           created_at: string
           created_by: string | null
           factory_id: string | null
+          from_factory: boolean
           id: string
+          order_id: string | null
           organization_id: string | null
         }
         Insert: {
           athlete_id?: string | null
+          author_name?: string | null
           body: string
           contact_id?: string | null
           created_at?: string
           created_by?: string | null
           factory_id?: string | null
+          from_factory?: boolean
           id?: string
+          order_id?: string | null
           organization_id?: string | null
         }
         Update: {
           athlete_id?: string | null
+          author_name?: string | null
           body?: string
           contact_id?: string | null
           created_at?: string
           created_by?: string | null
           factory_id?: string | null
+          from_factory?: boolean
           id?: string
+          order_id?: string | null
           organization_id?: string | null
         }
         Relationships: [
@@ -487,6 +523,13 @@ export type Database = {
             columns: ["factory_id"]
             isOneToOne: false
             referencedRelation: "factories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
           {

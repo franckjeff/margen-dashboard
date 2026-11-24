@@ -125,7 +125,7 @@ function OrderEntryForm({ items, onSent }: { items: EntryItem[]; onSent: (sent: 
   return (
     <form className="stack" onSubmit={send}>
       <div>
-        <h1>Place an order</h1>
+        <h1>Submit an order</h1>
         <p className="muted">Tell us what you need. We'll confirm your order by email.</p>
       </div>
 

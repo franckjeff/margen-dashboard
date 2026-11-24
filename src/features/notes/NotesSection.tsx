@@ -1,11 +1,12 @@
 import { useRef, type ReactNode } from "react";
+import { useSignedIn } from "../../auth/AuthProvider";
 import { Count, DateTime } from "../../components/ui";
 import { expectRows, useDbAction } from "../../data/mutations";
 import { useNotes, type Note } from "../../data/queries";
 import { supabase, unwrap } from "../../lib/supabase";
 
-type SubjectColumn = "contact_id" | "athlete_id" | "factory_id" | "organization_id";
-type Subject = { contact_id: string } | { athlete_id: string } | { factory_id: string } | { organization_id: string };
+type SubjectColumn = "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "order_id";
+type Subject = { contact_id: string } | { athlete_id: string } | { factory_id: string } | { organization_id: string } | { order_id: string };
 
 export function useDeleteNote() {
   return useDbAction({
@@ -23,15 +24,19 @@ export function NoteMeta({ note, before, after }: { note: Note; before?: ReactNo
     <div className="note-meta">
       {before}
       <DateTime value={note.created_at} />
-      {note.author && <span className="note-author">{note.author.email}</span>}
+      {(note.author_name ?? note.author?.email) && <span className="note-author">{note.author_name ?? note.author?.email}</span>}
+      {note.from_factory && <span className="status tone-accent">Factory</span>}
       {after}
     </div>
   );
 }
 
-// Notes timeline for a contact, organization, athlete or factory, newest first, with a box to add one.
-export function NotesSection({ subject }: { subject: Subject }) {
+// Notes timeline for a contact, organization, athlete, factory or order, newest first, with a box to add one.
+// Admins delete any note; anyone else (a factory, on its orders) only their own.
+export function NotesSection({ subject, placeholder, hint }: { subject: Subject; placeholder?: string; hint?: string }) {
   const notes = useNotes();
+  const { role, userId } = useSignedIn();
+  const canDelete = (n: Note) => role === "admin" || n.created_by === userId;
   const input = useRef<HTMLTextAreaElement>(null);
   const [column, subjectId] = Object.entries(subject)[0] as [SubjectColumn, string];
   const own = (notes.data ?? []).filter((n) => n[column] === subjectId);
@@ -71,7 +76,7 @@ export function NotesSection({ subject }: { subject: Subject }) {
           rows={2}
           aria-label="New note"
           disabled={add.isPending}
-          placeholder="Add a note: a call, a conversation, something to remember…"
+          placeholder={placeholder ?? "Add a note: a call, a conversation, something to remember…"}
           // Enter saves the note; Shift+Enter adds a line break.
           onKeyDown={(event) => {
             if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
@@ -79,7 +84,9 @@ export function NotesSection({ subject }: { subject: Subject }) {
             event.currentTarget.form?.requestSubmit();
           }}
         />
-        <p className="muted small">Press Enter to save. Shift+Enter starts a new line.</p>
+        <p className="muted small">
+          {hint && `${hint} `}Press Enter to save. Shift+Enter starts a new line.
+        </p>
       </form>
       {own.length ? (
         <ol className="notes-list">
@@ -88,6 +95,7 @@ export function NotesSection({ subject }: { subject: Subject }) {
               <NoteMeta
                 note={n}
                 after={
+                  canDelete(n) && (
                   <button
                     type="button"
                     className="icon-btn"
@@ -97,6 +105,7 @@ export function NotesSection({ subject }: { subject: Subject }) {
                   >
                     ×
                   </button>
+                  )
                 }
               />
               <p className="note-body">{n.body}</p>

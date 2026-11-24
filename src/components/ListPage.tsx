@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { plural } from "../lib/format";
-import { ChevronIcon } from "./icons";
 import { Count } from "./ui";
 
 export type ListRow = {
@@ -9,14 +8,8 @@ export type ListRow = {
   to: string; // the row's own page; clicking anywhere on the row opens it (double-clicking, in a selectable list)
   search: string; // lowercase text the search box matches against
   filteredOut?: boolean; // left out by the list's filters, whatever the search says
-  group?: string; // which grid the row sits in, for a list split into groups
   cells: ReactNode;
 };
-
-// A list can be split into grids, one card each, in this order; a row goes in the grid named by its group.
-// startOpen, when any grid has it, sets which grids are open each time the page opens: the user can still
-// open and close them, but it isn't remembered for the next visit.
-export type ListGroup = { key: string; title: string; empty?: string; startOpen?: boolean };
 
 // Filters rows by a search string; rows stay mounted, so the search box keeps focus while typing.
 export function useSearch() {
@@ -36,35 +29,6 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
       onChange={(event) => onChange(event.target.value)}
     />
   );
-}
-
-// Grids the user opened (true) or closed (false), remembered in this browser between visits.
-// A grid the user never touched is open when it has rows, and closed when it's empty.
-// With a fixed start (from the grids' startOpen), every visit begins there and nothing is remembered.
-function useGroupChoices(list: string, start?: Record<string, boolean>) {
-  const storageKey = `list-collapsed:${list}`;
-  const [choices, setChoices] = useState<Record<string, boolean>>(() => {
-    if (start) return start;
-    try {
-      const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
-      // Earlier versions saved just the list of closed grids.
-      if (Array.isArray(saved)) return Object.fromEntries(saved.map((key: string) => [key, false]));
-      return saved && typeof saved === "object" ? (saved as Record<string, boolean>) : {};
-    } catch {
-      return {};
-    }
-  });
-  const choose = (group: string, open: boolean) => {
-    const next = { ...choices, [group]: open };
-    setChoices(next);
-    if (start) return;
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(next));
-    } catch {
-      // Not remembered, e.g. in a private window; the grid still opens or closes.
-    }
-  };
-  return { choices, choose };
 }
 
 // Rows the user can select like in a spreadsheet, with a total of the selected rows shown at the bottom.
@@ -146,7 +110,6 @@ export function ListPage({
   filters,
   empty = "Nothing here yet.",
   selection,
-  groups,
 }: {
   title: string;
   count: number;
@@ -162,21 +125,11 @@ export function ListPage({
   filters?: ReactNode;
   empty?: string; // shown when there are no rows at all
   selection?: ListSelection;
-  groups?: ListGroup[];
 }) {
   const navigate = useNavigate();
   const { query, setQuery, matches } = useSearch();
   const visible = (row: ListRow) => !row.filteredOut && matches(row.search);
-  // Grouped rows in grid order, so a range selected across grids follows what's on screen.
-  const inGroup = (g: ListGroup) => rows.filter((r) => r.group === g.key);
-  const start = groups?.some((g) => g.startOpen !== undefined)
-    ? Object.fromEntries(groups.map((g) => [g.key, !!g.startOpen]))
-    : undefined;
-  const { choices, choose } = useGroupChoices(title, start);
-  const isOpen = (g: ListGroup) => choices[g.key] ?? inGroup(g).length > 0;
-  // Rows in a collapsed grid can't be selected, and drop out of the selection's total.
-  const ordered = groups ? groups.filter(isOpen).flatMap(inGroup) : rows;
-  const rowSelection = useRowSelection(ordered.filter(visible).map((r) => r.key));
+  const rowSelection = useRowSelection(rows.filter(visible).map((r) => r.key));
   const picked = rowSelection.visibleSelected;
   // A click on a link or a field inside the row is left to it.
   const onControl = (event: MouseEvent) => Boolean((event.target as HTMLElement).closest("a, button, input, select, textarea, label"));
@@ -257,34 +210,10 @@ export function ListPage({
         )}
       </div>
       <div className={`layout${panel ? " has-panel" : ""}`}>
-        {groups && !loading && rows.length > 0 ? (
-          <div className="list-groups">
-            {groups.map((g) => {
-              const groupRows = inGroup(g);
-              const open = isOpen(g);
-              const id = `list-group-${g.key}`;
-              return (
-                <section key={g.key} className={`card list list-group${open ? " open" : ""}`} aria-label={g.title}>
-                  <h2 className="list-group-title">
-                    <button type="button" aria-expanded={open} aria-controls={id} onClick={() => choose(g.key, !open)}>
-                      <ChevronIcon />
-                      {g.title} <Count n={groupRows.filter(visible).length} />
-                    </button>
-                  </h2>
-                  <div id={id} hidden={!open}>
-                    {table(groupRows, g.empty ?? "None.")}
-                  </div>
-                </section>
-              );
-            })}
-            {bar && <div className="card list-groups-bar">{bar}</div>}
-          </div>
-        ) : (
-          <section className="card list">
-            {loading ?? table(rows, empty)}
-            {bar}
-          </section>
-        )}
+        <section className="card list">
+          {loading ?? table(rows, empty)}
+          {bar}
+        </section>
         {panel && <aside className="card panel">{panel}</aside>}
       </div>
     </>

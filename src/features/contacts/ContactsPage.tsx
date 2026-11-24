@@ -4,17 +4,18 @@ import { useNotice } from "../../components/Notice";
 import { BackLink, Count, Dash, FormButtons, Missing, OrDash, Optional, PanelHead, QueryGate, loadingState } from "../../components/ui";
 import { useDeleteRecord, useSaveRecord } from "../../data/mutations";
 import { useContacts, useFactories, useNotes, useOrganizations, type Contact } from "../../data/queries";
-import { ADDRESS_FIELDS } from "../../lib/constants";
 import { addressLines, contactLocation, formatDate, fullName, place, plural } from "../../lib/format";
 import { deleteMessage, formValues, orNull } from "../../lib/forms";
 import { NotesSection } from "../notes/NotesSection";
+import { BillingAddress, ContactDetailsFields, DeliveryAddress, Phone } from "./ContactDetails";
+import { contactDetailsRow } from "./details";
 import { isBusyWith, useLinkActions, type LinkOwner } from "../organizations/links";
 
 function ContactForm({ contact }: { contact?: Contact }) {
   const save = useSaveRecord("contacts");
   const { notify } = useNotice();
   const back = contact ? `/contacts/${contact.id}` : "/contacts";
-  const text = (name: (typeof ADDRESS_FIELDS)[number] | "first_name" | "last_name" | "email") => contact?.[name] ?? "";
+  const text = (name: "first_name" | "last_name" | "email") => contact?.[name] ?? "";
   return (
     <>
       <PanelHead title={contact ? "Edit contact" : "New contact"} close={back} />
@@ -26,7 +27,7 @@ function ContactForm({ contact }: { contact?: Contact }) {
             first_name: v.first_name,
             last_name: v.last_name,
             email: orNull(v.email.toLowerCase()),
-            ...Object.fromEntries(ADDRESS_FIELDS.map((f) => [f, orNull(v[f])])),
+            ...contactDetailsRow(v),
           };
           if (!row.first_name || !row.last_name) return notify("error", "The contact needs a first and last name.");
           save.mutate({ row, id: contact?.id, label: fullName(row) });
@@ -44,53 +45,12 @@ function ContactForm({ contact }: { contact?: Contact }) {
           <Optional>Email</Optional>
           <input name="email" type="email" autoComplete="off" defaultValue={text("email")} placeholder="Where the app sends this contact's emails" />
         </label>
-        <fieldset className="stack">
-          <legend>
-            Address <span className="muted">(optional)</span>
-          </legend>
-          <label>
-            Address line 1
-            <input name="address_line1" autoComplete="off" defaultValue={text("address_line1")} placeholder="Street and number" />
-          </label>
-          <label>
-            Address line 2
-            <input name="address_line2" autoComplete="off" defaultValue={text("address_line2")} placeholder="Apartment, suite, building…" />
-          </label>
-          <div className="field-row">
-            <label>
-              City
-              <input name="city" autoComplete="off" defaultValue={text("city")} />
-            </label>
-            <label>
-              Postal code
-              <input name="postal_code" autoComplete="off" defaultValue={text("postal_code")} />
-            </label>
-          </div>
-          <div className="field-row">
-            <label>
-              State / region
-              <input name="state" autoComplete="off" defaultValue={text("state")} />
-            </label>
-            <label>
-              Country
-              <input name="country" autoComplete="off" defaultValue={text("country")} />
-            </label>
-          </div>
-        </fieldset>
+        <ContactDetailsFields contact={contact} />
         <FormButtons label={contact ? "Save changes" : "Create contact"} cancel={back} busy={save.isPending} />
       </form>
     </>
   );
 }
-
-const ADDRESS_LABELS: Record<(typeof ADDRESS_FIELDS)[number], string> = {
-  address_line1: "Address line 1",
-  address_line2: "Address line 2",
-  city: "City",
-  state: "State / region",
-  postal_code: "Postal code",
-  country: "Country",
-};
 
 const linkedNames =(c: Contact) => [...c.organizations, ...c.factories].map((o) => o.name).join(", ");
 
@@ -131,7 +91,7 @@ export function ContactsPage({ id, editing = false }: { id?: string; editing?: b
       rows={all.map((c) => ({
         key: c.id,
         to: `/contacts/${c.id}`,
-        search: `${fullName(c)} ${c.email ?? ""} ${addressLines(c).join(" ")} ${linkedNames(c)}`.toLowerCase(),
+        search: `${fullName(c)} ${c.email ?? ""} ${c.phone ?? ""} ${addressLines(c).join(" ")} ${linkedNames(c)}`.toLowerCase(),
         cells: (
           <>
             <td>
@@ -217,14 +177,24 @@ function ContactPage({ contact, editing }: { contact: Contact; editing: boolean 
                   <dt>Email</dt>
                   <dd>{contact.email ? <a href={`mailto:${contact.email}`}>{contact.email}</a> : <Dash />}</dd>
                 </div>
-                {ADDRESS_FIELDS.map((f) => (
-                  <div key={f}>
-                    <dt>{ADDRESS_LABELS[f]}</dt>
-                    <dd>
-                      <OrDash>{contact[f]}</OrDash>
-                    </dd>
-                  </div>
-                ))}
+                <div>
+                  <dt>Phone</dt>
+                  <dd>
+                    <Phone contact={contact} />
+                  </dd>
+                </div>
+                <div>
+                  <dt>Delivery address</dt>
+                  <dd>
+                    <DeliveryAddress contact={contact} />
+                  </dd>
+                </div>
+                <div>
+                  <dt>Billing address</dt>
+                  <dd>
+                    <BillingAddress contact={contact} />
+                  </dd>
+                </div>
                 <div>
                   <dt>Added</dt>
                   <dd>{formatDate(contact.created_at)}</dd>

@@ -4,6 +4,7 @@ import { useContacts, type LinkedContact } from "../../data/queries";
 import { fullName } from "../../lib/format";
 import { formValues } from "../../lib/forms";
 import { isBusyWith, useLinkActions, type LinkOwner } from "../organizations/links";
+import { Phone } from "./ContactDetails";
 
 // Says who gets an organization's or factory's emails, or why nobody does.
 export function EmailRecipientNote({ contacts, who }: { contacts: LinkedContact[]; who: string }) {
@@ -65,6 +66,9 @@ export function LinkedContacts({
                     </td>
                     <td className="muted hide-sm">
                       <OrDash>{c.email}</OrDash>
+                    </td>
+                    <td className="hide-sm">
+                      <Phone contact={c} />
                     </td>
                     <td>
                       {c.is_default ? (
