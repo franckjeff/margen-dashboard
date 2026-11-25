@@ -29,8 +29,6 @@ Open http://localhost:5173 and sign in with a Supabase account. Saved code chang
 | `npm run build` | Type-checks, then builds the site into `dist/`. Any static host can serve that folder |
 | `npm run preview` | Serves the built `dist/` folder to check it before deploying |
 | `npm test` | Runs the unit tests (Vitest) |
-| `npm run e2e` | Runs the click-through tests (Playwright) on MARGEN TEST; see below |
-| `npm run e2e:report` | Opens the last click-through run's report, with screenshots and traces of failures |
 | `npm run typecheck` | Checks the TypeScript types only |
 | `npm run lint` | Runs ESLint |
 | `npm run db:types` | Regenerates `src/lib/database.types.ts` from the live database (sign in once first with `npx supabase login`) |
@@ -234,29 +232,3 @@ It always ends with an error, on purpose: that is how everything it did is undon
 users and records it creates. The error message is the result: `ACCESS TESTS PASSED: 329 checks`, or
 `ACCESS TESTS FAILED` followed by each check that failed. It's also safe to run on the live database,
 which is worth doing once after each change goes live.
-
-## Click-through tests
-
-`e2e/` holds Playwright tests that use the real app in a real browser, signed in as three test accounts on
-**MARGEN TEST** (never PROD: they add and delete records): `e2e.admin@example.com`, `e2e.factory@example.com`
-(linked to *E2E Factory*) and `e2e.client@example.com` (linked to *E2E Club*). They check that:
-
-- every page in each kind of user's menu opens without a crash or a browser error, and other pages send them home;
-- an admin can add an organization in the Add window and delete it from the list, and E2E Club can't be ticked;
-- an order goes from added to Accepted to In production at E2E Factory, and the factory and client users see it.
-
-Every test also fails on any error in the browser console. Test orders and organizations are deleted at the end.
-
-**On your computer:** `npm run e2e`. It starts the dev server itself (or uses the one running), reading the
-TEST project from `.env.local` and the test passwords from `.env.e2e`. Both files stay on your computer; Git
-ignores them. Then `npm run e2e:report` shows what failed, with screenshots, videos and step-by-step traces.
-
-**On GitHub:** `.github/workflows/e2e.yml` runs them on every push to `main`, every weekday at 06:00 UTC, and on
-demand (Actions > E2E tests > Run workflow). Each failing test opens a GitHub issue labelled `e2e`, or adds a
-comment to its open one, with the error and a link to the run, whose **playwright-report** download has the
-screenshots and traces. When the test passes again, its issue is closed. The workflow needs five repository
-secrets (Settings > Secrets and variables > Actions): `E2E_SUPABASE_URL` and `E2E_SUPABASE_PUBLISHABLE_KEY` (the
-TEST values in `.env.local`), and `E2E_ADMIN_PASSWORD`, `E2E_FACTORY_PASSWORD` and `E2E_CLIENT_PASSWORD` (from
-`.env.e2e`).
-
-Add a test in `e2e/` when a new flow is built. Tests run one at a time, as they share the test accounts.
