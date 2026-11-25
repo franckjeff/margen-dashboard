@@ -227,21 +227,22 @@ function AccountSection({ factory }: { factory: boolean }) {
 function SignInSection() {
   return (
     <>
-      <p>A MARGEN admin creates your account. To open the Dashboard, go to the address MARGEN gave you and sign in with your email address and password.</p>
+      <p>A MARGEN admin creates your account, and you receive a welcome email with your sign-in email and a temporary password.</p>
       <h3>The first time: choose your password</h3>
-      <p>If MARGEN didn't give you a temporary password, choose your own:</p>
       <ol className="guide-steps">
         <li>
-          On the sign-in page, click <Ui>Forgot your password?</Ui>
+          Click <Ui>Sign in</Ui> in the welcome email, or go to the address MARGEN gave you.
         </li>
-        <li>Enter the email address of your account and send the request.</li>
+        <li>Sign in with your email address and the temporary password from the email.</li>
         <li>
-          Open the email you receive and click its link. <strong>Open it in the same browser</strong> you used to make the
-          request, otherwise the link won't work.
+          You're asked to choose your own password, of at least 8 characters. Enter it twice and click <Ui>Save and continue</Ui>.
+          The Dashboard then opens.
         </li>
-        <li>Choose a password of at least 8 characters. You're then signed in.</li>
       </ol>
-      <p>If MARGEN gave you a temporary password, sign in with it, then change it as described below.</p>
+      <p>
+        No welcome email? Check your spam folder, or use <Ui>Forgot your password?</Ui> on the sign-in page: you get an email with a
+        link to choose a password. <strong>Open the link in the same browser</strong> you used to ask for it, otherwise it won't work.
+      </p>
       <h3>Changing your password</h3>
       <ol className="guide-steps">
         <li>

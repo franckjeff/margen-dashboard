@@ -1,25 +1,13 @@
-import { useState } from "react";
 import { Link } from "react-router";
 import { SearchBox, useSearch } from "../../components/ListPage";
 import { Count, Dash, DateTime, loadingState } from "../../components/ui";
 import { expectRows, useDbAction } from "../../data/mutations";
-import { useEmailSettings, useEmails, type Email, type EmailSettings } from "../../data/queries";
-import { plural } from "../../lib/format";
+import { useEmails, type Email } from "../../data/queries";
 import { supabase, unwrap } from "../../lib/supabase";
 import { useUiState } from "../../lib/uiState";
-import { AdminEmails, SenderSettings, TemplatePreview } from "./EmailAdmin";
+import { KIND_LABELS } from "./kinds";
 import { emailWarnings } from "./warnings";
 
-// Must match the check constraints on email_outbox, and private.email_kinds() in the database.
-const KIND_LABELS: Record<string, string> = {
-  order_assigned: "Order assigned (to the factory's default contact)",
-  order_shipped: "Order shipped (to the client's default contact)",
-  order_request: "New order request (to admins)",
-  quote_request: "New quote request (to admins)",
-  athlete_note_added: "Athlete note added (to admins)",
-  order_note_from_factory: "Order note from the factory (to admins)",
-  order_note_from_admin: "Order note from MARGEN (to the factory's default contact)",
-};
 const STATUS_LABELS: Record<string, string> = {
   pending: "Waiting",
   sending: "Sending",
@@ -37,125 +25,6 @@ const STATUS_TONES: Record<string, string> = {
   skipped: "tone-warn",
 };
 
-// What the database is set to do with emails on this project.
-function SendingMode({ settings }: { settings: EmailSettings }) {
-  const wait = settings.delay_minutes ? ` Order emails wait ${plural(settings.delay_minutes, "minute")} first, so a change undone in time sends nothing.` : "";
-  if (settings.mode === "off") {
-    return <p className="muted">Sending is off on this project: new emails wait here and nothing goes out.</p>;
-  }
-  if (settings.mode === "redirect") {
-    return (
-      <p className="muted">
-        Test mode: every email goes to <strong>{settings.redirect_to}</strong> instead of its recipient, from {settings.from_address}.{wait}
-      </p>
-    );
-  }
-  return (
-    <p className="muted">
-      Emails go to their recipients, from {settings.from_address}.{wait}
-    </p>
-  );
-}
-
-// Admins pause all sending, turn each kind of email on or off, and send themselves samples.
-// The database functions check that whoever calls them is an admin.
-function SendingControls({ settings }: { settings: EmailSettings }) {
-  const [sampleKind, setSampleKind] = useState(Object.keys(KIND_LABELS)[0]);
-
-  const pause = useDbAction({
-    tables: ["email_settings", "email_outbox"],
-    run: async (paused: boolean) => unwrap(await supabase.rpc("set_email_sending_paused", { paused })),
-    success: (paused) => (paused ? "Sending is paused. Emails wait here until you resume." : "Sending has resumed. Waiting emails go out within a minute."),
-    failure: (paused) => (paused ? "Couldn't pause sending" : "Couldn't resume sending"),
-  });
-
-  const toggle = useDbAction({
-    tables: ["email_settings", "email_outbox"],
-    run: async ({ kind, enabled }: { kind: string; enabled: boolean }) => unwrap(await supabase.rpc("set_email_kind_enabled", { kind, enabled })),
-    success: ({ kind, enabled }) =>
-      enabled ? `"${KIND_LABELS[kind]}" emails are on.` : `"${KIND_LABELS[kind]}" emails are off. Any still waiting were cancelled.`,
-    failure: () => "Couldn't change which emails are sent",
-  });
-
-  const sample = useDbAction({
-    tables: ["email_outbox"],
-    run: async (kind: string) => unwrap(await supabase.rpc("send_sample_email", { kind })),
-    success: () => {
-      const address = settings.mode === "redirect" ? settings.redirect_to : "your email address";
-      const when = settings.paused || settings.mode === "off" ? "It will go out when sending is on." : "It goes out within a minute.";
-      return `A sample is on its way to ${address}. ${when}`;
-    },
-    failure: () => "Couldn't send the sample",
-  });
-
-  return (
-    <section className="card section email-controls">
-      <div className="section-title">
-        <h2>Sending</h2>
-        <button
-          type="button"
-          className={settings.paused ? "primary" : ""}
-          disabled={pause.isPending}
-          onClick={() => pause.mutate(!settings.paused)}
-        >
-          {settings.paused ? "Resume sending" : "Pause all sending"}
-        </button>
-      </div>
-      {settings.paused ? (
-        <p className="notice error">
-          <span>
-            <strong>Sending is paused.</strong> New emails wait here and go out when you resume.
-          </span>
-        </p>
-      ) : (
-        <SendingMode settings={settings} />
-      )}
-
-      <fieldset className="email-kinds">
-        <legend>Emails the app sends</legend>
-        {Object.entries(KIND_LABELS).map(([kind, label]) => {
-          const enabled = !settings.disabled_kinds.includes(kind);
-          return (
-            <label key={kind} className="check">
-              <input
-                type="checkbox"
-                checked={enabled}
-                disabled={toggle.isPending}
-                onChange={() => toggle.mutate({ kind, enabled: !enabled })}
-              />
-              {label}
-              {!enabled && <span className="muted small"> (off: logged as cancelled, not sent)</span>}
-            </label>
-          );
-        })}
-      </fieldset>
-
-      <form
-        className="email-sample"
-        onSubmit={(event) => {
-          event.preventDefault();
-          sample.mutate(sampleKind);
-        }}
-      >
-        <label>
-          Send yourself a sample
-          <select value={sampleKind} onChange={(e) => setSampleKind(e.target.value)}>
-            {Object.entries(KIND_LABELS).map(([kind, label]) => (
-              <option key={kind} value={kind}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="submit" disabled={sample.isPending}>
-          {sample.isPending ? "Sending…" : "Send me a sample"}
-        </button>
-      </form>
-      <p className="muted small">Samples use made-up details and go to your own address, even when that kind of email is off.</p>
-    </section>
-  );
-}
-
 const recipient = (e: Email) => e.recipient_name ?? e.recipient_email ?? "nobody";
 
 function About({ email }: { email: Email }) {
@@ -168,11 +37,11 @@ function About({ email }: { email: Email }) {
   return <span className="muted">Deleted</span>;
 }
 
-// Admins only: every email the app sends, newest first. Emails are queued by the database when
+// Admins only: every email the app sends, newest first; how they're sent is on Email Settings (EmailSettingsPage).
+// Emails are queued by the database when
 // something happens, and sent by the send-emails function (see supabase/migrations/*_email_outbox.sql).
 export function EmailsPage() {
   const emails = useEmails();
-  const settings = useEmailSettings();
   const { query, setQuery, matches } = useSearch();
   // "" shows every status.
   const [statusFilter, setStatusFilter] = useUiState<string>("emailsStatus", "");
@@ -213,7 +82,7 @@ export function EmailsPage() {
     <>
       <div className="page-head">
         <h1>
-          Email Admin and Logs <Count n={all.length} />
+          Email Logs <Count n={all.length} />
         </h1>
         <select className="filter" aria-label="Filter by status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="">All statuses</option>
@@ -241,15 +110,6 @@ export function EmailsPage() {
           </ul>
         </section>
       )}
-      {settings.data && (
-        <div className="email-admin">
-          <SendingControls settings={settings.data} />
-          <SenderSettings settings={settings.data} />
-          <AdminEmails settings={settings.data} />
-          <TemplatePreview kinds={KIND_LABELS} />
-        </div>
-      )}
-      <h2 className="email-log-title">Log</h2>
       <section className="card list">
         {loadingState([emails]) ??
           (all.length ? (

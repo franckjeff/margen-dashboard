@@ -18,3 +18,8 @@ Desktop.ini
 node_modules/
 dist/
 *.tsbuildinfo
+
+# Playwright: saved test sign-ins and the reports of each run
+e2e/.auth/
+test-results/
+playwright-report/

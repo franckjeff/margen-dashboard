@@ -1,6 +1,6 @@
 // The email templates: what each kind of email says and looks like.
 //
-// Used by the send-emails function to write each email, and by the app's Email Admin and Logs page to preview
+// Used by the send-emails function to write each email, and by the app's Email Settings page to preview
 // them, so the preview is always the real thing. Plain TypeScript only: it runs on Deno and in the browser.
 
 export type Kind =

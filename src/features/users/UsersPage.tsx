@@ -1,14 +1,16 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSignedIn } from "../../auth/AuthProvider";
+import { Dialog } from "../../components/Dialog";
 import { SearchBox, useSearch } from "../../components/ListPage";
 import { useNotice } from "../../components/Notice";
-import { Count, Dash, DateTime, OrDash, Optional, loadingState } from "../../components/ui";
-import { expectRows, useDbAction } from "../../data/mutations";
+import { Count, Dash, EmailInput, OrDash, Optional, loadingState } from "../../components/ui";
+import { expectRows, invalidate, useDbAction } from "../../data/mutations";
 import { useFactories, useOrganizations, useUsers, type User } from "../../data/queries";
 import { ROLE_LABELS, type Role } from "../../lib/constants";
-import { formatDate } from "../../lib/format";
+import { formatDate, formatDateTime } from "../../lib/format";
 import { formValues } from "../../lib/forms";
-import { supabase, unwrap } from "../../lib/supabase";
+import { messageOf, supabase, unwrap } from "../../lib/supabase";
 import { useUiState } from "../../lib/uiState";
 
 type NameField = "first_name" | "last_name";
@@ -22,30 +24,98 @@ type NewUser = { email: string; first_name: string; last_name: string; role: Rol
 
 // Accounts are created by the create-user function on Supabase's servers (supabase/functions/create-user),
 // because that needs the project's secret key. It refuses anyone who isn't an admin.
-async function createUser(user: NewUser) {
-  const { error } = await supabase.functions.invoke("create-user", { body: user });
-  if (!error) return;
+// What the function says it did. not_sent: why the welcome email didn't go. password: the made-up temporary
+// password, given only when the email didn't go and the admin didn't type one, so they can pass it on.
+type Created = { email: string; emailed: boolean; not_sent?: string; password?: string };
+
+async function createUser(user: NewUser): Promise<Created> {
+  const { data, error } = await supabase.functions.invoke("create-user", { body: user });
+  if (!error) return data as Created;
   // The function explains what went wrong in its reply, e.g. that the email already has an account.
   const reply = await (error.context as Response | undefined)?.json?.().catch(() => null);
   throw new Error(reply?.error ?? error.message);
 }
 
+// How the Users table is ordered: click a column name to sort by it, click again to reverse it.
+// Kept while moving between pages, like the access level filter.
+type SortColumn = "email" | "last_sign_in_at" | "created_at";
+type UserSort = { column: SortColumn; descending: boolean };
+const BY_EMAIL: UserSort = { column: "email", descending: false };
+// Dates start newest first; the email starts A to Z.
+const nextSort = (sort: UserSort, column: SortColumn): UserSort =>
+  sort.column === column ? { column, descending: !sort.descending } : { column, descending: column !== "email" };
+
+// The signed-in user comes first, then the rest in the chosen order (by email when equal). Users who never
+// signed in come last either way.
+function sortUsers(users: User[], { column, descending }: UserSort, me: string): User[] {
+  const byEmail = (a: User, b: User) => (a.email ?? "").localeCompare(b.email ?? "");
+  const compare = (a: User, b: User) => {
+    const x = a[column];
+    const y = b[column];
+    if (x === y) return byEmail(a, b);
+    if (!x) return 1;
+    if (!y) return -1;
+    return (descending ? -1 : 1) * x.localeCompare(y) || byEmail(a, b);
+  };
+  return [...users].sort((a, b) => Number(b.id === me) - Number(a.id === me) || compare(a, b));
+}
+
+// A column name that sorts the table when clicked, with an arrow showing the current order.
+function SortHeader({ label, column, sort, onSort, className }: { label: string; column: SortColumn; sort: UserSort; onSort: (s: UserSort) => void; className?: string }) {
+  const active = sort.column === column;
+  return (
+    <th className={className} aria-sort={active ? (sort.descending ? "descending" : "ascending") : "none"}>
+      <button type="button" className="sort-button" onClick={() => onSort(nextSort(sort, column))}>
+        {label}
+        <span className="sort-arrow" aria-hidden="true">
+          {active ? (sort.descending ? "▼" : "▲") : "↕"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
+type AccountAction = "disable" | "enable" | "delete";
+
+// Disabling, enabling and deleting accounts needs the secret key too, so the manage-user function does it
+// (supabase/functions/manage-user). It refuses anyone who isn't an admin, and works only on Factory and Client accounts.
+async function manageUser({ user, action }: { user: User; action: AccountAction }) {
+  const { error } = await supabase.functions.invoke("manage-user", { body: { user_id: user.id, action } });
+  if (!error) return;
+  const reply = await (error.context as Response | undefined)?.json?.().catch(() => null);
+  throw new Error(reply?.error ?? error.message);
+}
+
+// Runs one action on each selected account in turn. Carries on past a failure, then reports every one that failed.
+async function manageUsers({ users, action }: { users: User[]; action: AccountAction }) {
+  const failed: string[] = [];
+  for (const user of users) {
+    await manageUser({ user, action }).catch((error: unknown) => failed.push(`${user.email}: ${error instanceof Error ? error.message : String(error)}`));
+  }
+  if (failed.length) throw new Error(failed.join("; "));
+}
+
+const ACTION_VERB: Record<AccountAction, string> = { disable: "disabled", enable: "enabled again", delete: "deleted" };
+const who = (users: User[]) => (users.length === 1 ? (users[0].email ?? "1 user") : `${users.length} users`);
+const listOf = (users: User[]) => users.map((u) => `  ${u.email}`).join("\n");
+
+// Only Factory and Client accounts can be disabled or deleted, and never your own.
+const canManage = (u: User, me: string) => u.id !== me && (u.role === "factory" || u.role === "client");
+
 function AddUserForm({ onDone }: { onDone: () => void }) {
   const factories = useFactories();
   const organizations = useOrganizations();
+  const { notify } = useNotice();
   const [role, setRole] = useState<Role>("client");
   const add = useDbAction({
     tables: ["profiles"],
     run: createUser,
-    success: ({ email, password }) =>
-      password
-        ? `Added ${email}. Give them their password; they can change it with "Forgot your password?".`
-        : `Added ${email}. They choose a password with "Forgot your password?" on the sign-in page.`,
+    // Said once the function answers: whether the welcome email went.
+    success: () => null,
     failure: ({ email }) => `Couldn't add ${email}`,
   });
   return (
-    <section className="card section">
-      <h2>Add a user</h2>
+    <Dialog title="Add a user" onClose={onDone}>
       <form
         className="stack"
         onSubmit={(event) => {
@@ -60,13 +130,24 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
               organization_id: role === "client" ? v.organization_id || null : null,
               password: v.password,
             },
-            { onSuccess: onDone },
+            {
+              onSuccess: (result) => {
+                const created = result as Created;
+                if (created.emailed) {
+                  notify("success", `Added ${created.email} and emailed them a welcome with their temporary password. They choose their own when they first sign in.`);
+                } else {
+                  const password = created.password ? ` Their temporary password is ${created.password}` : " Give them the temporary password you set";
+                  notify("error", `Added ${created.email}, but the welcome email wasn't sent: ${created.not_sent}.${password}; they choose their own when they first sign in.`);
+                }
+                onDone();
+              },
+            },
           );
         }}
       >
         <label>
           Email
-          <input type="email" name="email" required autoFocus autoComplete="off" />
+          <EmailInput name="email" required autoFocus autoComplete="off" />
         </label>
         <div className="field-row">
           <label>
@@ -92,8 +173,11 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
           {role === "client" && (
             <label>
               Organization
-              <select name="organization_id" defaultValue="">
-                <option value="">Not linked</option>
+              {/* Required: a Client account is always added with its organization. */}
+              <select name="organization_id" defaultValue="" required>
+                <option value="" disabled>
+                  Choose an organization
+                </option>
                 {organizations.data?.map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.name}
@@ -105,8 +189,11 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
           {role === "factory" && (
             <label>
               Factory
-              <select name="factory_id" defaultValue="">
-                <option value="">Not linked</option>
+              {/* Required: a Factory account is always added with its factory. */}
+              <select name="factory_id" defaultValue="" required>
+                <option value="" disabled>
+                  Choose a factory
+                </option>
                 {factories.data?.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
@@ -121,9 +208,11 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
           <input type="text" name="password" minLength={MIN_PASSWORD} autoComplete="new-password" />
         </label>
         <p className="muted small">
-          Leave the password empty and they choose their own with "Forgot your password?" on the sign-in page. If you set one, give it
-          to them yourself: the app sends no email when it adds an account.
+          Leave it empty to have one made up. A welcome email gives them their sign-in email and this temporary password, and
+          they choose their own password when they first sign in.
         </p>
+        {/* Shown here too: the page's own message sits behind the window. */}
+        {add.isError && <p className="notice error">{messageOf(add.error)}</p>}
         <div className="form-actions">
           <button type="submit" className="primary" disabled={add.isPending}>
             {add.isPending ? "Adding…" : "Add user"}
@@ -133,7 +222,7 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
           </button>
         </div>
       </form>
-    </section>
+    </Dialog>
   );
 }
 
@@ -148,7 +237,9 @@ export function UsersPage() {
   const [adding, setAdding] = useState(false);
   // "" shows every access level.
   const [roleFilter, setRoleFilter] = useUiState<Role | "">("usersRole", "");
-  const all = users.data ?? [];
+  const [sort, setSort] = useUiState<UserSort>("usersSortBy", BY_EMAIL);
+  // Your own account is always first; the rest follow the chosen order.
+  const all = sortUsers(users.data ?? [], sort, userId);
 
   const setRole = useDbAction({
     tables: ["profiles"],
@@ -193,11 +284,54 @@ export function UsersPage() {
   });
   const organizationName = (id: string | null) => organizations.data?.find((o) => o.id === id)?.name ?? "";
 
+  // Factory and Client accounts ticked in the table, for Disable, Enable and Delete beside Add.
+  const queryClient = useQueryClient();
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
+  const manage = useDbAction({
+    tables: ["profiles"],
+    run: manageUsers,
+    success: ({ users, action }) =>
+      action === "disable" ? `${who(users)} disabled: they can't sign in and see nothing.` : `${who(users)} ${ACTION_VERB[action]}.`,
+    failure: ({ action }) => `Some users weren't ${ACTION_VERB[action]}`,
+  });
+  const runOn = (users: User[], action: AccountAction) =>
+    manage.mutate(
+      { users, action },
+      {
+        // Some may have changed even when others failed.
+        onError: () => invalidate(queryClient, "profiles"),
+        onSettled: () => setSelectedIds(new Set()),
+      },
+    );
+  const selected = all.filter((u) => selectedIds.has(u.id) && canManage(u, userId));
+  const toDisable = selected.filter((u) => !u.disabled_at);
+  const toEnable = selected.filter((u) => u.disabled_at);
+  const confirmDisable = () => {
+    if (confirm(`Disable ${who(toDisable)}?\n\n${listOf(toDisable)}\n\nThey won't be able to sign in, and lose access to everything straight away. Their accounts, links and history are kept, and you can enable them again later.`))
+      runOn(toDisable, "disable");
+  };
+  const confirmDelete = () => {
+    if (confirm(`Delete ${who(selected)} for good?\n\n${listOf(selected)}\n\nThis can't be undone. Their notes and order history stay, with their name. To stop them signing in for now, disable the accounts instead.`))
+      runOn(selected, "delete");
+  };
+  const toggle = (u: User, on: boolean) =>
+    setSelectedIds((ids) => {
+      const next = new Set(ids);
+      if (on) next.add(u.id);
+      else next.delete(u.id);
+      return next;
+    });
+
   // The factory or organization the account is linked to, for the roles that have one.
   const linkedName = (u: User) => (u.role === "factory" ? factoryName(u.factory_id) : u.role === "client" ? organizationName(u.organization_id) : "");
   const searchText = (u: User) => `${u.email} ${u.first_name ?? ""} ${u.last_name ?? ""} ${ROLE_LABELS[u.role]} ${linkedName(u)}`.toLowerCase();
   const visible = all.filter((u) => (!roleFilter || u.role === roleFilter) && matches(searchText(u)));
   const countOf = (role: Role) => all.filter((u) => u.role === role).length;
+  // The header checkbox ticks every Factory and Client account the filter and search show.
+  const selectable = visible.filter((u) => canManage(u, userId));
+  const allTicked = selectable.length > 0 && selectable.every((u) => selectedIds.has(u.id));
+  const someTicked = selectable.some((u) => selectedIds.has(u.id));
+  const nothing = selected.length === 0;
 
   return (
     <>
@@ -214,36 +348,73 @@ export function UsersPage() {
           ))}
         </select>
         <SearchBox value={query} onChange={setQuery} placeholder="Search users" />
-        {!adding && (
-          <button type="button" className="primary" onClick={() => setAdding(true)}>
-            Add user
+        <div className="user-actions" role="group" aria-label="Selected users">
+          {!nothing && <span className="muted small">{selected.length} selected</span>}
+          <button type="button" disabled={manage.isPending || toDisable.length === 0} onClick={confirmDisable}>
+            Disable
           </button>
-        )}
+          <button type="button" disabled={manage.isPending || toEnable.length === 0} onClick={() => runOn(toEnable, "enable")}>
+            Enable
+          </button>
+          <button type="button" className="danger" disabled={manage.isPending || nothing} onClick={confirmDelete}>
+            Delete
+          </button>
+        </div>
+        <button type="button" className="primary" onClick={() => setAdding(true)}>
+          Add
+        </button>
       </div>
       {adding && <AddUserForm onDone={() => setAdding(false)} />}
       <section className="card list">
         {loadingState([users]) ?? (
           <>
-            <table className="static">
+            <table className="static users-table">
               <thead>
                 <tr>
-                  <th>Email</th>
+                  <th className="check-cell">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all Factory and Client users shown"
+                      checked={allTicked}
+                      ref={(box) => {
+                        if (box) box.indeterminate = someTicked && !allTicked;
+                      }}
+                      disabled={selectable.length === 0}
+                      onChange={(e) =>
+                        setSelectedIds((ids) => {
+                          const next = new Set(ids);
+                          for (const u of selectable) {
+                            if (e.target.checked) next.add(u.id);
+                            else next.delete(u.id);
+                          }
+                          return next;
+                        })
+                      }
+                    />
+                  </th>
                   <th>First name</th>
                   <th>Last name</th>
+                  <SortHeader label="Email" column="email" sort={sort} onSort={setSort} />
                   <th>Access level</th>
                   <th>Linked to</th>
-                  <th>Last signed in</th>
-                  <th className="hide-sm">Added</th>
+                  <th>Status</th>
+                  <SortHeader label="Last signed in" column="last_sign_in_at" sort={sort} onSort={setSort} />
+                  <SortHeader label="Added" column="created_at" sort={sort} onSort={setSort} className="hide-sm" />
                 </tr>
               </thead>
               <tbody>
                 {all.map((u) => (
-                  <tr key={u.id} hidden={!visible.includes(u)}>
-                    <td>
-                      <span className="strong">
-                        <OrDash>{u.email}</OrDash>
-                      </span>
-                      {u.id === userId && <span className="muted small"> (you)</span>}
+                  <tr key={u.id} hidden={!visible.includes(u)} className={u.disabled_at ? "disabled-user" : undefined}>
+                    <td className="check-cell">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${u.email}`}
+                        // Admin accounts, and your own, can't be disabled or deleted.
+                        disabled={!canManage(u, userId)}
+                        title={canManage(u, userId) ? undefined : u.id === userId ? "You can't disable or delete your own account." : "Admin accounts can't be disabled or deleted."}
+                        checked={selectedIds.has(u.id) && canManage(u, userId)}
+                        onChange={(e) => toggle(u, e.target.checked)}
+                      />
                     </td>
                     {(["first_name", "last_name"] as const).map((field) => (
                       <td key={field}>
@@ -273,12 +444,20 @@ export function UsersPage() {
                         />
                       </td>
                     ))}
+                    {/* Long addresses are cut short; the whole one shows on hover. */}
+                    <td className="email-cell" title={u.email ?? undefined}>
+                      <span className="strong">
+                        <OrDash>{u.email}</OrDash>
+                      </span>
+                      {u.id === userId && <span className="muted small"> (you)</span>}
+                    </td>
                     <td className="role-cell">
                       <select
                         aria-label={`Access level for ${u.email}`}
                         value={u.role}
                         // You can't change your own level, and the database keeps at least one admin.
-                        disabled={u.id === userId || (setRole.isPending && setRole.variables?.user.id === u.id)}
+                        // A disabled account can't be made an admin: enable it first.
+                        disabled={u.id === userId || Boolean(u.disabled_at) || (setRole.isPending && setRole.variables?.user.id === u.id)}
                         onChange={(e) => setRole.mutate({ user: u, role: e.target.value as Role })}
                       >
                         {Object.entries(ROLE_LABELS).map(([value, label]) => (
@@ -288,7 +467,7 @@ export function UsersPage() {
                         ))}
                       </select>
                     </td>
-                    <td>
+                    <td className="link-cell">
                       {u.role === "factory" ? (
                         <select
                           aria-label={`Factory for ${u.email}`}
@@ -321,7 +500,24 @@ export function UsersPage() {
                         <Dash />
                       )}
                     </td>
-                    <td>{u.last_sign_in_at ? <DateTime value={u.last_sign_in_at} /> : <span className="muted">Never</span>}</td>
+                    <td>
+                      {u.disabled_at ? (
+                        <span className="badge disabled-badge" title={`Disabled on ${formatDate(u.disabled_at)}`}>
+                          Disabled
+                        </span>
+                      ) : (
+                        <span className="badge active-badge">Active</span>
+                      )}
+                    </td>
+                    <td>
+                      {u.last_sign_in_at ? (
+                        <time dateTime={u.last_sign_in_at} title={formatDateTime(u.last_sign_in_at)}>
+                          {formatDate(u.last_sign_in_at)}
+                        </time>
+                      ) : (
+                        <span className="muted">Never</span>
+                      )}
+                    </td>
                     <td className="muted hide-sm">{formatDate(u.created_at)}</td>
                   </tr>
                 ))}
@@ -333,12 +529,6 @@ export function UsersPage() {
           </>
         )}
       </section>
-      <p className="muted small hint">
-        New users are added with Add user. You can't change your own level, and there must
-        always be at least one Admin. Every user has a first and last name; the first name is how the Dashboard greets them. A Factory account sees only the
-        orders of the factory it's linked to, and can change only their production status and shipping details. A Client account
-        sees only the orders of the organization it's linked to, and can't change anything.
-      </p>
     </>
   );
 }

@@ -34,7 +34,9 @@ export const keys = {
   dashboardCounts: ["dashboardCounts"] as const,
 };
 
-export type Profile = { role: Role | null; firstName: string | null };
+// disabled: an admin disabled the account; it keeps its profile but has no access.
+// mustChangePassword: they still have the temporary password from their welcome email.
+export type Profile = { role: Role | null; firstName: string | null; disabled: boolean; mustChangePassword: boolean };
 export type LinkedContact = Pick<Tables<"contacts">, "id" | "first_name" | "last_name" | "email" | "phone" | "whatsapp" | "city" | "country"> & { is_default: boolean };
 export type LinkedOrganization = Pick<Tables<"organizations">, "id" | "name" | "state" | "country"> & { is_default: boolean };
 export type LinkedFactory = Pick<Tables<"factories">, "id" | "name" | "country"> & { is_default: boolean };
@@ -52,7 +54,7 @@ export type Factory = Tables<"factories"> & { contacts: LinkedContact[] };
 // A factory or client user's own contacts (see the emails_to_default_contacts migration).
 export type MyContact = Omit<Tables<"contacts">, "created_at"> & { owner_id: string; is_default: boolean };
 export type OrderLine = Pick<Tables<"order_items">, "id" | "order_id" | "item_id" | "size" | "quantity">;
-export type OrderEvent = Pick<Tables<"order_events">, "id" | "order_id" | "action" | "changed_at"> & {
+export type OrderEvent = Pick<Tables<"order_events">, "id" | "order_id" | "action" | "changed_at" | "changed_by_name"> & {
   changes: Record<string, { from?: unknown; to?: unknown }>;
   author: { email: string | null } | null;
 };
@@ -68,7 +70,7 @@ export type Note = Pick<
   factory: { name: string } | null;
   order: { margen_order_id: string } | null;
 };
-export type User = Pick<Tables<"profiles">, "id" | "email" | "first_name" | "last_name" | "muted_email_kinds" | "factory_id" | "organization_id" | "created_at"> & {
+export type User = Pick<Tables<"profiles">, "id" | "email" | "first_name" | "last_name" | "muted_email_kinds" | "factory_id" | "organization_id" | "created_at" | "disabled_at"> & {
   role: Role;
   last_sign_in_at: string | null;
 };
@@ -78,9 +80,9 @@ export function useProfile(userId: string) {
   return useQuery({
     queryKey: keys.profile(userId),
     queryFn: async (): Promise<Profile> => {
-      const { data, error } = await supabase.from("profiles").select("role, first_name").eq("id", userId).maybeSingle();
+      const { data, error } = await supabase.from("profiles").select("role, first_name, disabled_at, must_change_password").eq("id", userId).maybeSingle();
       if (error) throw new DbError(error);
-      return { role: (data?.role as Role | undefined) ?? null, firstName: data?.first_name ?? null };
+      return { role: (data?.role as Role | undefined) ?? null, firstName: data?.first_name ?? null, disabled: Boolean(data?.disabled_at), mustChangePassword: data?.must_change_password ?? false };
     },
   });
 }
@@ -172,7 +174,7 @@ export function useOrders() {
         await supabase
           .from("orders")
           .select(
-            "id, margen_order_id, factory_order_id, order_status, production_status, organization_id, factory_id, estimated_ship_date, actual_ship_date, shipping_method, tracking_number, archived_at, created_at, organization:organizations(id, name), factory:factories(id, name)",
+            "id, margen_order_id, factory_order_id, order_status, production_status, organization_id, organization_name, factory_id, estimated_ship_date, actual_ship_date, shipping_method, tracking_number, archived_at, created_at, organization:organizations(id, name), factory:factories(id, name)",
           )
           .order("created_at", { ascending: false }),
       ),
@@ -237,7 +239,7 @@ export function useOrderEvents() {
       unwrap(
         await supabase
           .from("order_events")
-          .select("id, order_id, action, changes, changed_at, author:profiles(email)")
+          .select("id, order_id, action, changes, changed_at, changed_by_name, author:profiles(email)")
           .order("changed_at", { ascending: false }),
       ) as unknown as OrderEvent[],
   });
@@ -449,7 +451,7 @@ export function useUsers() {
     queryKey: keys.users,
     queryFn: async (): Promise<User[]> => {
       const [users, signIns] = await Promise.all([
-        supabase.from("profiles").select("id, email, first_name, last_name, muted_email_kinds, role, factory_id, organization_id, created_at").order("email"),
+        supabase.from("profiles").select("id, email, first_name, last_name, muted_email_kinds, role, factory_id, organization_id, created_at, disabled_at").order("email"),
         supabase.rpc("user_last_sign_ins"),
       ]);
       const lastSignIn = new Map(unwrap(signIns).map((s) => [s.id, s.last_sign_in_at]));

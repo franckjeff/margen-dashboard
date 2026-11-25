@@ -1,10 +1,10 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Logo } from "../components/Layout";
-import { supabase } from "../lib/supabase";
+import { messageOf, supabase } from "../lib/supabase";
 import { useRecovery, useSession } from "./AuthProvider";
+import { changeMyPassword, MIN_PASSWORD } from "./password";
 import { PublicHome } from "./PublicHome";
 
-const MIN_PASSWORD = 8;
 
 export function LoginShell({ children }: { children: ReactNode }) {
   return (
@@ -50,7 +50,8 @@ function SignIn({
     });
     // On success the auth listener swaps this page for the app.
     setBusy(false);
-    setError(error?.message ?? null);
+    // A disabled account is banned in Supabase Auth, which answers "User is banned".
+    setError(error ? (/banned/i.test(error.message) ? "This account has been disabled. Contact MARGEN if you need access again." : error.message) : null);
   }
 
   // The sign-in form sits on the public home page, beside what MARGEN Customs is about.
@@ -167,31 +168,10 @@ function ForgotPassword({
   );
 }
 
-// Where a password-reset link lands: the person is signed in and chooses a new password.
-export function SetPasswordPage() {
-  const session = useSession();
-  const { finish } = useRecovery();
+// The form for choosing a new password, on the reset-link page and at a first sign-in.
+function NewPasswordForm({ title, intro, button, onSaved, footer }: { title: string; intro: ReactNode; button: string; onSaved: () => void; footer?: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  // The link didn't sign anyone in: it expired, was already used, or was opened in another browser.
-  if (!session) {
-    return (
-      <LoginShell>
-        <div className="card login-card">
-          <h1>Link not valid</h1>
-          <p className="muted">
-            This reset link has expired or was already used, or it was opened in
-            a different browser from the one where you asked for it. Ask for a
-            new link and open it in the same browser.
-          </p>
-          <button type="button" className="primary" onClick={finish}>
-            Back to sign in
-          </button>
-        </div>
-      </LoginShell>
-    );
-  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -200,20 +180,21 @@ export function SetPasswordPage() {
     if (password !== String(values.get("confirm")))
       return setError("The two passwords don't match.");
     setBusy(true);
-    const { error } = await supabase.auth.updateUser({ password });
+    try {
+      await changeMyPassword(password);
+    } catch (e) {
+      setBusy(false);
+      return setError(messageOf(e));
+    }
     setBusy(false);
-    if (error) return setError(error.message);
-    // Signed in already, so this opens the app.
-    finish();
+    onSaved();
   }
 
   return (
     <LoginShell>
       <form className="card login-card" onSubmit={save}>
-        <h1>New password</h1>
-        <p className="muted small">
-          Choose a new password for {session.user.email}.
-        </p>
+        <h1>{title}</h1>
+        <p className="muted small">{intro}</p>
         {error && <p className="notice error">{error}</p>}
         <label>
           New password
@@ -238,24 +219,71 @@ export function SetPasswordPage() {
         </label>
         <p className="muted small">At least {MIN_PASSWORD} characters.</p>
         <button type="submit" className="primary" disabled={busy}>
-          {busy ? "Saving…" : "Save and sign in"}
+          {busy ? "Savingâ€¦" : button}
         </button>
+        {footer}
       </form>
     </LoginShell>
   );
 }
 
-// Shown when the account has no profile row, or it couldn't be loaded.
-export function NoAccess({ email, error }: { email: string; error?: string }) {
+// Where a password-reset link lands: the person is signed in and chooses a new password.
+export function SetPasswordPage() {
+  const session = useSession();
+  const { finish } = useRecovery();
+
+  // The link didn't sign anyone in: it expired, was already used, or was opened in another browser.
+  if (!session) {
+    return (
+      <LoginShell>
+        <div className="card login-card">
+          <h1>Link not valid</h1>
+          <p className="muted">
+            This reset link has expired or was already used, or it was opened in
+            a different browser from the one where you asked for it. Ask for a
+            new link and open it in the same browser.
+          </p>
+          <button type="button" className="primary" onClick={finish}>
+            Back to sign in
+          </button>
+        </div>
+      </LoginShell>
+    );
+  }
+
+  // Signed in already, so finishing opens the app.
+  return <NewPasswordForm title="New password" intro={`Choose a new password for ${session.user.email}.`} button="Save and sign in" onSaved={finish} />;
+}
+
+// Shown after signing in with the temporary password from the welcome email (profiles.must_change_password):
+// the app opens once they've chosen their own.
+export function ChooseOwnPasswordPage({ email, onSaved }: { email: string; onSaved: () => void }) {
+  return (
+    <NewPasswordForm
+      title="Choose your password"
+      intro={`Welcome! You signed in to ${email} with a temporary password. Choose your own to continue.`}
+      button="Save and continue"
+      onSaved={onSaved}
+      footer={
+        <button type="button" className="link-button login-link" onClick={() => supabase.auth.signOut()}>
+          Sign out
+        </button>
+      }
+    />
+  );
+}
+
+// Shown when the account has no profile row, it couldn't be loaded, or an admin disabled it.
+export function NoAccess({ email, error, disabled = false }: { email: string; error?: string; disabled?: boolean }) {
   return (
     <LoginShell>
       <div className="card login-card">
-        <h1>No access yet</h1>
+        <h1>{disabled ? "Account disabled" : "No access yet"}</h1>
         {error && (
           <p className="notice error">Couldn't load your account: {error}</p>
         )}
         <p className="muted">
-          {email} doesn't have an access level. Ask an admin to set one up.
+          {disabled ? `${email} has been disabled. Contact MARGEN if you need access again.` : `${email} doesn't have an access level. Ask an admin to set one up.`}
         </p>
         <button type="button" onClick={() => supabase.auth.signOut()}>
           Sign out

@@ -90,12 +90,14 @@ export type PageName =
   | "contacts"
   | "reports"
   | "users"
+  | "email-settings"
   | "emails"
   | "my-contacts"
   | "guide"
   | "status-colors";
 
-export type Page = { name: PageName; label: string; roles: Role[]; group?: string };
+// A page with a heading sits under that heading inside its group (e.g. Admin > Email > Settings).
+export type Page = { name: PageName; label: string; roles: Role[]; group?: string; heading?: string };
 
 // Menu order, and which roles see each page. The first visible page is the home page.
 // Hiding a page here is only cosmetic: the database's access rules are what protect the data.
@@ -125,7 +127,9 @@ export const PAGES: Page[] = [
   { name: "factories", label: "Factories", roles: ["admin"], group: "Admin" },
   { name: "organizations", label: "Organizations", roles: ["admin"], group: "Admin" },
   { name: "users", label: "Users", roles: ["admin"], group: "Admin" },
-  { name: "emails", label: "Email Admin and Logs", roles: ["admin"], group: "Admin" },
+  // How the app sends emails, and the log of every email it sent.
+  { name: "email-settings", label: "Settings", roles: ["admin"], group: "Admin", heading: "Email" },
+  { name: "emails", label: "Logs", roles: ["admin"], group: "Admin", heading: "Email" },
   // The colour of each status badge, for everyone.
   { name: "status-colors", label: "Status colors", roles: ["admin"], group: "Admin" },
   // How the app works: a guide for admins, one for factory users and one for client users; admins can read all three.

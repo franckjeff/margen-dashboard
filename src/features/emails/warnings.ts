@@ -1,7 +1,7 @@
 import type { Email } from "../../data/queries";
 import { plural } from "../../lib/format";
 
-// A problem shown at the top of the Email Admin and Logs page, with the status that lists the emails behind it.
+// A problem shown at the top of the Email Logs page, with the status that lists the emails behind it.
 export type EmailWarning = { text: string; status: string };
 
 type Row = Pick<Email, "status" | "attempts" | "created_at" | "last_error">;

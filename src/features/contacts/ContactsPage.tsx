@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { ListPage } from "../../components/ListPage";
 import { useNotice } from "../../components/Notice";
-import { BackLink, Count, Dash, FormButtons, Missing, OrDash, Optional, PanelHead, QueryGate, loadingState } from "../../components/ui";
+import { BackLink, Count, Dash, EmailInput, FormButtons, Missing, OrDash, Optional, PanelHead, QueryGate, loadingState } from "../../components/ui";
 import { useDeleteRecord, useSaveRecord } from "../../data/mutations";
 import { useContacts, useFactories, useNotes, useOrganizations, type Contact } from "../../data/queries";
 import { addressLines, contactLocation, formatDate, fullName, place, plural } from "../../lib/format";
@@ -43,7 +43,7 @@ function ContactForm({ contact }: { contact?: Contact }) {
         </label>
         <label>
           <Optional>Email</Optional>
-          <input name="email" type="email" autoComplete="off" defaultValue={text("email")} placeholder="Where the app sends this contact's emails" />
+          <EmailInput name="email" autoComplete="off" defaultValue={text("email")} placeholder="Where the app sends this contact's emails" />
         </label>
         <ContactDetailsFields contact={contact} />
         <FormButtons label={contact ? "Save changes" : "Create contact"} cancel={back} busy={save.isPending} />

@@ -110,7 +110,7 @@ export function OrderHistory({ orderId }: { orderId: string }) {
               <li key={e.id} className="note audit-event">
                 <div className="note-meta">
                   <DateTime value={e.changed_at} />
-                  <span className="note-author">{e.author?.email ?? "System"}</span>
+                  <span className="note-author">{e.changed_by_name ?? e.author?.email ?? "System"}</span>
                 </div>
                 <p className="note-body strong">{AUDIT_ACTIONS[e.action]}</p>
                 {hasChanges && <ul className="audit-changes">{changes}</ul>}

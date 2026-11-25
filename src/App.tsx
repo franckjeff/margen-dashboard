@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { HashRouter, Navigate, Route, Routes, useParams } from "react-router";
 import { SignedInProvider, useRecovery, useSession, useSignedIn } from "./auth/AuthProvider";
-import { LoginPage, NoAccess, SetPasswordPage } from "./auth/LoginPage";
+import { ChooseOwnPasswordPage, LoginPage, NoAccess, SetPasswordPage } from "./auth/LoginPage";
 import { Layout } from "./components/Layout";
 import { useProfile } from "./data/queries";
 import { visiblePages, type PageName } from "./lib/constants";
@@ -10,6 +10,7 @@ import { visiblePages, type PageName } from "./lib/constants";
 const AccountPage = lazy(() => import("./features/account/AccountPage").then((m) => ({ default: m.AccountPage })));
 const AthletesPage = lazy(() => import("./features/athletes/AthletesPage").then((m) => ({ default: m.AthletesPage })));
 const ContactsPage = lazy(() => import("./features/contacts/ContactsPage").then((m) => ({ default: m.ContactsPage })));
+const EmailSettingsPage = lazy(() => import("./features/emails/EmailSettingsPage").then((m) => ({ default: m.EmailSettingsPage })));
 const EmailsPage = lazy(() => import("./features/emails/EmailsPage").then((m) => ({ default: m.EmailsPage })));
 const DashboardPage = lazy(() => import("./features/dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const MyContactsPage = lazy(() => import("./features/contacts/MyContactsPage").then((m) => ({ default: m.MyContactsPage })));
@@ -87,8 +88,10 @@ function SignedIn({ session }: { session: NonNullable<ReturnType<typeof useSessi
   const email = session.user.email ?? "";
   if (profile.isPending) return <Loading />;
   if (profile.isError) return <NoAccess email={email} error={messageOf(profile.error)} />;
-  const { role, firstName } = profile.data;
+  const { role, firstName, disabled, mustChangePassword } = profile.data;
   if (!role) return <NoAccess email={email} />;
+  if (disabled) return <NoAccess email={email} disabled />;
+  if (mustChangePassword) return <ChooseOwnPasswordPage email={email} onSaved={() => profile.refetch()} />;
   return (
     <SignedInProvider value={{ session, userId: session.user.id, email, role, firstName }}>
       <AppRoutes />
@@ -131,6 +134,7 @@ function AppRoutes() {
         {records("contacts", (id, editing) => <ContactsPage id={id} editing={editing} />)}
         <Route path="reports" element={page("reports", <ReportsPage />)} />
         <Route path="users" element={page("users", <UsersPage />)} />
+        <Route path="email-settings" element={page("email-settings", <EmailSettingsPage />)} />
         <Route path="emails" element={page("emails", <EmailsPage />)} />
         {records("my-contacts", (id, editing) => <MyContactsPage id={id} editing={editing} />)}
         <Route path="guide" element={page("guide", <GuidePage />)} />

@@ -1,10 +1,10 @@
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { useSignedIn } from "../../auth/AuthProvider";
+import { changeMyPassword, MIN_PASSWORD } from "../../auth/password";
 import { useNotice } from "../../components/Notice";
 import { messageOf, supabase } from "../../lib/supabase";
 
-const MIN_PASSWORD = 8;
 
 // Every signed-in user changes their own password here. Linked from the menu, beside Sign out.
 export function AccountPage() {
@@ -17,8 +17,7 @@ export function AccountPage() {
       // Asking for the current password first means someone using a computer left signed in can't take over the account.
       const check = await supabase.auth.signInWithPassword({ email, password: current });
       if (check.error) throw new Error("Your current password isn't right.");
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
+      await changeMyPassword(password);
     },
     // Back to the Dashboard (every role has one), with the message kept across that navigation.
     onSuccess: () => {

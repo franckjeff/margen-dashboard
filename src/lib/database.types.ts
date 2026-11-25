@@ -546,6 +546,7 @@ export type Database = {
           action: string
           changed_at: string
           changed_by: string | null
+          changed_by_name: string | null
           changes: Json
           id: string
           margen_order_id: string
@@ -555,6 +556,7 @@ export type Database = {
           action: string
           changed_at?: string
           changed_by?: string | null
+          changed_by_name?: string | null
           changes?: Json
           id?: string
           margen_order_id: string
@@ -564,6 +566,7 @@ export type Database = {
           action?: string
           changed_at?: string
           changed_by?: string | null
+          changed_by_name?: string | null
           changes?: Json
           id?: string
           margen_order_id?: string
@@ -719,6 +722,7 @@ export type Database = {
           margen_order_id: string
           order_status: string
           organization_id: string | null
+          organization_name: string | null
           production_status: string | null
           shipping_method: string | null
           tracking_number: string | null
@@ -734,6 +738,7 @@ export type Database = {
           margen_order_id: string
           order_status?: string
           organization_id?: string | null
+          organization_name?: string | null
           production_status?: string | null
           shipping_method?: string | null
           tracking_number?: string | null
@@ -749,6 +754,7 @@ export type Database = {
           margen_order_id?: string
           order_status?: string
           organization_id?: string | null
+          organization_name?: string | null
           production_status?: string | null
           shipping_method?: string | null
           tracking_number?: string | null
@@ -833,33 +839,39 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          disabled_at: string | null
           email: string | null
           factory_id: string | null
           first_name: string | null
           id: string
           last_name: string | null
+          must_change_password: boolean
           muted_email_kinds: string[]
           organization_id: string | null
           role: string
         }
         Insert: {
           created_at?: string
+          disabled_at?: string | null
           email?: string | null
           factory_id?: string | null
           first_name?: string | null
           id: string
           last_name?: string | null
+          must_change_password?: boolean
           muted_email_kinds?: string[]
           organization_id?: string | null
           role?: string
         }
         Update: {
           created_at?: string
+          disabled_at?: string | null
           email?: string | null
           factory_id?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
+          must_change_password?: boolean
           muted_email_kinds?: string[]
           organization_id?: string | null
           role?: string
@@ -977,6 +989,7 @@ export type Database = {
           name: string
         }[]
       }
+      password_changed: { Args: never; Returns: undefined }
       send_sample_email: { Args: { kind: string }; Returns: string }
       set_admin_email: {
         Args: { enabled: boolean; kind: string; user_id: string }

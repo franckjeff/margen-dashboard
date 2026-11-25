@@ -1,11 +1,34 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import type { InputHTMLAttributes, ReactNode } from "react";
 import { Link } from "react-router";
 import { ADULT_SIZES, JUNIOR_SIZES, LEAD_STATUSES, ORDER_STATUSES, ORDER_TONES, PRODUCTION_STATUSES } from "../lib/constants";
 import { statusColorKey, useStatusColors } from "../data/queries";
 import { textOn } from "../lib/colors";
+import { EMAIL_PATTERN, EMAIL_PROBLEM, MAX_EMAIL } from "../lib/email";
 import { formatDateTime } from "../lib/format";
 import { messageOf } from "../lib/supabase";
+
+// Every field where an email address is typed. The form won't send until it's a full address
+// (lib/email.ts), and says so in plain words. Empty is fine unless the field is required.
+export function EmailInput(props: Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "pattern">) {
+  return (
+    <input
+      maxLength={MAX_EMAIL}
+      {...props}
+      type="email"
+      pattern={EMAIL_PATTERN}
+      onInvalid={(event) => {
+        const input = event.currentTarget;
+        input.setCustomValidity(input.validity.valueMissing ? "" : EMAIL_PROBLEM);
+        props.onInvalid?.(event);
+      }}
+      onInput={(event) => {
+        event.currentTarget.setCustomValidity("");
+        props.onInput?.(event);
+      }}
+    />
+  );
+}
 
 export const Dash = () => <span className="muted">—</span>;
 

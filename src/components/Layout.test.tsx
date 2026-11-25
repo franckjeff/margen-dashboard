@@ -1,11 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
+import { resetUiState } from "../lib/uiState";
 import { Layout } from "./Layout";
 import { NoticeProvider } from "./Notice";
 
+let role = "factory";
 vi.mock("../auth/AuthProvider", () => ({
-  useSignedIn: () => ({ email: "factory@example.com", role: "factory" }),
+  useSignedIn: () => ({ email: `${role}@example.com`, role }),
 }));
 vi.mock("../lib/supabase", () => ({ supabase: { auth: { signOut: vi.fn() } } }));
 vi.mock("../data/queries", () => ({
@@ -18,10 +20,10 @@ const setWide = (wide: boolean) => {
   window.matchMedia = ((query: string) => ({ matches: wide, media: query, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia;
 };
 
-const renderLayout = () =>
+const renderLayout = (path = "/orders") =>
   render(
     <NoticeProvider>
-      <MemoryRouter initialEntries={["/orders"]}>
+      <MemoryRouter initialEntries={[path]}>
         <Layout />
       </MemoryRouter>
     </NoticeProvider>,
@@ -29,6 +31,8 @@ const renderLayout = () =>
 const sidebar = () => document.querySelector(".sidebar")!;
 
 beforeEach(() => {
+  role = "factory";
+  resetUiState();
   localStorage.clear();
   setWide(true);
 });
@@ -51,6 +55,24 @@ describe("folding the menu", () => {
     await user.click(screen.getByRole("button", { name: "Show the menu" }));
     expect(sidebar()).not.toHaveClass("collapsed");
     expect(localStorage.getItem("menu-collapsed")).toBeNull();
+  });
+
+  it("keeps the logo's green strokes and each entry's icon, named on hover; a group's icon opens the menu", async () => {
+    role = "admin";
+    const user = userEvent.setup();
+    renderLayout();
+    await user.dblClick(sidebar());
+    expect(sidebar()).toHaveClass("collapsed");
+    expect(document.querySelector(".logo-mark")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("title", "Dashboard");
+    expect(screen.getByRole("link", { name: "Dashboard" }).querySelector(".menu-icon")).toBeInTheDocument();
+    const admin = screen.getByRole("button", { name: "Admin" });
+    expect(admin).toHaveAttribute("title", "Admin");
+
+    await user.click(admin);
+    expect(sidebar()).not.toHaveClass("collapsed");
+    expect(screen.getByRole("button", { name: "Admin" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("title");
   });
 
   it("ignores double-clicks on the menu's links and buttons", async () => {
@@ -78,5 +100,36 @@ describe("the menu counts", () => {
     expect(screen.getByRole("link", { name: /Shipped/ })).toHaveTextContent("Shipped(5)");
     expect(screen.getByRole("link", { name: /Cancelled & Archived/ })).toHaveTextContent("Cancelled & Archived(3)");
     expect(screen.getByRole("link", { name: /Contacts/ })).toHaveTextContent("Contacts(2)");
+  });
+});
+
+describe("the Email pages in the Admin menu", () => {
+  it("sit under an Email heading, as Settings and Logs, open when one of them is showing", () => {
+    role = "admin";
+    renderLayout("/email-settings");
+    const heading = screen.getByRole("button", { name: "Email" });
+    expect(heading).toHaveClass("tab-heading", "active");
+    expect(heading).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/email-settings");
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveClass("sub", "active");
+    expect(screen.getByRole("link", { name: "Logs" })).toHaveAttribute("href", "/emails");
+    // Its two pages sit inside the part it opens and closes.
+    const pages = document.getElementById(heading.getAttribute("aria-controls")!)!;
+    expect(pages).toHaveTextContent("SettingsLogs");
+  });
+  it("opens and closes on a click, and starts closed on other pages", async () => {
+    role = "admin";
+    const user = userEvent.setup();
+    renderLayout("/users");
+    const heading = screen.getByRole("button", { name: "Email" });
+    expect(heading).toHaveAttribute("aria-expanded", "false");
+    expect(heading.parentElement).not.toHaveClass("open");
+    await user.click(heading);
+    expect(heading).toHaveAttribute("aria-expanded", "true");
+    expect(heading.parentElement).toHaveClass("open");
+    // The Admin group around it stays open.
+    expect(screen.getByRole("button", { name: "Admin" })).toHaveAttribute("aria-expanded", "true");
+    await user.click(heading);
+    expect(heading).toHaveAttribute("aria-expanded", "false");
   });
 });

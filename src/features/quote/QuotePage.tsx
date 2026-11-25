@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { Logo } from "../../components/Layout";
-import { Optional } from "../../components/ui";
+import { EmailInput, Optional } from "../../components/ui";
 import { formValues } from "../../lib/forms";
 import { supabase } from "../../lib/supabase";
 
@@ -90,7 +90,7 @@ function QuoteForm({ onSent }: { onSent: (email: string) => void }) {
         <div className="field-row">
           <label>
             Email
-            <input name="email" type="email" required maxLength={320} autoComplete="email" />
+            <EmailInput name="email" required autoComplete="email" />
           </label>
           <label>
             <Optional>Phone</Optional>

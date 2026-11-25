@@ -8,6 +8,7 @@ const order = (o: Partial<Order> & Pick<Order, "id" | "margen_order_id">): Order
   order_status: "received",
   production_status: null,
   organization_id: null,
+  organization_name: null,
   organization: null,
   factory_id: null,
   factory: null,

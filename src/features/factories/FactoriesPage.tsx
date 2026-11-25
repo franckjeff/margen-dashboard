@@ -1,4 +1,5 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { Dialog } from "../../components/Dialog";
 import { ListPage } from "../../components/ListPage";
 import { useNotice } from "../../components/Notice";
 import {
@@ -29,7 +30,7 @@ function FactoryForm({ factory }: { factory?: Factory }) {
   const back = factory ? `/factories/${factory.id}` : "/factories";
   return (
     <>
-      <PanelHead title={factory ? "Edit factory" : "New factory"} close={back} />
+      {factory && <PanelHead title="Edit factory" close={back} />}
       <form
         className="stack"
         onSubmit={(event) => {
@@ -51,9 +52,19 @@ function FactoryForm({ factory }: { factory?: Factory }) {
           <Optional>Description</Optional>
           <textarea name="description" rows={3} defaultValue={factory?.description ?? ""} placeholder="What they make, how they work…" />
         </label>
-        <FormButtons label={factory ? "Save changes" : "Create factory"} cancel={back} busy={save.isPending} />
+        <FormButtons label={factory ? "Save changes" : "Add factory"} cancel={back} busy={save.isPending} />
       </form>
     </>
+  );
+}
+
+// Adding a factory happens in a window over the list (#/factories/new); it opens the new one's page.
+function AddFactory() {
+  const navigate = useNavigate();
+  return (
+    <Dialog title="Add factory" onClose={() => navigate("/factories")}>
+      <FactoryForm />
+    </Dialog>
   );
 }
 
@@ -79,49 +90,51 @@ export function FactoriesPage({ id, editing = false }: { id?: string; editing?: 
   const all = factories.data ?? [];
   const allOrders = orders.data ?? [];
   return (
-    <ListPage
-      title="Factories"
-      count={all.length}
-      newTo="/factories/new"
-      newLabel="New factory"
-      placeholder="Search factories"
-      loading={loadingState([factories, orders])}
-      head={
-        <>
-          <th>Name</th>
-          <th className="hide-sm">Default contact</th>
-          <th className="hide-sm">Country</th>
-          <th className="num">Open orders</th>
-          <th className="num hide-sm">All orders</th>
-        </>
-      }
-      rows={all.map((f) => {
-        const own = allOrders.filter((o) => o.factory_id === f.id);
-        const open = own.filter(isOpenOrder).length;
-        const def = f.contacts.find((c) => c.is_default);
-        return {
-          key: f.id,
-          to: `/factories/${f.id}`,
-          search: `${f.name} ${f.contacts.map(fullName).join(" ")} ${f.country ?? ""} ${f.description ?? ""}`.toLowerCase(),
-          cells: (
-            <>
-              <td>
-                <Link to={`/factories/${f.id}`} className="strong">
-                  {f.name}
-                </Link>
-              </td>
-              <td className="hide-sm">{def ? fullName(def) : <Dash />}</td>
-              <td className="hide-sm">
-                <OrDash>{f.country}</OrDash>
-              </td>
-              <td className="num">{open || <Dash />}</td>
-              <td className="num hide-sm">{own.length || <Dash />}</td>
-            </>
-          ),
-        };
-      })}
-      panel={id === "new" ? <FactoryForm /> : undefined}
-    />
+    <>
+      {id === "new" && <AddFactory />}
+      <ListPage
+        title="Factories"
+        count={all.length}
+        newTo="/factories/new"
+        newLabel="Add"
+        placeholder="Search factories"
+        loading={loadingState([factories, orders])}
+        head={
+          <>
+            <th>Name</th>
+            <th className="hide-sm">Default contact</th>
+            <th className="hide-sm">Country</th>
+            <th className="num">Open orders</th>
+            <th className="num hide-sm">All orders</th>
+          </>
+        }
+        rows={all.map((f) => {
+          const own = allOrders.filter((o) => o.factory_id === f.id);
+          const open = own.filter(isOpenOrder).length;
+          const def = f.contacts.find((c) => c.is_default);
+          return {
+            key: f.id,
+            to: `/factories/${f.id}`,
+            search: `${f.name} ${f.contacts.map(fullName).join(" ")} ${f.country ?? ""} ${f.description ?? ""}`.toLowerCase(),
+            cells: (
+              <>
+                <td>
+                  <Link to={`/factories/${f.id}`} className="strong">
+                    {f.name}
+                  </Link>
+                </td>
+                <td className="hide-sm">{def ? fullName(def) : <Dash />}</td>
+                <td className="hide-sm">
+                  <OrDash>{f.country}</OrDash>
+                </td>
+                <td className="num">{open || <Dash />}</td>
+                <td className="num hide-sm">{own.length || <Dash />}</td>
+              </>
+            ),
+          };
+        })}
+      />
+    </>
   );
 }
 

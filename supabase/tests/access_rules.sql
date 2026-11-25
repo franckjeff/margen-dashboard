@@ -4,7 +4,7 @@
 -- (it's also safe on MARGEN PROD, the live project). It always ends with
 -- an error, on purpose, so that nothing it does is kept: the test users and records it creates,
 -- and every change it tries, are all undone. Read the result in the error message:
---   "ACCESS TESTS PASSED: 329 checks"  or  "ACCESS TESTS FAILED: 2 of 329 checks" followed by each failure.
+--   "ACCESS TESTS PASSED: 350 checks"  or  "ACCESS TESTS FAILED: 2 of 350 checks" followed by each failure.
 --
 -- Each check runs one query as one user, then undoes it, so checks don't affect each other.
 -- Expected results:
@@ -676,6 +676,90 @@ select pg_temp.check('dashboard_counts: admin gets the counts', 'admin', $q$sele
 select pg_temp.check('dashboard_counts: factory is refused', 'factory', $q$select public.dashboard_counts()$q$, 'denied');
 select pg_temp.check('dashboard_counts: client is refused', 'client', $q$select public.dashboard_counts()$q$, 'denied');
 select pg_temp.check('dashboard_counts: the public is refused', 'anon', $q$select public.dashboard_counts()$q$, 'denied');
+
+-- Disabled accounts (profiles.disabled_at, set only by the manage-user function with the secret key).
+-- Nobody signed in can disable or enable an account, and a disabled account can't be made an admin.
+select pg_temp.check('profiles: admin can''t disable an account directly', 'admin', $q$update public.profiles set disabled_at = now() where id = '0000ace5-0000-4000-8000-000000000002'$q$, 'denied');
+select pg_temp.check('profiles: factory can''t enable itself', 'factory', $q$update public.profiles set disabled_at = null where id = '0000ace5-0000-4000-8000-000000000002'$q$, 'denied');
+
+-- The factory and client accounts are now disabled (as the test's owner), with their sessions still open.
+update public.profiles set disabled_at = now() where id in (pg_temp.user_id('factory'), pg_temp.user_id('client'));
+select pg_temp.check('disabled: factory sees no orders', 'factory', $q$select count(*) from public.orders$q$, '0');
+select pg_temp.check('disabled: factory can''t change its order', 'factory', $q$with x as (update public.orders set tracking_number = 'X' where id = '0000ace5-0000-4000-8000-0000000d0001' returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('disabled: factory sees no factory', 'factory', $q$select count(*) from public.factories$q$, '0');
+select pg_temp.check('disabled: client sees no orders', 'client', $q$select count(*) from public.orders$q$, '0');
+select pg_temp.check('disabled: client sees no organization', 'client', $q$select count(*) from public.organizations$q$, '0');
+select pg_temp.check('disabled: client can''t send an order', 'client',
+  $q$select public.submit_order_request('Club', 'Name', 'access-test@example.invalid', '', '', '', '[{"item_id": "0000ace5-0000-4000-8000-0000000e0001", "size": "M", "quantity": 2}]', '')$q$, 'denied');
+select pg_temp.check('disabled: still reads its own profile', 'client', $q$select count(*) from public.profiles where disabled_at is not null and id = '0000ace5-0000-4000-8000-000000000004'$q$, '1');
+select pg_temp.check('disabled: admin still sees it', 'admin', $q$select count(*) from public.profiles where disabled_at is not null and id in ('0000ace5-0000-4000-8000-000000000002', '0000ace5-0000-4000-8000-000000000004')$q$, '2');
+select pg_temp.check('disabled: can''t be made an admin', 'admin', $q$update public.profiles set role = 'admin' where id = '0000ace5-0000-4000-8000-000000000004'$q$, 'error');
+update public.profiles set disabled_at = null where id in (pg_temp.user_id('factory'), pg_temp.user_id('client'));
+select pg_temp.check('enabled again: factory sees its order', 'factory', $q$select count(*) from public.orders where id = '0000ace5-0000-4000-8000-0000000d0001'$q$, '1');
+
+-- must_change_password: set only by the create-user function; password_changed() clears the caller's own flag.
+update public.profiles set must_change_password = true where id in (pg_temp.user_id('client'), pg_temp.user_id('client_b'));
+select pg_temp.check('profiles: can''t clear the temporary-password flag directly', 'client', $q$update public.profiles set must_change_password = false where id = '0000ace5-0000-4000-8000-000000000004'$q$, 'denied');
+select pg_temp.check('profiles: admin can''t set the temporary-password flag', 'admin', $q$update public.profiles set must_change_password = true where id = '0000ace5-0000-4000-8000-000000000002'$q$, 'denied');
+-- The client calls password_changed(); then (as the admin) their flag is off and client_b's still on.
+select set_config('request.jwt.claims', json_build_object('sub', pg_temp.user_id('client'), 'role', 'authenticated')::text, true);
+set local role authenticated;
+select public.password_changed();
+reset role;
+select set_config('request.jwt.claims', '', true);
+select pg_temp.check('password_changed: clears only your own flag', 'admin', $q$select count(*) from public.profiles where id in ('0000ace5-0000-4000-8000-000000000004', '0000ace5-0000-4000-8000-000000000006') and must_change_password$q$, '1');
+select pg_temp.check('password_changed: the public can''t call it', 'anon', $q$select public.password_changed()$q$, 'denied');
+update public.profiles set must_change_password = false where id in (pg_temp.user_id('client'), pg_temp.user_id('client_b'));
+
+-- Email addresses must be full ones (name@domain.ending), as in the app's forms.
+select pg_temp.check('leads: email must be a full address', 'admin', $q$insert into public.leads (first_name, last_name, email) values ('Bad', 'Email', 'name@example')$q$, 'error');
+select pg_temp.check('leads: a full email is fine', 'admin', $q$with x as (insert into public.leads (first_name, last_name, email) values ('Good', 'Email', 'name@example.com') returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('contacts: email must be a full address', 'admin', $q$insert into public.contacts (first_name, last_name, email) values ('Bad', 'Email', 'name example.com')$q$, 'error');
+
+-- Deleting an organization: refused while it has orders neither cancelled nor archived, or client accounts linked
+-- to it. Its cancelled and archived orders stay, with its name (orders.organization_name).
+create function pg_temp.delete_organization_with(order_status text, archived boolean, linked_user text) returns int language plpgsql as $f$
+declare
+  org uuid := '0000ace5-0000-4000-8000-0000000b0020';
+  made uuid;
+begin
+  insert into public.organizations (id, name) values (org, 'Access test organization to delete');
+  if order_status is not null then
+    insert into public.orders (margen_order_id, organization_id) values ('ACCESS_TEST_DEL', org) returning id into made;
+    update public.orders set order_status = 'cancelled', archived_at = null where id = made and delete_organization_with.order_status = 'cancelled';
+    if delete_organization_with.order_status = 'shipped' then
+      update public.orders set order_status = 'accepted' where id = made;
+      update public.orders set factory_id = '0000ace5-0000-4000-8000-0000000f0001' where id = made;
+      perform pg_temp.walk_production(made, 'shipped');
+      if archived then
+        update public.orders set archived_at = now() where id = made;
+      end if;
+    end if;
+  end if;
+  if linked_user is not null then
+    update public.profiles set organization_id = org where id = pg_temp.user_id(linked_user);
+  end if;
+  delete from public.organizations where id = org;
+  return (select count(*) from public.orders where id = made and organization_id is null and organization_name = 'Access test organization to delete');
+end $f$;
+select pg_temp.check('organizations: can''t delete one with an order still going', 'admin', $q$select pg_temp.delete_organization_with('received', false, null)$q$, 'error');
+select pg_temp.check('organizations: can''t delete one with a shipped order not archived', 'admin', $q$select pg_temp.delete_organization_with('shipped', false, null)$q$, 'error');
+select pg_temp.check('organizations: can''t delete one with a client account linked', 'admin', $q$select pg_temp.delete_organization_with(null, false, 'client_b')$q$, 'error');
+select pg_temp.check('organizations: deleting keeps a cancelled order, with the name', 'admin', $q$select pg_temp.delete_organization_with('cancelled', false, null)$q$, '1');
+select pg_temp.check('organizations: deleting keeps an archived order, with the name', 'admin', $q$select pg_temp.delete_organization_with('shipped', true, null)$q$, '1');
+select pg_temp.check('organizations: deleting one with nothing linked', 'admin', $q$select pg_temp.delete_organization_with(null, false, null)$q$, '0');
+select pg_temp.check('organizations: client can''t delete', 'client', $q$with x as (delete from public.organizations where id = '0000ace5-0000-4000-8000-0000000b0001' returning 1) select count(*) from x$q$, '0');
+
+-- Order history keeps the name of whoever made a change, even after their account is deleted. The factory
+-- user changes order A's tracking number, then their account is deleted (as the test's owner). Last, as no
+-- later check uses the factory user.
+select set_config('request.jwt.claims', json_build_object('sub', pg_temp.user_id('factory'), 'role', 'authenticated')::text, true);
+set local role authenticated;
+update public.orders set tracking_number = 'NAME-TEST' where id = '0000ace5-0000-4000-8000-0000000d0001';
+reset role;
+select set_config('request.jwt.claims', '', true);
+delete from auth.users where id = pg_temp.user_id('factory');
+select pg_temp.check('order_events: history keeps a deleted user''s name', 'admin', $q$select count(*) from public.order_events where order_id = '0000ace5-0000-4000-8000-0000000d0001' and changed_by is null and changed_by_name = 'factory@access-test.invalid' and changes ? 'tracking_number'$q$, '1');
 
 -- Report, and undo everything above.
 do $$

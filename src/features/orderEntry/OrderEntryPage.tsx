@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { useSignedIn } from "../../auth/AuthProvider";
-import { Optional, SizeOptions } from "../../components/ui";
+import { EmailInput, Optional, SizeOptions } from "../../components/ui";
 import { useOrganizations } from "../../data/queries";
 import { SIZES } from "../../lib/constants";
 import { formValues } from "../../lib/forms";
@@ -142,7 +142,7 @@ function OrderEntryForm({ items, onSent }: { items: EntryItem[]; onSent: (sent: 
           </label>
           <label>
             Email
-            <input name="email" type="email" defaultValue={role === "client" ? email : ""} required maxLength={320} autoComplete="email" />
+            <EmailInput name="email" defaultValue={role === "client" ? email : ""} required autoComplete="email" />
           </label>
         </div>
         <label>

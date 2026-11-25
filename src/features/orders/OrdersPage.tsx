@@ -21,7 +21,7 @@ import { expectRows, useDbAction, useDeleteRecord, useSaveRecord } from "../../d
 import { useFactories, useOrderItems, useOrders, useOrganizations, type Order } from "../../data/queries";
 import { ORDER_STATUSES, PAGES, orderListOf, productionLabel, type OrderList } from "../../lib/constants";
 import type { TablesUpdate } from "../../lib/database.types";
-import { formatDate, formatDay, plural } from "../../lib/format";
+import { formatDate, formatDay, orderOrganizationName, plural } from "../../lib/format";
 import { deleteMessage, formValues, orNull } from "../../lib/forms";
 import { canArchive, canChangeFactory, canRemoveFactory, notStartedAllowed, orderStatusLabels, productionLabels } from "../../lib/statusFlow";
 import { supabase, unwrap } from "../../lib/supabase";
@@ -32,8 +32,17 @@ import { OrderHistory } from "./OrderHistory";
 import { OrderLines } from "./OrderLines";
 import { isReady, readinessOf } from "./readiness";
 
+// An order whose organization was deleted shows the name it kept, without a link.
 const OrderOrganization = ({ order }: { order: Order }) =>
-  order.organization ? <Link to={`/organizations/${order.organization.id}`}>{order.organization.name}</Link> : <Dash />;
+  order.organization ? (
+    <Link to={`/organizations/${order.organization.id}`}>{order.organization.name}</Link>
+  ) : order.organization_name ? (
+    <span title="This organization was deleted; the order keeps its name.">
+      {order.organization_name} <span className="muted small">(deleted)</span>
+    </span>
+  ) : (
+    <Dash />
+  );
 
 const OrderFactory = ({ order }: { order: Order }) =>
   order.factory ? <Link to={`/factories/${order.factory.id}`}>{order.factory.name}</Link> : <Dash />;
@@ -259,7 +268,7 @@ export function OrdersPage({ id, editing = false, list = "customs" }: { id?: str
       rows={all.map((o) => ({
         key: o.id,
         to: `/customs/${o.id}`,
-        search: `${o.margen_order_id} ${o.factory_order_id ?? ""} ${o.organization?.name ?? ""} ${o.factory?.name ?? ""} ${ORDER_STATUSES[o.order_status]} ${productionLabel(
+        search: `${o.margen_order_id} ${o.factory_order_id ?? ""} ${orderOrganizationName(o) ?? ""} ${o.factory?.name ?? ""} ${ORDER_STATUSES[o.order_status]} ${productionLabel(
           o.production_status,
         )}`.toLowerCase(),
         cells: (

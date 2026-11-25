@@ -1,4 +1,6 @@
 type Person = { first_name: string; last_name: string };
+// An order's linked organization, and the organization name it keeps once that organization is deleted.
+type OrderWithOrganization = { organization: { name: string } | null; organization_name: string | null };
 type Located = { state?: string | null; country?: string | null };
 type Address = {
   address_line1: string | null;
@@ -38,3 +40,6 @@ export const formatDateTime = (date: string) =>
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 export const dayOfYear = (date = new Date()) =>
   Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000);
+
+// The order's organization by name: the linked one's, or the name kept when it was deleted.
+export const orderOrganizationName = (o: OrderWithOrganization) => o.organization?.name ?? o.organization_name ?? null;

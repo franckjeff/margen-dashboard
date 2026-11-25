@@ -29,6 +29,8 @@ Open http://localhost:5173 and sign in with a Supabase account. Saved code chang
 | `npm run build` | Type-checks, then builds the site into `dist/`. Any static host can serve that folder |
 | `npm run preview` | Serves the built `dist/` folder to check it before deploying |
 | `npm test` | Runs the unit tests (Vitest) |
+| `npm run e2e` | Runs the click-through tests (Playwright) on MARGEN TEST; see below |
+| `npm run e2e:report` | Opens the last click-through run's report, with screenshots and traces of failures |
 | `npm run typecheck` | Checks the TypeScript types only |
 | `npm run lint` | Runs ESLint |
 | `npm run db:types` | Regenerates `src/lib/database.types.ts` from the live database (sign in once first with `npx supabase login`) |
@@ -86,14 +88,32 @@ step either way while the order is In production, and only back from Shipped onc
 app (SQL editor, service key) aren't checked, so data can be repaired. `src/lib/statusFlow.ts` mirrors these rules so the
 menus offer only allowed steps. `ORDER_LISTS` in `src/lib/constants.ts` says which statuses each page lists.
 
-Admins add accounts with **Add user** on the Users page: email, access level, first name, and the factory
+Admins add accounts with **Add** on the Users page: email, access level, first name, and the factory
 or organization to link. That calls the `create-user` function (`supabase/functions/create-user`), which
 runs on Supabase's servers because creating accounts needs the secret key, and refuses anyone who isn't
-an admin. The app sends no email when it adds an account: either set a temporary password and give it to
-the person, or leave it empty and they choose one with "Forgot your password?" on the sign-in page.
+an admin. The account gets a temporary password (typed by the admin, or made up), which the function emails
+to the person in a welcome email (`create-user/welcome.ts`) straight away through Resend, following the email
+settings (redirected on MARGEN TEST; not sent while emails are off or paused). The password isn't stored, and
+the welcome email isn't in the email outbox. The profile is marked `must_change_password`, so the app asks
+for a new password at the first sign-in; `password_changed()` clears the mark once it's saved (also after
+"Forgot your password?" or Change password). When the email can't be sent, the function's reply says why and
+includes a made-up password for the admin to pass on.
 
 The function checks who is calling itself, so it's deployed with "Verify JWT" turned off
 (`npx supabase functions deploy create-user --no-verify-jwt`). Deploy it to MARGEN TEST first, then MARGEN PROD.
+
+The Users page also disables, enables and deletes Factory and Client accounts through the `manage-user`
+function (`supabase/functions/manage-user`), deployed the same way. Disabling bans the account in Supabase Auth,
+so it can't sign in, and sets `profiles.disabled_at`, which `private.my_factory()` and `private.my_organization()`
+check, so an open session loses its access straight away. Only the function sets `disabled_at`. Deleting removes
+the sign-in account and its profile; notes and order history stay, with the name saved when they were written
+(`notes.author_name`, `order_events.changed_by_name`). Admin accounts, and your own,
+can't be disabled or deleted, and a disabled account can't be made an admin.
+
+Organizations are deleted from the Organizations page (tick them, then Delete). The `organizations_check_delete`
+trigger refuses while an organization has orders that are neither cancelled nor archived, or client accounts
+linked to it. Its cancelled and archived orders stay, unlinked, with its name saved in `orders.organization_name`,
+which the order pages show (marked deleted), search and report. Its contact links and notes go with it.
 
 Clients send orders without signing in from the public **Order Entry** page, `#/order`: they pick
 items and sizes, or upload the order template the page offers. Requests land on the admins' Order requests page,
@@ -136,8 +156,8 @@ per person, with recipients always taken from the database (contacts, or admin `
 (`delay_minutes`), and undoing the change in that time cancels them. Every minute a `pg_cron` job checks for
 emails that are due and calls the `send-emails` function (`supabase/functions/send-emails`). The function
 writes each email from fixed templates, sends it through [Resend](https://resend.com) and records the result.
-Failures are tried again, up to 5 times. Admins see every email on the **Email Admin and Logs** page, where they can
-cancel one or send it again. The page also lets admins:
+Failures are tried again, up to 5 times. Admins see every email on the **Email > Logs** page, where they can
+cancel one or send it again. The **Email > Settings** page lets admins:
 
 - **Pause all sending** (`paused`): emails keep queuing and go out on resume.
 - **Turn each kind of email on or off** (`disabled_kinds`): one that's off is still logged, as cancelled, and
@@ -214,3 +234,29 @@ It always ends with an error, on purpose: that is how everything it did is undon
 users and records it creates. The error message is the result: `ACCESS TESTS PASSED: 329 checks`, or
 `ACCESS TESTS FAILED` followed by each check that failed. It's also safe to run on the live database,
 which is worth doing once after each change goes live.
+
+## Click-through tests
+
+`e2e/` holds Playwright tests that use the real app in a real browser, signed in as three test accounts on
+**MARGEN TEST** (never PROD: they add and delete records): `e2e.admin@example.com`, `e2e.factory@example.com`
+(linked to *E2E Factory*) and `e2e.client@example.com` (linked to *E2E Club*). They check that:
+
+- every page in each kind of user's menu opens without a crash or a browser error, and other pages send them home;
+- an admin can add an organization in the Add window and delete it from the list, and E2E Club can't be ticked;
+- an order goes from added to Accepted to In production at E2E Factory, and the factory and client users see it.
+
+Every test also fails on any error in the browser console. Test orders and organizations are deleted at the end.
+
+**On your computer:** `npm run e2e`. It starts the dev server itself (or uses the one running), reading the
+TEST project from `.env.local` and the test passwords from `.env.e2e`. Both files stay on your computer; Git
+ignores them. Then `npm run e2e:report` shows what failed, with screenshots, videos and step-by-step traces.
+
+**On GitHub:** `.github/workflows/e2e.yml` runs them on every push to `main`, every weekday at 06:00 UTC, and on
+demand (Actions > E2E tests > Run workflow). Each failing test opens a GitHub issue labelled `e2e`, or adds a
+comment to its open one, with the error and a link to the run, whose **playwright-report** download has the
+screenshots and traces. When the test passes again, its issue is closed. The workflow needs five repository
+secrets (Settings > Secrets and variables > Actions): `E2E_SUPABASE_URL` and `E2E_SUPABASE_PUBLISHABLE_KEY` (the
+TEST values in `.env.local`), and `E2E_ADMIN_PASSWORD`, `E2E_FACTORY_PASSWORD` and `E2E_CLIENT_PASSWORD` (from
+`.env.e2e`).
+
+Add a test in `e2e/` when a new flow is built. Tests run one at a time, as they share the test accounts.

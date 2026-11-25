@@ -9,6 +9,7 @@ const order = (id: string, margen: string, extra: Partial<Order> = {}): Order =>
   order_status: "received",
   production_status: null,
   organization_id: null,
+  organization_name: null,
   organization: null,
   factory_id: null,
   factory: null,

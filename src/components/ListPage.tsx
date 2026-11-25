@@ -110,6 +110,7 @@ export function ListPage({
   filters,
   empty = "Nothing here yet.",
   selection,
+  search,
 }: {
   title: string;
   count: number;
@@ -125,9 +126,12 @@ export function ListPage({
   filters?: ReactNode;
   empty?: string; // shown when there are no rows at all
   selection?: ListSelection;
+  // The page's own useSearch(), when it needs to know which rows the search shows.
+  search?: ReturnType<typeof useSearch>;
 }) {
   const navigate = useNavigate();
-  const { query, setQuery, matches } = useSearch();
+  const ownSearch = useSearch();
+  const { query, setQuery, matches } = search ?? ownSearch;
   const visible = (row: ListRow) => !row.filteredOut && matches(row.search);
   const rowSelection = useRowSelection(rows.filter(visible).map((r) => r.key));
   const picked = rowSelection.visibleSelected;

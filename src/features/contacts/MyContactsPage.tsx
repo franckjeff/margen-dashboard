@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router";
 import { useSignedIn } from "../../auth/AuthProvider";
 import { useNotice } from "../../components/Notice";
-import { Count, FormButtons, OrDash, Optional, PanelHead, loadingState } from "../../components/ui";
+import { Count, EmailInput, FormButtons, OrDash, Optional, PanelHead, loadingState } from "../../components/ui";
 import { expectRows, useDbAction } from "../../data/mutations";
 import { useMyContacts, type MyContact } from "../../data/queries";
 import { fullName } from "../../lib/format";
@@ -61,7 +61,7 @@ function ContactForm({ contact }: { contact?: MyContact }) {
         </div>
         <label>
           <Optional>Email</Optional>
-          <input name="email" type="email" autoComplete="off" defaultValue={contact?.email ?? ""} placeholder="Where the app sends this contact's emails" />
+          <EmailInput name="email" autoComplete="off" defaultValue={contact?.email ?? ""} placeholder="Where the app sends this contact's emails" />
         </label>
         <ContactDetailsFields contact={contact} />
         <FormButtons label={contact ? "Save changes" : "Add contact"} cancel="/my-contacts" busy={save.isPending} />

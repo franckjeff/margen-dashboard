@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
 import logo from "../assets/margen-logo.svg";
+import mark from "../assets/margen-mark.svg";
 import { useSignedIn } from "../auth/AuthProvider";
 import { hasMenuCount, useMenuCount } from "../data/queries";
 import { ROLE_LABELS, visiblePages, type Page } from "../lib/constants";
@@ -71,11 +72,17 @@ export function Layout() {
     else entries.push(p.group ? { group: p.group, pages: [p] } : p);
   }
 
-  // Top-level entries have an icon in front; the pages inside a group don't.
-  const tab = (p: Page, topLevel = false) => (
-    <NavLink key={p.name} to={`/${p.name}`} className={({ isActive }) => `tab${isActive ? " active" : ""}`}>
+  // Top-level entries have an icon in front; the pages inside a group don't. A folded menu shows only the icons,
+  // so their names come up on hover.
+  const tab = (p: Page, topLevel = false, underHeading = false) => (
+    <NavLink
+      key={p.name}
+      to={`/${p.name}`}
+      title={menuCollapsed && topLevel ? p.label : undefined}
+      className={({ isActive }) => `tab${underHeading ? " sub" : ""}${isActive ? " active" : ""}`}
+    >
       {topLevel && <MenuIcon name={p.name} />}
-      {p.label}
+      <span className="tab-label">{p.label}</span>
       {hasMenuCount(p.name) && <MenuCount page={p} />}
     </NavLink>
   );
@@ -105,6 +112,8 @@ export function Layout() {
         </button>
         <Link to={`/${pages[0].name}`} className="brand" aria-label="MARGEN Dashboard home">
           <Logo />
+          {/* The folded menu keeps only the logo's three green strokes. */}
+          <img src={mark} alt="MARGEN" className="logo-mark" />
         </Link>
         <nav className="tabs" aria-label="Main menu">
           {entries.map((entry) => {
@@ -120,16 +129,49 @@ export function Layout() {
                   className={`tab-group-label${holdsPage ? " active" : ""}`}
                   aria-expanded={open}
                   aria-controls={id}
-                  onClick={() => setMenuGroups((groups) => ({ ...groups, [entry.group]: !open }))}
+                  title={menuCollapsed ? entry.group : undefined}
+                  onClick={() => {
+                    // In a folded menu the group's pages can't show, so the menu opens with the group open.
+                    if (menuCollapsed) {
+                      setMenuCollapsed(false);
+                      setMenuGroups((groups) => ({ ...groups, [entry.group]: true }));
+                    } else setMenuGroups((groups) => ({ ...groups, [entry.group]: !open }));
+                  }}
                 >
                   <span className="tab-group-name">
                     <MenuIcon name={entry.group} />
-                    {entry.group}
+                    <span className="tab-label">{entry.group}</span>
                   </span>
                   <ChevronIcon />
                 </button>
                 <div className="tab-group-pages" id={id}>
-                  {entry.pages.map((p) => tab(p))}
+                  {entry.pages.map((p, i) => {
+                    if (!p.heading) return tab(p);
+                    // Pages sharing a heading (e.g. Email) sit indented under it, and it opens and closes like a group.
+                    if (entry.pages[i - 1]?.heading === p.heading) return null;
+                    const under = entry.pages.filter((q) => q.heading === p.heading);
+                    const headingHoldsPage = under.some((q) => q.name === page);
+                    const key = `${entry.group}/${p.heading}`;
+                    const headingOpen = menuGroups[key] ?? headingHoldsPage;
+                    const headingId = `menu-${entry.group}-${p.heading}`.toLowerCase();
+                    return (
+                      <div key={key} className={`tab-subgroup${headingOpen ? " open" : ""}`}>
+                        <button
+                          type="button"
+                          className={`tab-heading${headingHoldsPage ? " active" : ""}`}
+                          aria-expanded={headingOpen}
+                          aria-controls={headingId}
+                          onClick={() => setMenuGroups((groups) => ({ ...groups, [key]: !headingOpen }))}
+                        >
+                          {p.heading}
+                          <ChevronIcon />
+                        </button>
+                        <div className="tab-subgroup-pages" id={headingId}>
+                          {under.map((q) => tab(q, false, true))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );

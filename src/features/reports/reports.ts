@@ -1,4 +1,5 @@
 import type { Factory, Item, Order, OrderLine, Organization } from "../../data/queries";
+import { orderOrganizationName } from "../../lib/format";
 import { ORDER_STATUSES, PRODUCTION_STATUSES, productionLabel } from "../../lib/constants";
 import { orderLinesOf, piecesIn, type LineWithItem } from "../orders/lines";
 
@@ -90,7 +91,7 @@ const orderReport: Report<Order & { pieces: number }> = {
   columns: [
     ["Margen order ID", (o) => o.margen_order_id, 22],
     ["Factory order ID", (o) => o.factory_order_id ?? "", 18],
-    ["Organization", (o) => o.organization?.name ?? "", 30],
+    ["Organization", (o) => orderOrganizationName(o) ?? "", 30],
     ["Factory", (o) => o.factory?.name ?? "", 24],
     ["Order status", (o) => ORDER_STATUSES[o.order_status], 14],
     ["Production status", (o) => productionLabel(o.production_status), 20],
@@ -134,7 +135,7 @@ const orderDetailReport: Report<DetailRow> = {
   columns: [
     ["Margen order ID", ({ order }) => order.margen_order_id, 22],
     ["Factory order ID", ({ order }) => order.factory_order_id ?? "", 18],
-    ["Organization", ({ order }) => order.organization?.name ?? "", 30],
+    ["Organization", ({ order }) => orderOrganizationName(order) ?? "", 30],
     ["Factory", ({ order }) => order.factory?.name ?? "", 24],
     ["Order status", ({ order }) => ORDER_STATUSES[order.order_status], 14],
     ["Production status", ({ order }) => productionLabel(order.production_status), 20],

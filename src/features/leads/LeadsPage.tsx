@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { ListPage } from "../../components/ListPage";
 import { useNotice } from "../../components/Notice";
-import { BackLink, FormButtons, LeadBadge, Missing, OrDash, Options, PanelHead, QueryGate, loadingState } from "../../components/ui";
+import { BackLink, EmailInput, FormButtons, LeadBadge, Missing, OrDash, Options, PanelHead, QueryGate, loadingState } from "../../components/ui";
 import { expectRows, useDbAction, useDeleteRecord, useSaveRecord } from "../../data/mutations";
 import { useLeads, type Lead } from "../../data/queries";
 import { LEAD_STATUSES, LEAD_TEXT_FIELDS } from "../../lib/constants";
@@ -19,7 +19,11 @@ function LeadForm({ lead }: { lead?: Lead }) {
       <span>
         {label} <span className="muted">(optional)</span>
       </span>
-      <input name={name} autoComplete="off" defaultValue={lead?.[name] ?? ""} {...attrs} />
+      {name === "email" ? (
+        <EmailInput name={name} autoComplete="off" defaultValue={lead?.[name] ?? ""} {...attrs} />
+      ) : (
+        <input name={name} autoComplete="off" defaultValue={lead?.[name] ?? ""} {...attrs} />
+      )}
     </label>
   );
   return (
@@ -50,7 +54,7 @@ function LeadForm({ lead }: { lead?: Lead }) {
           </label>
         </div>
         {field("organization_name", "Organization", { placeholder: "Club, team or event" })}
-        {field("email", "Email", { type: "email" })}
+        {field("email", "Email")}
         {field("phone", "Phone", { type: "tel" })}
         <div className="field-row">
           {field("state", "State")}

@@ -30,7 +30,7 @@ export function AdminAccountSection() {
           <Ui>Leads</Ui>, <Ui>Contacts</Ui>, <Ui>Athletes</Ui> and <Ui>Reporting</Ui>.
         </li>
         <li>
-          <em>Admin</em>: <Ui>Factories</Ui>, <Ui>Organizations</Ui>, <Ui>Users</Ui>, <Ui>Email Admin and Logs</Ui> and{" "}
+          <em>Admin</em>: <Ui>Factories</Ui>, <Ui>Organizations</Ui>, <Ui>Users</Ui>, <Ui>Email</Ui> (<Ui>Settings</Ui> and <Ui>Logs</Ui>) and{" "}
           <Ui>Status colors</Ui>.
         </li>
       </ul>
@@ -193,9 +193,13 @@ export function AdminPeopleSection() {
       <ul>
         <li>
           <Link to="/organizations">Organizations</Link> are MARGEN's clients: clubs, crews and teams. Each order belongs to one.
+          Add one with <Ui>Add</Ui>. To delete some, tick them and use <Ui>Delete</Ui> beside it. An
+          organization can't be deleted while it has orders that aren't cancelled or archived, or client accounts linked to
+          it. Its cancelled and archived orders are kept with its name, marked <em>(deleted)</em>, and can still be searched
+          by it. Its contact links and notes are removed.
         </li>
         <li>
-          <Link to="/factories">Factories</Link> make the orders. A factory's page lists its orders.
+          <Link to="/factories">Factories</Link> make the orders. Add one with <Ui>Add</Ui>. A factory's page lists its orders.
         </li>
         <li>
           <Link to="/contacts">Contacts</Link> are people at organizations and factories, with their email, phone (and whether
@@ -238,17 +242,22 @@ export function AdminUsersSection() {
       <p>Nobody can sign up on their own: admins create every account.</p>
       <ol className="guide-steps">
         <li>
-          On <Link to="/users">Users</Link>, click <Ui>Add a user</Ui>.
+          On <Link to="/users">Users</Link>, click <Ui>Add</Ui>.
         </li>
         <li>Enter their email, first and last name, and access level.</li>
         <li>
-          For a Factory account, link it to its factory; for a Client account, to its organization. Without a link they see no
-          orders.
+          For a Factory account, link it to its factory; for a Client account, to its organization. This is required: the
+          account can't be added without it.
         </li>
         <li>
-          Give them a temporary password, or let them choose one with <Ui>Forgot your password?</Ui> on the sign-in page.
+          Type a temporary password, or leave it empty to have one made up, then click <Ui>Add user</Ui>.
         </li>
       </ol>
+      <p>
+        They get a welcome email with their sign-in email and the temporary password, and must choose their own password when they
+        first sign in. The password isn't kept anywhere else. If the email can't be sent (for example while emails are turned off or
+        paused), the message after adding them says why and shows the made-up password, so you can give it to them yourself.
+      </p>
       <div className="table-wrap">
         <table className="static">
           <thead>
@@ -277,6 +286,22 @@ export function AdminUsersSection() {
         </table>
       </div>
       <p>You can change a user's access level and link on the Users page at any time.</p>
+      <h3>Disabling or deleting an account</h3>
+      <p>
+        The <Ui>Status</Ui> column shows whether each account is Active or Disabled. Tick the box in front of one or more Factory
+        or Client users, then use the buttons beside <Ui>Add</Ui>:
+      </p>
+      <ul>
+        <li>
+          <Ui>Disable</Ui> stops them signing in, and takes away their access straight away, even if they're signed in. Their
+          account, link and history are kept, and <Ui>Enable</Ui> gives them access again.
+        </li>
+        <li>
+          <Ui>Delete</Ui> removes the account for good. Their notes and order history stay, with their name. This can't
+          be undone, so disable the account if they may come back.
+        </li>
+      </ul>
+      <p>Admin accounts, and your own, can't be disabled or deleted. A disabled account can't be made an Admin.</p>
     </>
   );
 }
@@ -318,9 +343,10 @@ export function AdminEmailsSection() {
         or stepping production back from Shipped, cancels the email still waiting.
       </p>
       <p>
-        On <Link to="/emails">Email Admin and Logs</Link> you can pause all sending, turn each kind of email off, choose which
-        admins get which admin emails, set the sender and the wait, preview each email and send yourself a sample. The log
-        lists every email with its status, and lets you retry one that failed.
+        On <Link to="/email-settings">Email Settings</Link> you can pause all sending, turn each kind of email off, choose
+        which admins get which admin emails, set the sender and the wait, preview each email and send yourself a sample.{" "}
+        <Link to="/emails">Email Logs</Link> lists every email with its status, and lets you cancel one that's waiting or
+        send again one that failed.
       </p>
     </>
   );
