@@ -467,6 +467,7 @@ export type Database = {
           factory_id: string | null
           from_factory: boolean
           id: string
+          lead_id: string | null
           order_id: string | null
           organization_id: string | null
         }
@@ -480,6 +481,7 @@ export type Database = {
           factory_id?: string | null
           from_factory?: boolean
           id?: string
+          lead_id?: string | null
           order_id?: string | null
           organization_id?: string | null
         }
@@ -493,6 +495,7 @@ export type Database = {
           factory_id?: string | null
           from_factory?: boolean
           id?: string
+          lead_id?: string | null
           order_id?: string | null
           organization_id?: string | null
         }
@@ -523,6 +526,13 @@ export type Database = {
             columns: ["factory_id"]
             isOneToOne: false
             referencedRelation: "factories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
           {

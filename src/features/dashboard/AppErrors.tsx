@@ -4,6 +4,7 @@ import { useAppErrors, type AppError } from "../../data/queries";
 import { ROLE_LABELS } from "../../lib/constants";
 import { plural } from "../../lib/format";
 import { supabase, unwrap } from "../../lib/supabase";
+import { useConfirm } from "../../components/Confirm";
 
 const KIND_LABELS: Record<string, string> = { crash: "Page crashed", database: "Database", background: "Background" };
 const KIND_TONES: Record<string, string> = { crash: "tone-warn", database: "tone-accent", background: "tone-muted" };
@@ -14,6 +15,7 @@ const who = (e: AppError) =>
 // Admins only: errors users hit in the app, logged by the safety net, most recent first. The same
 // error for the same person on the same page is one entry with a count. Entries go after 90 days.
 export function AppErrors() {
+  const ask = useConfirm();
   const errors = useAppErrors();
   const clear = useDbAction({
     tables: ["app_errors"],
@@ -40,8 +42,8 @@ export function AppErrors() {
             type="button"
             className="ghost small"
             disabled={clear.isPending}
-            onClick={() => {
-              if (confirm(`Clear all ${plural(all.length, "app error")}? This can't be undone.`)) clear.mutate(undefined);
+            onClick={async () => {
+              if (await ask(`Clear all ${plural(all.length, "app error")}? This can't be undone.`)) clear.mutate(undefined);
             }}
           >
             Clear all

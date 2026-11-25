@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Dialog } from "../../components/Dialog";
-import { ListPage, useSearch } from "../../components/ListPage";
+import { ListPage, SortHeader } from "../../components/ListPage";
 import { useNotice } from "../../components/Notice";
 import {
   BackLink,
@@ -20,10 +19,11 @@ import {
 import { deleteRow, useDbAction, useDeleteRecord, useSaveRecord } from "../../data/mutations";
 import { useNotes, useOrders, useOrganizations, useUsers, type Order, type Organization, type User } from "../../data/queries";
 import { formatDate, fullName, place, plural } from "../../lib/format";
-import { deleteMessage, formValues, orNull } from "../../lib/forms";
+import { deleteManyMessage, deleteMessage, formValues, orNull } from "../../lib/forms";
 import { useUiState } from "../../lib/uiState";
 import { NotesSection } from "../notes/NotesSection";
 import { LinkedContacts } from "../contacts/LinkedContacts";
+import { useConfirm } from "../../components/Confirm";
 
 function OrganizationForm({ org }: { org?: Organization }) {
   const save = useSaveRecord("organizations");
@@ -104,13 +104,11 @@ const distinct = (values: (string | null)[]) =>
   [...new Set(values.filter((v): v is string => Boolean(v)))].sort((a, b) => a.localeCompare(b));
 
 export function OrganizationsPage({ id, editing = false }: { id?: string; editing?: boolean }) {
+  const ask = useConfirm();
   const organizations = useOrganizations();
   const orders = useOrders();
   const users = useUsers();
   const notes = useNotes();
-  // Organizations ticked in the list, for Delete beside Add.
-  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
-  const search = useSearch();
   const remove = useDbAction({
     tables: ["organizations"],
     run: deleteOrganizations,
@@ -142,29 +140,16 @@ export function OrganizationsPage({ id, editing = false }: { id?: string; editin
   // Until orders and users have loaded, nothing can be ticked: whether each can be deleted isn't known yet.
   const known = Boolean(orders.data && users.data);
   const blocker = (o: Organization) => (known ? deleteBlocker(o, orders.data!, users.data!) : "Loading…");
-  // Only organizations the filters and search show count as ticked, and the header box ticks every one shown that can be deleted.
-  const shown = (o: Organization) => matchesFilters(o) && search.matches(`${o.name} ${place(o)}`.toLowerCase());
-  const selected = all.filter((o) => selectedIds.has(o.id) && !blocker(o) && shown(o));
-  const toggle = (ids: string[], on: boolean) =>
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      for (const id of ids) {
-        if (on) next.add(id);
-        else next.delete(id);
-      }
-      return next;
-    });
-  const confirmDelete = () => {
-    const ids = new Set(selected.map((o) => o.id));
-    const noteCount = (notes.data ?? []).filter((n) => n.organization_id && ids.has(n.organization_id)).length;
-    const names = selected.map((o) => `  ${o.name}`).join("\n");
-    const title = selected.length === 1 ? selected[0].name : `${selected.length} organizations`;
-    if (confirm(deleteMessage(title, [names, ...deleteConsequences(selected, orders.data ?? [], noteCount)])))
-      remove.mutate(selected, { onSettled: () => setSelectedIds(new Set()) });
+  const confirmDelete = async (ids: string[], done: () => void) => {
+    const selected = all.filter((o) => ids.includes(o.id));
+    const noteCount = (notes.data ?? []).filter((n) => n.organization_id && ids.includes(n.organization_id)).length;
+    const message = deleteManyMessage(
+      selected.map((o) => o.name),
+      "organizations",
+      deleteConsequences(selected, orders.data ?? [], noteCount),
+    );
+    if (await ask(message)) remove.mutate(selected, { onSettled: done });
   };
-  const deletable = all.filter((o) => !blocker(o) && shown(o));
-  const allTicked = deletable.length > 0 && deletable.every((o) => selectedIds.has(o.id));
-  const someTicked = deletable.some((o) => selectedIds.has(o.id));
 
   const countries = distinct(all.map((o) => o.country));
   const states = distinct(all.filter((o) => !filters.country || o.country === filters.country).map((o) => o.state));
@@ -184,15 +169,7 @@ export function OrganizationsPage({ id, editing = false }: { id?: string; editin
         count={all.length}
         newTo="/organizations/new"
         newLabel="Add"
-        actions={
-          <div className="user-actions" role="group" aria-label="Selected organizations">
-            {selected.length > 0 && <span className="muted small">{selected.length} selected</span>}
-            <button type="button" className="danger" disabled={remove.isPending || selected.length === 0} onClick={confirmDelete}>
-              Delete
-            </button>
-          </div>
-        }
-        search={search}
+        deletion={{ nouns: "organizations", busy: remove.isPending, onDelete: confirmDelete }}
         placeholder="Search organizations"
         empty="No organizations yet."
         loading={loadingState([organizations])}
@@ -219,23 +196,15 @@ export function OrganizationsPage({ id, editing = false }: { id?: string; editin
         }
         head={
           <>
-            <th className="check-cell">
-              <input
-                type="checkbox"
-                aria-label="Select all organizations shown that can be deleted"
-                checked={allTicked}
-                ref={(box) => {
-                  if (box) box.indeterminate = someTicked && !allTicked;
-                }}
-                disabled={deletable.length === 0}
-                onChange={(e) => toggle(deletable.map((o) => o.id), e.target.checked)}
-              />
-            </th>
-            <th>Name</th>
-            <th>State</th>
-            <th>Country</th>
-            <th className="hide-sm">Default contact</th>
-            <th className="num">Contacts</th>
+            <SortHeader column="name">Name</SortHeader>
+            <SortHeader column="state">State</SortHeader>
+            <SortHeader column="country">Country</SortHeader>
+            <SortHeader column="contact" className="hide-sm">
+              Default contact
+            </SortHeader>
+            <SortHeader column="contacts" className="num" firstDescending>
+              Contacts
+            </SortHeader>
           </>
         }
         rows={all.map((o) => {
@@ -243,21 +212,13 @@ export function OrganizationsPage({ id, editing = false }: { id?: string; editin
           return {
             key: o.id,
             to: `/organizations/${o.id}`,
-            search: `${o.name} ${place(o)}`.toLowerCase(), // shown() matches the same text
+            label: o.name,
+            search: `${o.name} ${place(o)}`.toLowerCase(),
             filteredOut: !matchesFilters(o),
+            sort: { name: o.name, state: o.state, country: o.country, contact: def ? fullName(def) : null, contacts: o.contacts.length },
+            blocker: blocker(o),
             cells: (
               <>
-                {/* A click beside the box doesn't open the organization. */}
-                <td className="check-cell" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    aria-label={`Select ${o.name}`}
-                    disabled={Boolean(blocker(o))}
-                    title={blocker(o) ?? undefined}
-                    checked={selectedIds.has(o.id) && !blocker(o)}
-                    onChange={(e) => toggle([o.id], e.target.checked)}
-                  />
-                </td>
                 <td>
                   <Link to={`/organizations/${o.id}`} className="strong">
                     {o.name}
@@ -282,6 +243,7 @@ export function OrganizationsPage({ id, editing = false }: { id?: string; editin
 
 // Full page for one organization. Each section is its own card, so more can be added later.
 function OrganizationPage({ org, editing }: { org: Organization; editing: boolean }) {
+  const ask = useConfirm();
   const remove = useDeleteRecord("organizations");
   const notes = useNotes();
   const orders = useOrders();
@@ -289,9 +251,9 @@ function OrganizationPage({ org, editing }: { org: Organization; editing: boolea
   const defaultContact = org.contacts.find((c) => c.is_default);
   const blocker = orders.data && users.data ? deleteBlocker(org, orders.data, users.data) : "Loading…";
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     const noteCount = (notes.data ?? []).filter((note) => note.organization_id === org.id).length;
-    if (confirm(deleteMessage(org.name, deleteConsequences([org], orders.data ?? [], noteCount)))) remove.mutate({ id: org.id, label: org.name });
+    if (await ask(deleteMessage(org.name, deleteConsequences([org], orders.data ?? [], noteCount)))) remove.mutate({ id: org.id, label: org.name });
   };
 
   return (
@@ -300,6 +262,7 @@ function OrganizationPage({ org, editing }: { org: Organization; editing: boolea
       <div className="page-head">
         <div className="title-block">
           <h1>{org.name}</h1>
+          <p className="muted">{place(org) || "No location yet"}</p>
         </div>
         {!editing && (
           <>

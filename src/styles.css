@@ -535,6 +535,8 @@ td .cell-input { width: auto; min-width: 0; padding: 4px 8px; font-size: 0.85rem
 .detail-grid.stacked { grid-template-columns: minmax(0, 1fr); }
 .detail-grid.stacked form.stack { max-width: 760px; }
 .details.across { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 18px 28px; }
+.details .wide { grid-column: 1 / -1; }
+.details dd p.notes { font-weight: 400; }
 @media (max-width: 600px) { .details.across { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; } }
 .shipping-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
 /* IDs keep their exact spelling: no caps or tracking. */
@@ -582,7 +584,6 @@ h1.mono { font-size: 1.4rem; font-weight: 500; }
 /* ---------- list + panel ---------- */
 
 .layout { display: grid; gap: 16px; grid-template-columns: 1fr; align-items: start; }
-.layout.has-panel { grid-template-columns: minmax(0, 1fr) 360px; }
 
 .list { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
@@ -761,8 +762,7 @@ input.qty { width: 76px; padding: 4px 8px; text-align: right; }
 /* ---------- small screens ---------- */
 
 @media (max-width: 860px) {
-  .layout.has-panel, .detail-grid { grid-template-columns: 1fr; }
-  .layout.has-panel .panel { order: -1; position: static; }
+  .detail-grid { grid-template-columns: 1fr; }
 
   /* The sidebar becomes a top bar: logo and user on one row, the menu scrolling below. */
   .app-shell { display: block; }
@@ -839,3 +839,6 @@ th[aria-sort="ascending"] .sort-arrow, th[aria-sort="descending"] .sort-arrow { 
 .dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .dialog-head h2 { margin: 0; }
 .dialog-close { font-size: 1.4rem; line-height: 1; padding: 2px 10px; }
+/* The "Are you sure?" window (components/Confirm.tsx): names listed one per line. */
+.confirm-text p { margin: 0 0 8px; white-space: pre-wrap; line-height: 1.5; }
+.confirm-text:empty { display: none; }

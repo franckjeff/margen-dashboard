@@ -1,12 +1,14 @@
-import { Link } from "react-router";
-import { ListPage } from "../../components/ListPage";
+import { Link, useNavigate } from "react-router";
+import { Dialog } from "../../components/Dialog";
+import { ListPage, SortHeader } from "../../components/ListPage";
 import { useNotice } from "../../components/Notice";
 import { BackLink, Count, Dash, FormButtons, Missing, PanelHead, QueryGate, loadingState } from "../../components/ui";
-import { useDeleteRecord, useSaveRecord } from "../../data/mutations";
+import { useDeleteRecord, useDeleteRecords, useSaveRecord } from "../../data/mutations";
 import { useItems, useOrderItems, useOrders, type Item } from "../../data/queries";
 import { formatDate, plural } from "../../lib/format";
-import { deleteMessage, formValues } from "../../lib/forms";
+import { deleteManyMessage, deleteMessage, formValues } from "../../lib/forms";
 import { sortBySize } from "../orders/lines";
+import { useConfirm } from "../../components/Confirm";
 
 function ItemForm({ item }: { item?: Item }) {
   const save = useSaveRecord("items");
@@ -14,7 +16,7 @@ function ItemForm({ item }: { item?: Item }) {
   const back = item ? `/items/${item.id}` : "/items";
   return (
     <>
-      <PanelHead title={item ? "Edit item" : "New item"} close={back} />
+      {item && <PanelHead title="Edit item" close={back} />}
       <form
         className="stack"
         onSubmit={(event) => {
@@ -32,15 +34,27 @@ function ItemForm({ item }: { item?: Item }) {
           Name
           <input name="name" required autoComplete="off" defaultValue={item?.name} placeholder="e.g. Women's Racerback" />
         </label>
-        <FormButtons label={item ? "Save changes" : "Create item"} cancel={back} busy={save.isPending} />
+        <FormButtons label={item ? "Save changes" : "Add item"} cancel={back} busy={save.isPending} />
       </form>
     </>
   );
 }
 
+// Adding an item happens in a window over the list (#/items/new); it opens the new one's page.
+function AddItem() {
+  const navigate = useNavigate();
+  return (
+    <Dialog title="Add item" onClose={() => navigate("/items")}>
+      <ItemForm />
+    </Dialog>
+  );
+}
+
 export function ItemsPage({ id, editing = false }: { id?: string; editing?: boolean }) {
+  const ask = useConfirm();
   const items = useItems();
   const orderItems = useOrderItems();
+  const removeMany = useDeleteRecords("items", "items");
 
   if (id && id !== "new") {
     return (
@@ -56,60 +70,81 @@ export function ItemsPage({ id, editing = false }: { id?: string; editing?: bool
   const all = items.data ?? [];
   const lines = orderItems.data ?? [];
   return (
-    <ListPage
-      title="Items"
-      count={all.length}
-      newTo="/items/new"
-      newLabel="New item"
-      placeholder="Search items"
-      loading={loadingState([items, orderItems])}
-      head={
-        <>
-          <th>Item ID</th>
-          <th>Name</th>
-          <th className="num hide-sm">Orders</th>
-          <th className="num">Pieces ordered</th>
-        </>
-      }
-      rows={all.map((i) => {
-        const own = lines.filter((l) => l.item_id === i.id);
-        const orders = new Set(own.map((l) => l.order_id)).size;
-        const pieces = own.reduce((sum, l) => sum + l.quantity, 0);
-        return {
-          key: i.id,
-          to: `/items/${i.id}`,
-          search: `${i.item_code} ${i.name}`.toLowerCase(),
-          cells: (
-            <>
-              <td>
-                <Link to={`/items/${i.id}`} className="strong mono">
-                  {i.item_code}
-                </Link>
-              </td>
-              <td>{i.name}</td>
-              <td className="num hide-sm">{orders || <Dash />}</td>
-              <td className="num">{pieces || <Dash />}</td>
-            </>
-          ),
-        };
-      })}
-      panel={id === "new" ? <ItemForm /> : undefined}
-    />
+    <>
+      {id === "new" && <AddItem />}
+      <ListPage
+        title="Items"
+        count={all.length}
+        newTo="/items/new"
+        newLabel="Add"
+        placeholder="Search items"
+        loading={loadingState([items, orderItems])}
+        deletion={{
+          nouns: "items",
+          busy: removeMany.isPending,
+          onDelete: async (ids, done) => {
+            const picked = all.filter((i) => ids.includes(i.id));
+            if (await ask(deleteManyMessage(picked.map((i) => i.name), "items")))
+              removeMany.mutate(picked.map((i) => ({ id: i.id, label: i.name })), { onSettled: done });
+          },
+        }}
+        head={
+          <>
+            <SortHeader column="code">Item ID</SortHeader>
+            <SortHeader column="name">Name</SortHeader>
+            <SortHeader column="orders" className="num hide-sm" firstDescending>
+              Orders
+            </SortHeader>
+            <SortHeader column="pieces" className="num" firstDescending>
+              Pieces ordered
+            </SortHeader>
+          </>
+        }
+        rows={all.map((i) => {
+          const own = lines.filter((l) => l.item_id === i.id);
+          const orders = new Set(own.map((l) => l.order_id)).size;
+          const pieces = own.reduce((sum, l) => sum + l.quantity, 0);
+          return {
+            key: i.id,
+            to: `/items/${i.id}`,
+            label: i.name,
+            sort: { code: i.item_code, name: i.name, orders, pieces },
+            // The database refuses to delete an item that orders use.
+            blocker: orders ? `${i.name} is on ${plural(orders, "order")}, so it can't be deleted. Remove it from those orders first.` : null,
+            search: `${i.item_code} ${i.name}`.toLowerCase(),
+            cells: (
+              <>
+                <td>
+                  <Link to={`/items/${i.id}`} className="strong mono">
+                    {i.item_code}
+                  </Link>
+                </td>
+                <td>{i.name}</td>
+                <td className="num hide-sm">{orders || <Dash />}</td>
+                <td className="num">{pieces || <Dash />}</td>
+              </>
+            ),
+          };
+        })}
+      />
+    </>
   );
 }
 
 function ItemPage({ item, editing }: { item: Item; editing: boolean }) {
+  const ask = useConfirm();
   const remove = useDeleteRecord("items");
   const orderItems = useOrderItems();
-  const { notify } = useNotice();
+  // The database refuses to delete an item that orders use, so Delete is greyed out, saying why.
+  const orders = new Set((orderItems.data ?? []).filter((l) => l.item_id === item.id).map((l) => l.order_id)).size;
+  const blocker = orderItems.data
+    ? orders
+      ? `${item.name} is on ${plural(orders, "order")}, so it can't be deleted. Remove it from those orders first.`
+      : null
+    : "Loading…";
 
-  const confirmDelete = () => {
-    // The database refuses to delete an item that orders use; say so before asking.
-    const orders = new Set((orderItems.data ?? []).filter((l) => l.item_id === item.id).map((l) => l.order_id)).size;
-    if (orders) {
-      return notify("error", `${item.name} is on ${plural(orders, "order")}, so it can't be deleted. Remove it from those orders first.`);
-    }
-    if (confirm(deleteMessage(item.name))) remove.mutate({ id: item.id, label: item.name });
+  const confirmDelete = async () => {
+    if (await ask(deleteMessage(item.name))) remove.mutate({ id: item.id, label: item.name });
   };
 
   return (
@@ -125,20 +160,21 @@ function ItemPage({ item, editing }: { item: Item; editing: boolean }) {
             <Link to={`/items/${item.id}/edit`} className="button">
               Edit
             </Link>
-            <button type="button" className="danger" onClick={confirmDelete} disabled={remove.isPending || orderItems.isPending}>
+            <button type="button" className="danger" onClick={confirmDelete} disabled={remove.isPending || Boolean(blocker)} title={blocker ?? undefined}>
               Delete
             </button>
           </>
         )}
       </div>
-      <div className="detail-grid">
+      {/* Full-width blocks, one under the other, like every record page. */}
+      <div className="detail-grid stacked">
         <section className="card section">
           {editing ? (
             <ItemForm item={item} />
           ) : (
             <>
               <h2>Details</h2>
-              <dl className="details">
+              <dl className="details across">
                 <div>
                   <dt>Item ID</dt>
                   <dd className="mono">{item.item_code}</dd>

@@ -14,3 +14,9 @@ export const orNull = (value: string | undefined) => value || null;
 export function deleteMessage(label: string, extras: (string | false)[] = []) {
   return [`Delete ${label}? This can't be undone.`, ...extras.filter(Boolean)].join("\n\n");
 }
+
+// The same, for the records ticked in a list: one by its name, several by their number with their names listed.
+export function deleteManyMessage(labels: string[], nouns: string, extras: (string | false)[] = []) {
+  const title = labels.length === 1 ? labels[0] : `${labels.length} ${nouns}`;
+  return deleteMessage(title, [labels.length > 1 && labels.map((l) => `  ${l}`).join("\n"), ...extras]);
+}

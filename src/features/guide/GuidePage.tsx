@@ -577,7 +577,7 @@ function ContactsSection({ factory, yours }: { factory: boolean; yours: string }
       </p>
       <ul>
         <li>
-          <Ui>New contact</Ui>: enter a first name, a last name and, so they can get emails, an email address, then click{" "}
+          <Ui>Add</Ui>: enter a first name, a last name and, so they can get emails, an email address, then click{" "}
           <Ui>Add contact</Ui>. The first contact becomes the default contact automatically.
         </li>
         <li>

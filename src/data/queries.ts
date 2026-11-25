@@ -60,7 +60,7 @@ export type OrderEvent = Pick<Tables<"order_events">, "id" | "order_id" | "actio
 };
 export type Note = Pick<
   Tables<"notes">,
-  "id" | "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "order_id" | "body" | "created_at" | "created_by" | "author_name" | "from_factory"
+  "id" | "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "order_id" | "lead_id" | "body" | "created_at" | "created_by" | "author_name" | "from_factory"
 > & {
   author: { email: string | null } | null;
   // The name of what the note is about, so the Dashboard needn't load every contact, athlete, organization and factory.
@@ -69,6 +69,7 @@ export type Note = Pick<
   organization: { name: string } | null;
   factory: { name: string } | null;
   order: { margen_order_id: string } | null;
+  lead: { first_name: string; last_name: string } | null;
 };
 export type User = Pick<Tables<"profiles">, "id" | "email" | "first_name" | "last_name" | "muted_email_kinds" | "factory_id" | "organization_id" | "created_at" | "disabled_at"> & {
   role: Role;
@@ -306,7 +307,7 @@ export function useNotes() {
         await supabase
           .from("notes")
           .select(
-            "id, contact_id, athlete_id, factory_id, organization_id, order_id, body, created_at, created_by, author_name, from_factory, author:profiles!notes_created_by_fkey(email), contact:contacts(first_name, last_name), athlete:athletes(first_name, last_name), organization:organizations(name), factory:factories(name), order:orders(margen_order_id)",
+            "id, contact_id, athlete_id, factory_id, organization_id, order_id, lead_id, body, created_at, created_by, author_name, from_factory, author:profiles!notes_created_by_fkey(email), contact:contacts(first_name, last_name), athlete:athletes(first_name, last_name), organization:organizations(name), factory:factories(name), order:orders(margen_order_id), lead:leads(first_name, last_name)",
           )
           .order("created_at", { ascending: false }),
       ),

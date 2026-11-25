@@ -16,7 +16,7 @@ const INVALIDATES: Record<TableName, readonly (readonly string[])[]> = {
   organization_contacts: [keys.organizations, keys.contacts, keys.myContacts, keys.dashboardCounts],
   factory_contacts: [keys.factories, keys.contacts, keys.myContacts],
   athletes: [keys.athletes, keys.notes, keys.dashboardCounts],
-  leads: [keys.leads, keys.dashboardCounts],
+  leads: [keys.leads, keys.notes, keys.dashboardCounts],
   orders: [keys.orders, keys.orderItems, keys.orderEvents, keys.orderRequests, keys.emails, keys.dashboardCounts],
   order_items: [keys.orderItems, keys.orderEvents],
   order_events: [keys.orderEvents],
@@ -120,6 +120,27 @@ export function useDeleteRecord(name: RecordTable) {
     },
     onError: (error, { label }) =>
       notify("error", error instanceof NotChanged ? error.message : `Couldn't delete ${label}: ${messageOf(error)}`),
+  });
+}
+
+// Deletes the records ticked in a list, one after the other, carrying on past a failure; then says what was
+// deleted, or every one that wasn't. The list is refetched either way, as some may have gone.
+export function useDeleteRecords(name: RecordTable, nouns: string) {
+  const queryClient = useQueryClient();
+  const { notify } = useNotice();
+  return useMutation({
+    mutationFn: async (records: { id: string; label: string }[]) => {
+      const failed: string[] = [];
+      for (const r of records) {
+        await deleteRow(name, r.id, r.label).catch((error: unknown) =>
+          failed.push(error instanceof NotChanged ? error.message : `${r.label}: ${messageOf(error)}`),
+        );
+      }
+      if (failed.length) throw new NotChanged(`Some ${nouns} weren't deleted. ${failed.join(" ")}`);
+    },
+    onSuccess: (_, records) => notify("success", `Deleted ${records.length === 1 ? records[0].label : `${records.length} ${nouns}`}.`),
+    onError: (error) => notify("error", messageOf(error)),
+    onSettled: () => invalidate(queryClient, name),
   });
 }
 

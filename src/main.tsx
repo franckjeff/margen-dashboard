@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ConfirmProvider } from "./components/Confirm";
 import { NoticeProvider } from "./components/Notice";
 import { isExpected, logBackgroundErrors, logError } from "./lib/errorLog";
 import "./styles.css";
@@ -29,9 +30,11 @@ createRoot(document.getElementById("app")!).render(
     <ErrorBoundary whole>
       <QueryClientProvider client={queryClient}>
         <NoticeProvider>
-          <AuthProvider>
-            <App />
-          </AuthProvider>
+          <ConfirmProvider>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </ConfirmProvider>
         </NoticeProvider>
       </QueryClientProvider>
     </ErrorBoundary>

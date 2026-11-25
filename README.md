@@ -108,6 +108,10 @@ the sign-in account and its profile; notes and order history stay, with the name
 (`notes.author_name`, `order_events.changed_by_name`). Admin accounts, and your own,
 can't be disabled or deleted, and a disabled account can't be made an admin.
 
+Lists share `src/components/ListPage.tsx`: the Add button, sortable columns (`SortHeader`, with each row's `sort`
+values), and tick boxes with Delete (`deletion`; a row's `blocker` says why it can't be deleted). Confirmations use
+the app's own window (`useConfirm`, `src/components/Confirm.tsx`), not the browser's.
+
 Organizations are deleted from the Organizations page (tick them, then Delete). The `organizations_check_delete`
 trigger refuses while an organization has orders that are neither cancelled nor archived, or client accounts
 linked to it. Its cancelled and archived orders stay, unlinked, with its name saved in `orders.organization_name`,

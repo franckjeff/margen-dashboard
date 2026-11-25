@@ -4,9 +4,16 @@ import { Count, DateTime } from "../../components/ui";
 import { expectRows, useDbAction } from "../../data/mutations";
 import { useNotes, type Note } from "../../data/queries";
 import { supabase, unwrap } from "../../lib/supabase";
+import { useConfirm } from "../../components/Confirm";
 
-type SubjectColumn = "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "order_id";
-type Subject = { contact_id: string } | { athlete_id: string } | { factory_id: string } | { organization_id: string } | { order_id: string };
+type SubjectColumn = "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "order_id" | "lead_id";
+type Subject =
+  | { contact_id: string }
+  | { athlete_id: string }
+  | { factory_id: string }
+  | { organization_id: string }
+  | { order_id: string }
+  | { lead_id: string };
 
 export function useDeleteNote() {
   return useDbAction({
@@ -31,9 +38,10 @@ export function NoteMeta({ note, before, after }: { note: Note; before?: ReactNo
   );
 }
 
-// Notes timeline for a contact, organization, athlete, factory or order, newest first, with a box to add one.
+// Notes timeline for a contact, organization, athlete, factory, order or lead, newest first, with a box to add one.
 // Admins delete any note; anyone else (a factory, on its orders) only their own.
 export function NotesSection({ subject, placeholder, hint }: { subject: Subject; placeholder?: string; hint?: string }) {
+  const ask = useConfirm();
   const notes = useNotes();
   const { role, userId } = useSignedIn();
   const canDelete = (n: Note) => role === "admin" || n.created_by === userId;
@@ -101,7 +109,7 @@ export function NotesSection({ subject, placeholder, hint }: { subject: Subject;
                     className="icon-btn"
                     aria-label="Delete note"
                     title="Delete note"
-                    onClick={() => confirm("Delete this note? This can't be undone.") && remove.mutate(n.id)}
+                    onClick={async () => (await ask("Delete this note? This can't be undone.")) && remove.mutate(n.id)}
                   >
                     ×
                   </button>

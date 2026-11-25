@@ -1,14 +1,17 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router";
-import { ListPage } from "../../components/ListPage";
+import { Link, useNavigate } from "react-router";
+import { Dialog } from "../../components/Dialog";
+import { ListPage, SortHeader } from "../../components/ListPage";
 import { useNotice } from "../../components/Notice";
 import { BackLink, EmailInput, FormButtons, LeadBadge, Missing, OrDash, Options, PanelHead, QueryGate, loadingState } from "../../components/ui";
-import { expectRows, useDbAction, useDeleteRecord, useSaveRecord } from "../../data/mutations";
-import { useLeads, type Lead } from "../../data/queries";
+import { expectRows, useDbAction, useDeleteRecord, useDeleteRecords, useSaveRecord } from "../../data/mutations";
+import { useLeads, useNotes, type Lead } from "../../data/queries";
 import { LEAD_STATUSES, LEAD_TEXT_FIELDS } from "../../lib/constants";
-import { formatDate, fullName, place } from "../../lib/format";
-import { deleteMessage, formValues, orNull } from "../../lib/forms";
+import { formatDate, fullName, place, plural } from "../../lib/format";
+import { deleteManyMessage, deleteMessage, formValues, orNull } from "../../lib/forms";
 import { supabase, unwrap } from "../../lib/supabase";
+import { NotesSection } from "../notes/NotesSection";
+import { useConfirm } from "../../components/Confirm";
 
 function LeadForm({ lead }: { lead?: Lead }) {
   const save = useSaveRecord("leads");
@@ -28,7 +31,7 @@ function LeadForm({ lead }: { lead?: Lead }) {
   );
   return (
     <>
-      <PanelHead title={lead ? "Edit lead" : "New lead"} close={back} />
+      {lead && <PanelHead title="Edit lead" close={back} />}
       <form
         className="stack"
         onSubmit={(event) => {
@@ -67,22 +70,29 @@ function LeadForm({ lead }: { lead?: Lead }) {
             <Options labels={LEAD_STATUSES} />
           </select>
         </label>
-        <label>
-          <span>
-            Notes <span className="muted">(optional)</span>
-          </span>
-          <textarea name="notes" rows={4} defaultValue={lead?.notes ?? ""} />
-        </label>
-        <FormButtons label={lead ? "Save changes" : "Create lead"} cancel={back} busy={save.isPending} />
+        <FormButtons label={lead ? "Save changes" : "Add lead"} cancel={back} busy={save.isPending} />
       </form>
     </>
   );
 }
 
-export function LeadsPage({ id, editing = false }: { id?: string; editing?: boolean }) {
-  const leads = useLeads();
+// Adding a lead happens in a window over the list (#/leads/new); it opens the new one's page.
+function AddLead() {
+  const navigate = useNavigate();
+  return (
+    <Dialog title="Add lead" onClose={() => navigate("/leads")}>
+      <LeadForm />
+    </Dialog>
+  );
+}
 
-  // A selected lead gets its own page; only the "new" form stays in the list's side panel.
+export function LeadsPage({ id, editing = false }: { id?: string; editing?: boolean }) {
+  const ask = useConfirm();
+  const leads = useLeads();
+  const notes = useNotes();
+  const removeMany = useDeleteRecords("leads", "leads");
+
+  // A selected lead gets its own page; adding one (#/leads/new) opens a window over the list.
   if (id && id !== "new") {
     return (
       <QueryGate queries={[leads]}>
@@ -96,50 +106,71 @@ export function LeadsPage({ id, editing = false }: { id?: string; editing?: bool
 
   const all = leads.data ?? [];
   return (
-    <ListPage
-      title="Leads"
-      count={all.length}
-      newTo="/leads/new"
-      newLabel="New lead"
-      placeholder="Search leads"
-      loading={loadingState([leads])}
-      head={
-        <>
-          <th>Name</th>
-          <th>Organization</th>
-          <th>Status</th>
-          <th className="hide-sm">Added</th>
-        </>
-      }
-      rows={all.map((l) => ({
-        key: l.id,
-        to: `/leads/${l.id}`,
-        search: `${fullName(l)} ${l.organization_name ?? ""} ${l.email ?? ""} ${place(l)} ${l.source ?? ""} ${LEAD_STATUSES[l.status]}`.toLowerCase(),
-        cells: (
+    <>
+      {id === "new" && <AddLead />}
+      <ListPage
+        title="Leads"
+        count={all.length}
+        newTo="/leads/new"
+        newLabel="Add"
+        placeholder="Search leads"
+        loading={loadingState([leads])}
+        deletion={{
+          nouns: "leads",
+          busy: removeMany.isPending,
+          onDelete: async (ids, done) => {
+            const picked = all.filter((l) => ids.includes(l.id));
+            const noteCount = (notes.data ?? []).filter((n) => n.lead_id && ids.includes(n.lead_id)).length;
+            const message = deleteManyMessage(picked.map(fullName), "leads", [noteCount > 0 && `${plural(noteCount, "note")} will be deleted too.`]);
+            if (await ask(message))
+              removeMany.mutate(picked.map((l) => ({ id: l.id, label: fullName(l) })), { onSettled: done });
+          },
+        }}
+        head={
           <>
-            <td>
-              <Link to={`/leads/${l.id}`} className="strong">
-                {fullName(l)}
-              </Link>
-            </td>
-            <td>
-              <OrDash>{l.organization_name}</OrDash>
-            </td>
-            <td>
-              <LeadBadge status={l.status} />
-            </td>
-            <td className="muted hide-sm">{formatDate(l.created_at)}</td>
+            <SortHeader column="name">Name</SortHeader>
+            <SortHeader column="organization">Organization</SortHeader>
+            <SortHeader column="status">Status</SortHeader>
+            <SortHeader column="added" className="hide-sm" firstDescending>
+              Added
+            </SortHeader>
           </>
-        ),
-      }))}
-      panel={id === "new" ? <LeadForm /> : undefined}
-    />
+        }
+        rows={all.map((l) => ({
+          key: l.id,
+          to: `/leads/${l.id}`,
+          label: fullName(l),
+          // Statuses sort in their own order (New, Contacted, …), not A to Z.
+          sort: { name: fullName(l), organization: l.organization_name, status: Object.keys(LEAD_STATUSES).indexOf(l.status), added: l.created_at },
+          search: `${fullName(l)} ${l.organization_name ?? ""} ${l.email ?? ""} ${place(l)} ${l.source ?? ""} ${LEAD_STATUSES[l.status]}`.toLowerCase(),
+          cells: (
+            <>
+              <td>
+                <Link to={`/leads/${l.id}`} className="strong">
+                  {fullName(l)}
+                </Link>
+              </td>
+              <td>
+                <OrDash>{l.organization_name}</OrDash>
+              </td>
+              <td>
+                <LeadBadge status={l.status} />
+              </td>
+              <td className="muted hide-sm">{formatDate(l.created_at)}</td>
+            </>
+          ),
+        }))}
+      />
+    </>
   );
 }
 
 // Full page for one lead. The status can be changed right from the header.
 function LeadPage({ lead, editing }: { lead: Lead; editing: boolean }) {
+  const ask = useConfirm();
   const remove = useDeleteRecord("leads");
+  const notes = useNotes();
+  const noteCount = (notes.data ?? []).filter((n) => n.lead_id === lead.id).length;
   const label = fullName(lead);
   const setStatus = useDbAction({
     tables: ["leads"],
@@ -152,8 +183,8 @@ function LeadPage({ lead, editing }: { lead: Lead; editing: boolean }) {
     failure: () => `Couldn't change ${label}`,
   });
 
-  const detail = (term: string, value: ReactNode) => (
-    <div>
+  const detail = (term: string, value: ReactNode, wide = false) => (
+    <div className={wide ? "wide" : undefined}>
       <dt>{term}</dt>
       <dd>{value}</dd>
     </div>
@@ -189,21 +220,25 @@ function LeadPage({ lead, editing }: { lead: Lead; editing: boolean }) {
               type="button"
               className="danger"
               disabled={remove.isPending}
-              onClick={() => confirm(deleteMessage(label)) && remove.mutate({ id: lead.id, label })}
+              onClick={async () =>
+                (await ask(deleteMessage(label, [noteCount > 0 && `Its ${plural(noteCount, "note")} will be deleted too.`]))) &&
+                remove.mutate({ id: lead.id, label })
+              }
             >
               Delete
             </button>
           </>
         )}
       </div>
-      <div className="detail-grid">
+      {/* Full-width blocks, one under the other, like every record page. */}
+      <div className="detail-grid stacked">
         <section className="card section">
           {editing ? (
             <LeadForm lead={lead} />
           ) : (
             <>
               <h2>Details</h2>
-              <dl className="details">
+              <dl className="details across">
                 {detail("Organization", <OrDash>{lead.organization_name}</OrDash>)}
                 {detail("Email", lead.email ? <a href={`mailto:${lead.email}`}>{lead.email}</a> : <OrDash />)}
                 {detail("Phone", lead.phone ? <a href={`tel:${lead.phone}`}>{lead.phone}</a> : <OrDash />)}
@@ -211,13 +246,14 @@ function LeadPage({ lead, editing }: { lead: Lead; editing: boolean }) {
                 {detail("Country", <OrDash>{lead.country}</OrDash>)}
                 {detail("Source", <OrDash>{lead.source}</OrDash>)}
                 {detail("Added", formatDate(lead.created_at))}
+                {/* What they wrote when they sent a quote request from the home page. */}
+                {lead.notes && detail("Message", <p className="notes">{lead.notes}</p>, true)}
               </dl>
             </>
           )}
         </section>
         <section className="card section">
-          <h2>Notes</h2>
-          {lead.notes ? <p className="notes">{lead.notes}</p> : <p className="empty">No notes yet.</p>}
+          <NotesSection subject={{ lead_id: lead.id }} />
         </section>
       </div>
     </>

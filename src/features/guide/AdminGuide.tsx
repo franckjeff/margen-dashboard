@@ -34,6 +34,14 @@ export function AdminAccountSection() {
           <Ui>Status colors</Ui>.
         </li>
       </ul>
+      <h3>Lists</h3>
+      <p>
+        Every list works the same way. <Ui>Add</Ui> opens a window to add a record. Click a column name to sort by it, and
+        again to reverse the order. On Organizations, Factories, Contacts, Athletes, Leads and Items, tick the box in front of
+        one or more rows and click <Ui>Delete</Ui> beside <Ui>Add</Ui>; the box in the header ticks every row shown. A box
+        that's greyed out can't be ticked: point at it to see why. Before anything is deleted, a window asks you to confirm
+        and says what goes with it.
+      </p>
       <p className="guide-tip">
         <strong>The database has the last word.</strong> Who sees what, and how statuses may change, is enforced by the database
         itself, not just by the screens. If something is refused, the message says why.
@@ -111,11 +119,11 @@ export function AdminNewOrdersSection() {
       <h3>By hand</h3>
       <ol className="guide-steps">
         <li>
-          On <Link to="/customs">New</Link>, click <Ui>New order</Ui>.
+          On <Link to="/customs">New</Link>, click <Ui>Add</Ui>.
         </li>
         <li>Enter its Margen order ID, and if you have them, its factory order ID, organization and shipping details.</li>
         <li>
-          Click <Ui>Create order</Ui>, then open the order, click <Ui>Edit</Ui> and add its items under <em>Items</em>.
+          Click <Ui>Add order</Ui>. The order's page opens: click <Ui>Edit</Ui> and add its items under <em>Items</em>.
         </li>
       </ol>
       <h3>From an order request</h3>
@@ -193,14 +201,20 @@ export function AdminPeopleSection() {
       <ul>
         <li>
           <Link to="/organizations">Organizations</Link> are MARGEN's clients: clubs, crews and teams. Each order belongs to one.
-          Add one with <Ui>Add</Ui>. To delete some, tick them and use <Ui>Delete</Ui> beside it. An
-          organization can't be deleted while it has orders that aren't cancelled or archived, or client accounts linked to
+          Add one with <Ui>Add</Ui>. An organization can't be deleted while it has orders that aren't cancelled or archived, or client accounts linked to
           it. Its cancelled and archived orders are kept with its name, marked <em>(deleted)</em>, and can still be searched
           by it. Its contact links and notes are removed.
         </li>
         <li>
           <Link to="/factories">Factories</Link> make the orders. Add one with <Ui>Add</Ui>. A factory's page lists its orders.
+          A factory with orders assigned to it can't be deleted.
         </li>
+      </ul>
+      <p className="guide-tip">
+        <strong>When Delete is greyed out,</strong> the record can't be deleted yet. Point at the button to see why, for
+        example an organization or factory that still has orders, or an item that's on orders.
+      </p>
+      <ul>
         <li>
           <Link to="/contacts">Contacts</Link> are people at organizations and factories, with their email, phone (and whether
           it's on WhatsApp), delivery address and billing address. One contact can be linked to several organizations or
@@ -226,7 +240,8 @@ export function AdminLeadsSection() {
       <p>
         Anyone can ask for a quote on the public home page. Each request becomes a lead on <Link to="/leads">Leads</Link>, and
         the admins who chose to get an email. Move each lead through its statuses as you follow it up:{" "}
-        {Object.values(LEAD_STATUSES).join(", ")}.
+        {Object.values(LEAD_STATUSES).join(", ")}. What they wrote with their request shows as the lead's{" "}
+        <em>Message</em>; add your own notes about the lead under <em>Notes</em>, like on contacts and organizations.
       </p>
       <p>
         <Link to="/athletes">Athletes</Link> keeps the athletes MARGEN works with. A new note about an athlete emails the other

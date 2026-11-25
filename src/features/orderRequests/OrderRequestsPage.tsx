@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router";
-import { ListPage } from "../../components/ListPage";
+import { ListPage, SortHeader } from "../../components/ListPage";
 import { useNotice } from "../../components/Notice";
 import { BackLink, Count, Dash, DateTime, Missing, OrDash, QueryGate, loadingState } from "../../components/ui";
 import { invalidate, useDbAction, useDeleteRecord } from "../../data/mutations";
@@ -9,6 +9,7 @@ import { SIZES } from "../../lib/constants";
 import { formatDate, plural } from "../../lib/format";
 import { deleteMessage, formValues } from "../../lib/forms";
 import { DbError, isDuplicate, messageOf, supabase } from "../../lib/supabase";
+import { useConfirm } from "../../components/Confirm";
 
 const STATUS_LABELS: Record<string, string> = { new: "New", converted: "Turned into an order", rejected: "Rejected" };
 const STATUS_TONES: Record<string, string> = { new: "tone-accent", converted: "tone-success", rejected: "tone-muted" };
@@ -47,16 +48,23 @@ export function OrderRequestsPage({ id }: { id?: string }) {
       }
       head={
         <>
-          <th>Received</th>
-          <th>Organization</th>
-          <th className="hide-sm">Contact</th>
-          <th className="num hide-sm">Pieces</th>
-          <th>Status</th>
+          <SortHeader column="received" firstDescending>
+            Received
+          </SortHeader>
+          <SortHeader column="organization">Organization</SortHeader>
+          <SortHeader column="contact" className="hide-sm">
+            Contact
+          </SortHeader>
+          <SortHeader column="pieces" className="num hide-sm" firstDescending>
+            Pieces
+          </SortHeader>
+          <SortHeader column="status">Status</SortHeader>
         </>
       }
       rows={all.map((r) => ({
         key: r.id,
         to: `/order-requests/${r.id}`,
+        sort: { received: r.created_at, organization: r.organization_name, contact: r.contact_name, pieces: pieces(r), status: STATUS_LABELS[r.status] },
         search: `${r.organization_name} ${r.contact_name} ${r.email} ${STATUS_LABELS[r.status] ?? ""}`.toLowerCase(),
         cells: (
           <>
@@ -79,6 +87,7 @@ export function OrderRequestsPage({ id }: { id?: string }) {
 }
 
 function OrderRequestPage({ request }: { request: OrderRequest }) {
+  const ask = useConfirm();
   const remove = useDeleteRecord("order_requests");
   const label = `the order request from ${request.organization_name}`;
   const setStatus = useDbAction({
@@ -119,8 +128,8 @@ function OrderRequestPage({ request }: { request: OrderRequest }) {
           type="button"
           className="danger"
           disabled={remove.isPending}
-          onClick={() => {
-            if (confirm(deleteMessage(label))) remove.mutate({ id: request.id, label });
+          onClick={async () => {
+            if (await ask(deleteMessage(label))) remove.mutate({ id: request.id, label });
           }}
         >
           Delete

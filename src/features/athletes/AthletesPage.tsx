@@ -1,12 +1,14 @@
-import { Link } from "react-router";
-import { ListPage } from "../../components/ListPage";
+import { Link, useNavigate } from "react-router";
+import { Dialog } from "../../components/Dialog";
+import { ListPage, SortHeader } from "../../components/ListPage";
 import { useNotice } from "../../components/Notice";
 import { BackLink, FormButtons, Missing, OrDash, Optional, PanelHead, QueryGate, loadingState } from "../../components/ui";
-import { useDeleteRecord, useSaveRecord } from "../../data/mutations";
+import { useDeleteRecord, useDeleteRecords, useSaveRecord } from "../../data/mutations";
 import { useAthletes, useNotes, type Athlete } from "../../data/queries";
 import { formatDate, fullName, place, plural } from "../../lib/format";
-import { deleteMessage, formValues, orNull } from "../../lib/forms";
+import { deleteManyMessage, deleteMessage, formValues, orNull } from "../../lib/forms";
 import { NotesSection } from "../notes/NotesSection";
+import { useConfirm } from "../../components/Confirm";
 
 function AthleteForm({ athlete }: { athlete?: Athlete }) {
   const save = useSaveRecord("athletes");
@@ -14,7 +16,7 @@ function AthleteForm({ athlete }: { athlete?: Athlete }) {
   const back = athlete ? `/athletes/${athlete.id}` : "/athletes";
   return (
     <>
-      <PanelHead title={athlete ? "Edit athlete" : "New athlete"} close={back} />
+      {athlete && <PanelHead title="Edit athlete" close={back} />}
       <form
         className="stack"
         onSubmit={(event) => {
@@ -40,16 +42,29 @@ function AthleteForm({ athlete }: { athlete?: Athlete }) {
           <Optional>Country</Optional>
           <input name="country" autoComplete="off" defaultValue={athlete?.country ?? ""} placeholder="e.g. United States" />
         </label>
-        <FormButtons label={athlete ? "Save changes" : "Create athlete"} cancel={back} busy={save.isPending} />
+        <FormButtons label={athlete ? "Save changes" : "Add athlete"} cancel={back} busy={save.isPending} />
       </form>
     </>
   );
 }
 
-export function AthletesPage({ id, editing = false }: { id?: string; editing?: boolean }) {
-  const athletes = useAthletes();
+// Adding an athlete happens in a window over the list (#/athletes/new); it opens the new one's page.
+function AddAthlete() {
+  const navigate = useNavigate();
+  return (
+    <Dialog title="Add athlete" onClose={() => navigate("/athletes")}>
+      <AthleteForm />
+    </Dialog>
+  );
+}
 
-  // A selected athlete gets its own page; only the "new" form stays in the list's side panel.
+export function AthletesPage({ id, editing = false }: { id?: string; editing?: boolean }) {
+  const ask = useConfirm();
+  const athletes = useAthletes();
+  const notes = useNotes();
+  const removeMany = useDeleteRecords("athletes", "athletes");
+
+  // A selected athlete gets its own page; adding one (#/athletes/new) opens a window over the list.
   if (id && id !== "new") {
     return (
       <QueryGate queries={[athletes]}>
@@ -63,57 +78,72 @@ export function AthletesPage({ id, editing = false }: { id?: string; editing?: b
 
   const all = athletes.data ?? [];
   return (
-    <ListPage
-      title="Athletes"
-      count={all.length}
-      newTo="/athletes/new"
-      newLabel="New athlete"
-      placeholder="Search athletes"
-      loading={loadingState([athletes])}
-      head={
-        <>
-          <th>First name</th>
-          <th>Last name</th>
-          <th>State</th>
-          <th>Country</th>
-        </>
-      }
-      rows={all.map((a) => ({
-        key: a.id,
-        to: `/athletes/${a.id}`,
-        search: `${fullName(a)} ${place(a)}`.toLowerCase(),
-        cells: (
+    <>
+      {id === "new" && <AddAthlete />}
+      <ListPage
+        title="Athletes"
+        count={all.length}
+        newTo="/athletes/new"
+        newLabel="Add"
+        placeholder="Search athletes"
+        loading={loadingState([athletes])}
+        deletion={{
+          nouns: "athletes",
+          busy: removeMany.isPending,
+          onDelete: async (ids, done) => {
+            const picked = all.filter((a) => ids.includes(a.id));
+            const noteCount = (notes.data ?? []).filter((n) => n.athlete_id && ids.includes(n.athlete_id)).length;
+            const message = deleteManyMessage(picked.map(fullName), "athletes", [noteCount > 0 && `${plural(noteCount, "note")} will be deleted too.`]);
+            if (await ask(message)) removeMany.mutate(picked.map((a) => ({ id: a.id, label: fullName(a) })), { onSettled: done });
+          },
+        }}
+        head={
           <>
-            <td>
-              <Link to={`/athletes/${a.id}`} className="strong">
-                {a.first_name}
-              </Link>
-            </td>
-            <td>{a.last_name}</td>
-            <td>
-              <OrDash>{a.state}</OrDash>
-            </td>
-            <td>
-              <OrDash>{a.country}</OrDash>
-            </td>
+            <SortHeader column="first_name">First name</SortHeader>
+            <SortHeader column="last_name">Last name</SortHeader>
+            <SortHeader column="state">State</SortHeader>
+            <SortHeader column="country">Country</SortHeader>
           </>
-        ),
-      }))}
-      panel={id === "new" ? <AthleteForm /> : undefined}
-    />
+        }
+        rows={all.map((a) => ({
+          key: a.id,
+          to: `/athletes/${a.id}`,
+          label: fullName(a),
+          search: `${fullName(a)} ${place(a)}`.toLowerCase(),
+          sort: { first_name: a.first_name, last_name: a.last_name, state: a.state, country: a.country },
+          cells: (
+            <>
+              <td>
+                <Link to={`/athletes/${a.id}`} className="strong">
+                  {a.first_name}
+                </Link>
+              </td>
+              <td>{a.last_name}</td>
+              <td>
+                <OrDash>{a.state}</OrDash>
+              </td>
+              <td>
+                <OrDash>{a.country}</OrDash>
+              </td>
+            </>
+          ),
+        }))}
+      />
+    </>
   );
 }
 
 // Full page for one athlete, laid out like the organization and contact pages.
 function AthletePage({ athlete, editing }: { athlete: Athlete; editing: boolean }) {
+  const ask = useConfirm();
   const remove = useDeleteRecord("athletes");
   const notes = useNotes();
   const label = fullName(athlete);
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     const noteCount = (notes.data ?? []).filter((n) => n.athlete_id === athlete.id).length;
     const message = deleteMessage(label, [noteCount > 0 && `Its ${plural(noteCount, "note")} will be deleted too.`]);
-    if (confirm(message)) remove.mutate({ id: athlete.id, label });
+    if (await ask(message)) remove.mutate({ id: athlete.id, label });
   };
 
   return (
@@ -135,14 +165,15 @@ function AthletePage({ athlete, editing }: { athlete: Athlete; editing: boolean 
           </>
         )}
       </div>
-      <div className="detail-grid">
+      {/* Full-width blocks, one under the other, like every record page. */}
+      <div className="detail-grid stacked">
         <section className="card section">
           {editing ? (
             <AthleteForm athlete={athlete} />
           ) : (
             <>
               <h2>Details</h2>
-              <dl className="details">
+              <dl className="details across">
                 <div>
                   <dt>State</dt>
                   <dd>

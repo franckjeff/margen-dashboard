@@ -99,6 +99,7 @@ insert into public.factory_contacts (factory_id, contact_id, is_default) values
 insert into public.athletes (id, first_name, last_name) values ('0000ace5-0000-4000-8000-0000000b0003', 'Access', 'Test');
 insert into public.leads (id, first_name, last_name) values ('0000ace5-0000-4000-8000-0000000b0004', 'Access', 'Test');
 insert into public.notes (id, organization_id, body) values ('0000ace5-0000-4000-8000-0000000b0005', '0000ace5-0000-4000-8000-0000000b0001', 'Access test note');
+insert into public.notes (lead_id, body) values ('0000ace5-0000-4000-8000-0000000b0004', 'Access test lead note');
 -- Order A is factory A's and the test organization's (with item X), order B is factory B's (with item Y).
 insert into public.orders (id, margen_order_id, factory_id, organization_id) values
   ('0000ace5-0000-4000-8000-0000000d0001', 'ACCESS_TEST_A', '0000ace5-0000-4000-8000-0000000f0001', '0000ace5-0000-4000-8000-0000000b0001'),
@@ -405,6 +406,11 @@ select pg_temp.check('leads: can''t add', 'anon', $q$insert into public.leads (f
 select pg_temp.check('leads: can''t change', 'client', $q$with x as (update public.leads set status = 'lost' returning 1) select count(*) from x$q$, '0');
 select pg_temp.check('leads: admin can change', 'admin', $q$with x as (update public.leads set status = 'lost' where id = '0000ace5-0000-4000-8000-0000000b0004' returning 1) select count(*) from x$q$, '1');
 select pg_temp.check('notes: can''t add', 'factory', $q$insert into public.notes (factory_id, body) values ('0000ace5-0000-4000-8000-0000000f0001', 'x')$q$, 'denied');
+-- Lead notes are for admins only, like leads.
+select pg_temp.check('notes: can''t add to a lead', 'client', $q$insert into public.notes (lead_id, body) values ('0000ace5-0000-4000-8000-0000000b0004', 'x')$q$, 'denied');
+select pg_temp.check('notes: lead notes hidden', 'client', $q$select count(*) from public.notes where lead_id is not null$q$, '0');
+select pg_temp.check('notes: lead notes hidden', 'factory', $q$select count(*) from public.notes where lead_id is not null$q$, '0');
+select pg_temp.check('notes: admin sees lead notes', 'admin', $q$select count(*) from public.notes where lead_id = '0000ace5-0000-4000-8000-0000000b0004'$q$, '1');
 select pg_temp.check('order_requests: can''t add directly', 'anon', $q$insert into public.order_requests (organization_name, contact_name, email) values ('A', 'B', 'a@b.co')$q$, 'denied');
 select pg_temp.check('order_events: can''t add', 'admin', $q$insert into public.order_events (order_id, margen_order_id, action) values ('0000ace5-0000-4000-8000-0000000d0001', 'X', 'updated')$q$, 'denied');
 select pg_temp.check('order_events: admin can''t change the history', 'admin', $q$with x as (update public.order_events set action = 'x' returning 1) select count(*) from x$q$, '0');

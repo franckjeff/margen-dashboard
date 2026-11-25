@@ -12,6 +12,7 @@ import { formatDate, formatDateTime } from "../../lib/format";
 import { formValues } from "../../lib/forms";
 import { messageOf, supabase, unwrap } from "../../lib/supabase";
 import { useUiState } from "../../lib/uiState";
+import { useConfirm } from "../../components/Confirm";
 
 type NameField = "first_name" | "last_name";
 // Kept short: shown next to the user's email on the Users page.
@@ -227,6 +228,7 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
 }
 
 export function UsersPage() {
+  const ask = useConfirm();
   const users = useUsers();
   const factories = useFactories();
   const organizations = useOrganizations();
@@ -306,12 +308,12 @@ export function UsersPage() {
   const selected = all.filter((u) => selectedIds.has(u.id) && canManage(u, userId));
   const toDisable = selected.filter((u) => !u.disabled_at);
   const toEnable = selected.filter((u) => u.disabled_at);
-  const confirmDisable = () => {
-    if (confirm(`Disable ${who(toDisable)}?\n\n${listOf(toDisable)}\n\nThey won't be able to sign in, and lose access to everything straight away. Their accounts, links and history are kept, and you can enable them again later.`))
+  const confirmDisable = async () => {
+    if (await ask(`Disable ${who(toDisable)}?\n\n${listOf(toDisable)}\n\nThey won't be able to sign in, and lose access to everything straight away. Their accounts, links and history are kept, and you can enable them again later.`))
       runOn(toDisable, "disable");
   };
-  const confirmDelete = () => {
-    if (confirm(`Delete ${who(selected)} for good?\n\n${listOf(selected)}\n\nThis can't be undone. Their notes and order history stay, with their name. To stop them signing in for now, disable the accounts instead.`))
+  const confirmDelete = async () => {
+    if (await ask(`Delete ${who(selected)} for good?\n\n${listOf(selected)}\n\nThis can't be undone. Their notes and order history stay, with their name. To stop them signing in for now, disable the accounts instead.`))
       runOn(selected, "delete");
   };
   const toggle = (u: User, on: boolean) =>

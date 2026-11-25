@@ -6,6 +6,7 @@ import { expectRows, useDbAction } from "../../data/mutations";
 import { useItems, useOrderItems, type Order } from "../../data/queries";
 import { supabase, unwrap } from "../../lib/supabase";
 import { orderLinesOf, parseQuantity, type LineWithItem } from "./lines";
+import { useConfirm } from "../../components/Confirm";
 
 const QUANTITY_RULE = "The quantity must be a whole number of 1 or more.";
 
@@ -85,6 +86,7 @@ export function OrderLines({ order, editing, canEdit = true }: { order: Order; e
 }
 
 function EditableLine({ line }: { line: LineWithItem }) {
+  const ask = useConfirm();
   const { notify } = useNotice();
   const input = useRef<HTMLInputElement>(null);
   const label = `${line.item.name}, size ${line.size}`;
@@ -148,7 +150,7 @@ function EditableLine({ line }: { line: LineWithItem }) {
           aria-label={`Remove ${label}`}
           title="Remove from order"
           disabled={remove.isPending}
-          onClick={() => confirm(`Remove ${line.quantity} × ${label} from this order?`) && remove.mutate(undefined)}
+          onClick={async () => (await ask(`Remove ${line.quantity} × ${label} from this order?`)) && remove.mutate(undefined)}
         >
           ×
         </button>

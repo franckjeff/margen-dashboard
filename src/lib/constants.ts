@@ -72,7 +72,8 @@ export const BILLING_FIELDS = [
 ] as const;
 // The contact columns for its phone and addresses.
 export const CONTACT_DETAIL_COLUMNS = ["phone", "whatsapp", "billing_same_as_delivery", ...ADDRESS_FIELDS, ...BILLING_FIELDS].join(", ");
-export const LEAD_TEXT_FIELDS = ["organization_name", "email", "phone", "state", "country", "source", "notes"] as const;
+// The lead form's optional text fields. Its Message (leads.notes) is what they wrote with a quote request, shown but not edited.
+export const LEAD_TEXT_FIELDS = ["organization_name", "email", "phone", "state", "country", "source"] as const;
 
 export type PageName =
   | "dashboard"

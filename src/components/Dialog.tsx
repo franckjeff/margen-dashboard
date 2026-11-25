@@ -15,6 +15,8 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
     } else {
       dialog.setAttribute("open", "");
     }
+    // A button marked autofocus (data-autofocus) gets the focus, rather than the first one (×).
+    dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus();
     return () => {
       if (typeof dialog.close === "function" && dialog.open) dialog.close();
     };

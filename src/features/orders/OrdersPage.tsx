@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { Link, Navigate } from "react-router";
+import { Link, Navigate, useNavigate } from "react-router";
 import { useSignedIn } from "../../auth/AuthProvider";
-import { ListPage } from "../../components/ListPage";
+import { Dialog } from "../../components/Dialog";
+import { ListPage, SortHeader } from "../../components/ListPage";
 import { useNotice } from "../../components/Notice";
 import {
   BackLink,
@@ -19,7 +20,7 @@ import {
 } from "../../components/ui";
 import { expectRows, useDbAction, useDeleteRecord, useSaveRecord } from "../../data/mutations";
 import { useFactories, useOrderItems, useOrders, useOrganizations, type Order } from "../../data/queries";
-import { ORDER_STATUSES, PAGES, orderListOf, productionLabel, type OrderList } from "../../lib/constants";
+import { ORDER_STATUSES, PAGES, PRODUCTION_STATUSES, orderListOf, productionLabel, type OrderList } from "../../lib/constants";
 import type { TablesUpdate } from "../../lib/database.types";
 import { formatDate, formatDay, orderOrganizationName, plural } from "../../lib/format";
 import { deleteMessage, formValues, orNull } from "../../lib/forms";
@@ -31,6 +32,7 @@ import { NotesSection } from "../notes/NotesSection";
 import { OrderHistory } from "./OrderHistory";
 import { OrderLines } from "./OrderLines";
 import { isReady, readinessOf } from "./readiness";
+import { useConfirm } from "../../components/Confirm";
 
 // An order whose organization was deleted shows the name it kept, without a link.
 const OrderOrganization = ({ order }: { order: Order }) =>
@@ -116,7 +118,7 @@ function OrderForm({ order }: { order?: Order }) {
   const back = order ? `/customs/${order.id}` : "/customs";
   return (
     <>
-      <PanelHead title={order ? "Edit order" : "New order"} close={back} />
+      {order && <PanelHead title="Edit order" close={back} />}
       <form
         className="stack"
         onSubmit={(event) => {
@@ -192,7 +194,7 @@ function OrderForm({ order }: { order?: Order }) {
           </p>
         )}
         <ShippingFields order={order} />
-        <FormButtons label={order ? "Save changes" : "Create order"} cancel={back} busy={save.isPending} />
+        <FormButtons label={order ? "Save changes" : "Add order"} cancel={back} busy={save.isPending} />
       </form>
     </>
   );
@@ -204,6 +206,16 @@ function OrderForm({ order }: { order?: Order }) {
 // orders may have been archived at another status).
 // Factory users see the same pages without client details, and change only production and shipping;
 // client users see them read only, without factory details. The database only returns each one's own orders.
+// Adding an order happens in a window over the list (#/customs/new); it opens the new one's page.
+function AddOrder() {
+  const navigate = useNavigate();
+  return (
+    <Dialog title="Add order" onClose={() => navigate("/customs")}>
+      <OrderForm />
+    </Dialog>
+  );
+}
+
 export function OrdersPage({ id, editing = false, list = "customs" }: { id?: string; editing?: boolean; list?: OrderList | "archived-orders" }) {
   const archived = list === "archived-orders";
   const orders = useOrders();
@@ -232,90 +244,124 @@ export function OrdersPage({ id, editing = false, list = "customs" }: { id?: str
   const lines = orderItems.data ?? [];
   const isNew = list === "customs";
   return (
-    <ListPage
-      title={title}
-      count={all.length}
-      newTo={adminView && isNew ? "/customs/new" : undefined}
-      newLabel="New order"
-      placeholder="Search orders"
-      loading={loadingState([orders, orderItems])}
-      empty="No orders here."
-      selection={{
-        noun: "order",
-        summary: (ids) => plural(ids.reduce((sum, id) => sum + piecesIn(lines, id), 0), "piece"),
-      }}
-      actions={
-        adminView &&
-        isNew && (
-          <Link to="/customs/import" className="button">
-            Import from Excel
-          </Link>
-        )
-      }
-      head={
-        <>
-          <th>Margen order ID</th>
-          {role !== "client" && <th className="hide-sm">Factory order ID</th>}
-          {adminView && <th className="hide-sm">Organization</th>}
-          {adminView && <th className="hide-sm">Factory</th>}
-          <th>Order status</th>
-          <th>Production</th>
-          <th className={adminView ? "hide-sm" : undefined}>Est. shipping</th>
-          <th className="num hide-sm">Pieces</th>
-          {archived && <th className="hide-sm">Archived</th>}
-        </>
-      }
-      rows={all.map((o) => ({
-        key: o.id,
-        to: `/customs/${o.id}`,
-        search: `${o.margen_order_id} ${o.factory_order_id ?? ""} ${orderOrganizationName(o) ?? ""} ${o.factory?.name ?? ""} ${ORDER_STATUSES[o.order_status]} ${productionLabel(
-          o.production_status,
-        )}`.toLowerCase(),
-        cells: (
+    <>
+      {id === "new" && <AddOrder />}
+      <ListPage
+        title={title}
+        count={all.length}
+        newTo={adminView && isNew ? "/customs/new" : undefined}
+        newLabel="Add"
+        placeholder="Search orders"
+        loading={loadingState([orders, orderItems])}
+        empty="No orders here."
+        selection={{
+          noun: "order",
+          summary: (ids) => plural(ids.reduce((sum, id) => sum + piecesIn(lines, id), 0), "piece"),
+        }}
+        actions={
+          adminView &&
+          isNew && (
+            <Link to="/customs/import" className="button">
+              Import from Excel
+            </Link>
+          )
+        }
+        head={
           <>
-            <td>
-              <Link to={`/customs/${o.id}`} className="strong mono">
-                {o.margen_order_id}
-              </Link>
-            </td>
+            <SortHeader column="id">Margen order ID</SortHeader>
             {role !== "client" && (
-              <td className="mono hide-sm">
-                <OrDash>{o.factory_order_id}</OrDash>
-              </td>
+              <SortHeader column="factory_order" className="hide-sm">
+                Factory order ID
+              </SortHeader>
             )}
             {adminView && (
-              <td className="hide-sm">
-                <OrderOrganization order={o} />
-              </td>
+              <SortHeader column="organization" className="hide-sm">
+                Organization
+              </SortHeader>
             )}
             {adminView && (
-              <td className="hide-sm">
-                <OrderFactory order={o} />
-              </td>
+              <SortHeader column="factory" className="hide-sm">
+                Factory
+              </SortHeader>
             )}
-            <td>
-              <OrderBadge status={o.order_status} />
-            </td>
-            {/* Factory users change these two right in the list. */}
-            {factoryView ? (
-              <FactoryRowCells order={o} />
-            ) : (
-              <>
-                <td>
-                  <ProductionBadge status={o.production_status} />
-                </td>
-                <td className={adminView ? "hide-sm" : undefined}>
-                  <ShipDay day={o.estimated_ship_date} />
-                </td>
-              </>
+            <SortHeader column="status">Order status</SortHeader>
+            <SortHeader column="production">Production</SortHeader>
+            <SortHeader column="ship" className={adminView ? "hide-sm" : undefined}>
+              Est. shipping
+            </SortHeader>
+            <SortHeader column="pieces" className="num hide-sm" firstDescending>
+              Pieces
+            </SortHeader>
+            {archived && (
+              <SortHeader column="archived" className="hide-sm" firstDescending>
+                Archived
+              </SortHeader>
             )}
-            <td className="num hide-sm">{piecesIn(lines, o.id) || <Dash />}</td>
-            {archived && <td className="hide-sm">{o.archived_at ? formatDate(o.archived_at) : <Dash />}</td>}
           </>
-        ),
-      }))}
-      panel={id === "new" ? <OrderForm /> : undefined}
-    />
+        }
+        rows={all.map((o) => ({
+          key: o.id,
+          to: `/customs/${o.id}`,
+          // Statuses sort in the order an order goes through them, not A to Z.
+          sort: {
+            id: o.margen_order_id,
+            factory_order: o.factory_order_id,
+            organization: orderOrganizationName(o),
+            factory: o.factory?.name,
+            status: Object.keys(ORDER_STATUSES).indexOf(o.order_status),
+            production: o.production_status ? Object.keys(PRODUCTION_STATUSES).indexOf(o.production_status) : null,
+            ship: o.estimated_ship_date,
+            pieces: piecesIn(lines, o.id),
+            archived: o.archived_at,
+          },
+          search: `${o.margen_order_id} ${o.factory_order_id ?? ""} ${orderOrganizationName(o) ?? ""} ${o.factory?.name ?? ""} ${ORDER_STATUSES[o.order_status]} ${productionLabel(
+            o.production_status,
+          )}`.toLowerCase(),
+          cells: (
+            <>
+              <td>
+                <Link to={`/customs/${o.id}`} className="strong mono">
+                  {o.margen_order_id}
+                </Link>
+              </td>
+              {role !== "client" && (
+                <td className="mono hide-sm">
+                  <OrDash>{o.factory_order_id}</OrDash>
+                </td>
+              )}
+              {adminView && (
+                <td className="hide-sm">
+                  <OrderOrganization order={o} />
+                </td>
+              )}
+              {adminView && (
+                <td className="hide-sm">
+                  <OrderFactory order={o} />
+                </td>
+              )}
+              <td>
+                <OrderBadge status={o.order_status} />
+              </td>
+              {/* Factory users change these two right in the list. */}
+              {factoryView ? (
+                <FactoryRowCells order={o} />
+              ) : (
+                <>
+                  <td>
+                    <ProductionBadge status={o.production_status} />
+                  </td>
+                  <td className={adminView ? "hide-sm" : undefined}>
+                    <ShipDay day={o.estimated_ship_date} />
+                  </td>
+                </>
+              )}
+              <td className="num hide-sm">{piecesIn(lines, o.id) || <Dash />}</td>
+              {archived && <td className="hide-sm">{o.archived_at ? formatDate(o.archived_at) : <Dash />}</td>}
+            </>
+          ),
+        }))}
+      />
+    </>
   );
 }
 
@@ -489,16 +535,17 @@ export function ReadinessBar({ order }: { order: Order }) {
 }
 
 function OrderPage({ order, editing }: { order: Order; editing: boolean }) {
+  const ask = useConfirm();
   const remove = useDeleteRecord("orders");
   const orderItems = useOrderItems();
   const factories = useFactories();
   const setField = useSetOrderField(order);
   const label = `order ${order.margen_order_id}`;
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     const lineCount = (orderItems.data ?? []).filter((l) => l.order_id === order.id).length;
     const message = deleteMessage(label, [lineCount > 0 && `Its ${plural(lineCount, "item line")} will be deleted too.`]);
-    if (confirm(message)) remove.mutate({ id: order.id, label });
+    if (await ask(message)) remove.mutate({ id: order.id, label });
   };
 
   return (

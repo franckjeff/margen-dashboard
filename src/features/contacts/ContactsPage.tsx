@@ -1,15 +1,17 @@
-import { Link } from "react-router";
-import { ListPage } from "../../components/ListPage";
+import { Link, useNavigate } from "react-router";
+import { Dialog } from "../../components/Dialog";
+import { ListPage, SortHeader } from "../../components/ListPage";
 import { useNotice } from "../../components/Notice";
 import { BackLink, Count, Dash, EmailInput, FormButtons, Missing, OrDash, Optional, PanelHead, QueryGate, loadingState } from "../../components/ui";
-import { useDeleteRecord, useSaveRecord } from "../../data/mutations";
+import { useDeleteRecord, useDeleteRecords, useSaveRecord } from "../../data/mutations";
 import { useContacts, useFactories, useNotes, useOrganizations, type Contact } from "../../data/queries";
 import { addressLines, contactLocation, formatDate, fullName, place, plural } from "../../lib/format";
-import { deleteMessage, formValues, orNull } from "../../lib/forms";
+import { deleteManyMessage, deleteMessage, formValues, orNull } from "../../lib/forms";
 import { NotesSection } from "../notes/NotesSection";
 import { BillingAddress, ContactDetailsFields, DeliveryAddress, Phone } from "./ContactDetails";
 import { contactDetailsRow } from "./details";
 import { isBusyWith, useLinkActions, type LinkOwner } from "../organizations/links";
+import { useConfirm } from "../../components/Confirm";
 
 function ContactForm({ contact }: { contact?: Contact }) {
   const save = useSaveRecord("contacts");
@@ -18,7 +20,7 @@ function ContactForm({ contact }: { contact?: Contact }) {
   const text = (name: "first_name" | "last_name" | "email") => contact?.[name] ?? "";
   return (
     <>
-      <PanelHead title={contact ? "Edit contact" : "New contact"} close={back} />
+      {contact && <PanelHead title="Edit contact" close={back} />}
       <form
         className="stack"
         onSubmit={(event) => {
@@ -46,7 +48,7 @@ function ContactForm({ contact }: { contact?: Contact }) {
           <EmailInput name="email" autoComplete="off" defaultValue={text("email")} placeholder="Where the app sends this contact's emails" />
         </label>
         <ContactDetailsFields contact={contact} />
-        <FormButtons label={contact ? "Save changes" : "Create contact"} cancel={back} busy={save.isPending} />
+        <FormButtons label={contact ? "Save changes" : "Add contact"} cancel={back} busy={save.isPending} />
       </form>
     </>
   );
@@ -54,10 +56,23 @@ function ContactForm({ contact }: { contact?: Contact }) {
 
 const linkedNames =(c: Contact) => [...c.organizations, ...c.factories].map((o) => o.name).join(", ");
 
-export function ContactsPage({ id, editing = false }: { id?: string; editing?: boolean }) {
-  const contacts = useContacts();
+// Adding a contact happens in a window over the list (#/contacts/new); it opens the new one's page.
+function AddContact() {
+  const navigate = useNavigate();
+  return (
+    <Dialog title="Add contact" onClose={() => navigate("/contacts")}>
+      <ContactForm />
+    </Dialog>
+  );
+}
 
-  // A selected contact gets its own page; only the "new" form stays in the list's side panel.
+export function ContactsPage({ id, editing = false }: { id?: string; editing?: boolean }) {
+  const ask = useConfirm();
+  const contacts = useContacts();
+  const notes = useNotes();
+  const removeMany = useDeleteRecords("contacts", "contacts");
+
+  // A selected contact gets its own page; adding one (#/contacts/new) opens a window over the list.
   if (id && id !== "new") {
     return (
       <QueryGate queries={[contacts]}>
@@ -71,59 +86,84 @@ export function ContactsPage({ id, editing = false }: { id?: string; editing?: b
 
   const all = contacts.data ?? [];
   return (
-    <ListPage
-      title="Contacts"
-      count={all.length}
-      newTo="/contacts/new"
-      newLabel="New contact"
-      placeholder="Search contacts"
-      empty="No contacts yet."
-      loading={loadingState([contacts])}
-      head={
-        <>
-          <th>First name</th>
-          <th>Last name</th>
-          <th className="hide-sm">Email</th>
-          <th className="hide-sm">Location</th>
-          <th>Organizations and factories</th>
-        </>
-      }
-      rows={all.map((c) => ({
-        key: c.id,
-        to: `/contacts/${c.id}`,
-        search: `${fullName(c)} ${c.email ?? ""} ${c.phone ?? ""} ${addressLines(c).join(" ")} ${linkedNames(c)}`.toLowerCase(),
-        cells: (
+    <>
+      {id === "new" && <AddContact />}
+      <ListPage
+        title="Contacts"
+        count={all.length}
+        newTo="/contacts/new"
+        newLabel="Add"
+        placeholder="Search contacts"
+        empty="No contacts yet."
+        loading={loadingState([contacts])}
+        deletion={{
+          nouns: "contacts",
+          busy: removeMany.isPending,
+          onDelete: async (ids, done) => {
+            const picked = all.filter((c) => ids.includes(c.id));
+            const links = picked.reduce((n, c) => n + c.organizations.length + c.factories.length, 0);
+            const defaults = picked.flatMap((c) => [...c.organizations, ...c.factories].filter((o) => o.is_default).map((o) => o.name));
+            const noteCount = (notes.data ?? []).filter((n) => n.contact_id && ids.includes(n.contact_id)).length;
+            const message = deleteManyMessage(picked.map(fullName), "contacts", [
+              links > 0 && `${plural(links, "link")} to organizations and factories will be removed too. They themselves are kept.`,
+              defaults.length > 0 && `Default contact of ${defaults.join(", ")}, so their emails need a new default contact.`,
+              noteCount > 0 && `${plural(noteCount, "note")} will be deleted too.`,
+            ]);
+            if (await ask(message)) removeMany.mutate(picked.map((c) => ({ id: c.id, label: fullName(c) })), { onSettled: done });
+          },
+        }}
+        head={
           <>
-            <td>
-              <Link to={`/contacts/${c.id}`} className="strong">
-                {c.first_name}
-              </Link>
-            </td>
-            <td>{c.last_name}</td>
-            <td className="hide-sm">
-              <OrDash>{c.email}</OrDash>
-            </td>
-            <td className="hide-sm">
-              <OrDash>{contactLocation(c)}</OrDash>
-            </td>
-            <td>
-              <OrDash>{linkedNames(c)}</OrDash>
-            </td>
+            <SortHeader column="first_name">First name</SortHeader>
+            <SortHeader column="last_name">Last name</SortHeader>
+            <SortHeader column="email" className="hide-sm">
+              Email
+            </SortHeader>
+            <SortHeader column="location" className="hide-sm">
+              Location
+            </SortHeader>
+            <SortHeader column="linked">Organizations and factories</SortHeader>
           </>
-        ),
-      }))}
-      panel={id === "new" ? <ContactForm /> : undefined}
-    />
+        }
+        rows={all.map((c) => ({
+          key: c.id,
+          to: `/contacts/${c.id}`,
+          label: fullName(c),
+          sort: { first_name: c.first_name, last_name: c.last_name, email: c.email, location: contactLocation(c), linked: linkedNames(c) },
+          search: `${fullName(c)} ${c.email ?? ""} ${c.phone ?? ""} ${addressLines(c).join(" ")} ${linkedNames(c)}`.toLowerCase(),
+          cells: (
+            <>
+              <td>
+                <Link to={`/contacts/${c.id}`} className="strong">
+                  {c.first_name}
+                </Link>
+              </td>
+              <td>{c.last_name}</td>
+              <td className="hide-sm">
+                <OrDash>{c.email}</OrDash>
+              </td>
+              <td className="hide-sm">
+                <OrDash>{contactLocation(c)}</OrDash>
+              </td>
+              <td>
+                <OrDash>{linkedNames(c)}</OrDash>
+              </td>
+            </>
+          ),
+        }))}
+      />
+    </>
   );
 }
 
 // Full page for one contact, laid out like the organization page.
 function ContactPage({ contact, editing }: { contact: Contact; editing: boolean }) {
+  const ask = useConfirm();
   const remove = useDeleteRecord("contacts");
   const notes = useNotes();
   const label = fullName(contact);
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     const links = contact.organizations.length + contact.factories.length;
     const defaults = [...contact.organizations, ...contact.factories].filter((o) => o.is_default).map((o) => o.name);
     const noteCount = (notes.data ?? []).filter((n) => n.contact_id === contact.id).length;
@@ -132,7 +172,7 @@ function ContactPage({ contact, editing }: { contact: Contact; editing: boolean 
       defaults.length > 0 && `It's the default contact of ${defaults.join(", ")}, so their emails need a new default contact.`,
       noteCount > 0 && `Its ${plural(noteCount, "note")} will be deleted too.`,
     ]);
-    if (confirm(message)) remove.mutate({ id: contact.id, label });
+    if (await ask(message)) remove.mutate({ id: contact.id, label });
   };
 
   return (
@@ -141,6 +181,7 @@ function ContactPage({ contact, editing }: { contact: Contact; editing: boolean 
       <div className="page-head">
         <div className="title-block">
           <h1>{label}</h1>
+          <p className="muted">{contactLocation(contact) || "No location yet"}</p>
         </div>
         {!editing && (
           <>

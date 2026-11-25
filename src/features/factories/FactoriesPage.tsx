@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router";
 import { Dialog } from "../../components/Dialog";
-import { ListPage } from "../../components/ListPage";
+import { ListPage, SortHeader } from "../../components/ListPage";
 import { useNotice } from "../../components/Notice";
 import {
   BackLink,
@@ -16,13 +16,14 @@ import {
   QueryGate,
   loadingState,
 } from "../../components/ui";
-import { useDeleteRecord, useSaveRecord } from "../../data/mutations";
+import { useDeleteRecord, useDeleteRecords, useSaveRecord } from "../../data/mutations";
 import { useFactories, useNotes, useOrders, type Factory } from "../../data/queries";
 import { isOpenOrder } from "../../lib/constants";
 import { formatDate, fullName, plural } from "../../lib/format";
-import { deleteMessage, formValues, orNull } from "../../lib/forms";
+import { deleteManyMessage, deleteMessage, formValues, orNull } from "../../lib/forms";
 import { LinkedContacts } from "../contacts/LinkedContacts";
 import { NotesSection } from "../notes/NotesSection";
+import { useConfirm } from "../../components/Confirm";
 
 function FactoryForm({ factory }: { factory?: Factory }) {
   const save = useSaveRecord("factories");
@@ -69,8 +70,11 @@ function AddFactory() {
 }
 
 export function FactoriesPage({ id, editing = false }: { id?: string; editing?: boolean }) {
+  const ask = useConfirm();
   const factories = useFactories();
   const orders = useOrders();
+  const notes = useNotes();
+  const removeMany = useDeleteRecords("factories", "factories");
 
   if (id && id !== "new") {
     return (
@@ -99,13 +103,35 @@ export function FactoriesPage({ id, editing = false }: { id?: string; editing?: 
         newLabel="Add"
         placeholder="Search factories"
         loading={loadingState([factories, orders])}
+        deletion={{
+          nouns: "factories",
+          busy: removeMany.isPending,
+          onDelete: async (ids, done) => {
+            const picked = all.filter((f) => ids.includes(f.id));
+            const noteCount = (notes.data ?? []).filter((n) => n.factory_id && ids.includes(n.factory_id)).length;
+            const links = picked.reduce((n, f) => n + f.contacts.length, 0);
+            const message = deleteManyMessage(picked.map((f) => f.name), "factories", [
+              links > 0 && `${plural(links, "contact link")} will be removed. The contacts themselves are kept.`,
+              noteCount > 0 && `${plural(noteCount, "note")} will be deleted too.`,
+            ]);
+            if (await ask(message)) removeMany.mutate(picked.map((f) => ({ id: f.id, label: f.name })), { onSettled: done });
+          },
+        }}
         head={
           <>
-            <th>Name</th>
-            <th className="hide-sm">Default contact</th>
-            <th className="hide-sm">Country</th>
-            <th className="num">Open orders</th>
-            <th className="num hide-sm">All orders</th>
+            <SortHeader column="name">Name</SortHeader>
+            <SortHeader column="contact" className="hide-sm">
+              Default contact
+            </SortHeader>
+            <SortHeader column="country" className="hide-sm">
+              Country
+            </SortHeader>
+            <SortHeader column="open" className="num" firstDescending>
+              Open orders
+            </SortHeader>
+            <SortHeader column="all" className="num hide-sm" firstDescending>
+              All orders
+            </SortHeader>
           </>
         }
         rows={all.map((f) => {
@@ -115,6 +141,10 @@ export function FactoriesPage({ id, editing = false }: { id?: string; editing?: 
           return {
             key: f.id,
             to: `/factories/${f.id}`,
+            label: f.name,
+            sort: { name: f.name, contact: def ? fullName(def) : null, country: f.country, open, all: own.length },
+            // The database refuses to delete a factory that orders are assigned to.
+            blocker: own.length ? `${f.name} has ${plural(own.length, "order")}, so it can't be deleted. Assign those orders elsewhere first.` : null,
             search: `${f.name} ${f.contacts.map(fullName).join(" ")} ${f.country ?? ""} ${f.description ?? ""}`.toLowerCase(),
             cells: (
               <>
@@ -139,21 +169,23 @@ export function FactoriesPage({ id, editing = false }: { id?: string; editing?: 
 }
 
 function FactoryPage({ factory, editing }: { factory: Factory; editing: boolean }) {
+  const ask = useConfirm();
   const remove = useDeleteRecord("factories");
   const orders = useOrders();
   const notes = useNotes();
-  const { notify } = useNotice();
   const defaultContact = factory.contacts.find((c) => c.is_default);
+  // The database refuses to delete a factory that orders are assigned to, so Delete is greyed out, saying why.
+  const assigned = (orders.data ?? []).filter((o) => o.factory_id === factory.id).length;
+  const blocker = orders.data
+    ? assigned
+      ? `${factory.name} has ${plural(assigned, "order")}, so it can't be deleted. Assign those orders elsewhere first.`
+      : null
+    : "Loading…";
 
-  const confirmDelete = () => {
-    // The database refuses to delete a factory that orders are assigned to; say so before asking.
-    const assigned = (orders.data ?? []).filter((o) => o.factory_id === factory.id).length;
-    if (assigned) {
-      return notify("error", `${factory.name} has ${plural(assigned, "order")}, so it can't be deleted. Assign those orders elsewhere first.`);
-    }
+  const confirmDelete = async () => {
     const noteCount = (notes.data ?? []).filter((n) => n.factory_id === factory.id).length;
     const message = deleteMessage(factory.name, [noteCount > 0 && `Its ${plural(noteCount, "note")} will be deleted too.`]);
-    if (confirm(message)) remove.mutate({ id: factory.id, label: factory.name });
+    if (await ask(message)) remove.mutate({ id: factory.id, label: factory.name });
   };
 
   return (
@@ -162,13 +194,14 @@ function FactoryPage({ factory, editing }: { factory: Factory; editing: boolean 
       <div className="page-head">
         <div className="title-block">
           <h1>{factory.name}</h1>
+          <p className="muted">{factory.country || "No country yet"}</p>
         </div>
         {!editing && (
           <>
             <Link to={`/factories/${factory.id}/edit`} className="button">
               Edit
             </Link>
-            <button type="button" className="danger" onClick={confirmDelete} disabled={remove.isPending || orders.isPending}>
+            <button type="button" className="danger" onClick={confirmDelete} disabled={remove.isPending || Boolean(blocker)} title={blocker ?? undefined}>
               Delete
             </button>
           </>
