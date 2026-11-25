@@ -6,10 +6,28 @@ import { ORDER_LISTS, ORDER_STATUSES, PAGES, PRODUCTION_STATUSES, orderListOf, t
 import { useUiState } from "../../lib/uiState";
 import { ORDER_STATUS_MEANINGS, type Audience } from "./guideText";
 import { StatusFlow } from "./StatusFlow";
+import {
+  AdminAccountSection,
+  AdminEmailsSection,
+  AdminFlowSection,
+  AdminLeadsSection,
+  AdminMoreSection,
+  AdminNewOrdersSection,
+  AdminOrderSection,
+  AdminOtherGuidesSection,
+  AdminPeopleSection,
+  AdminUsersSection,
+} from "./AdminGuide";
+import { Ui, type Section } from "./GuideUi";
 
 // The User guide: how the app works for the signed-in account. Factory and client users each see only
-// what their own account can do and see; admins choose which of the two guides to read.
-const AUDIENCE_LABELS: Record<Audience, string> = { factory: "Factory users", client: "Client users" };
+// what their own account can do and see; admins read their own guide, or choose either of the other two.
+const AUDIENCE_LABELS: Record<Audience, string> = { admin: "Admin users", factory: "Factory users", client: "Client users" };
+const SUBTITLES: Record<Audience, string> = {
+  admin: "How to run MARGEN's side of the Dashboard: orders, factories, clients, users and emails.",
+  factory: "How to follow your MARGEN orders and keep their production and shipping up to date.",
+  client: "How to follow your organization's MARGEN orders, from confirmation to delivery.",
+};
 
 // What each order page holds, in plain words.
 const LIST_DESCRIPTIONS: Record<OrderList | "archived-orders", string> = {
@@ -20,16 +38,12 @@ const LIST_DESCRIPTIONS: Record<OrderList | "archived-orders", string> = {
 };
 const pageLabel = (name: string) => PAGES.find((p) => p.name === name)?.label;
 
-// The name of something on screen: a button, link, menu entry or field.
-const Ui = ({ children }: { children: ReactNode }) => <b className="ui-name">{children}</b>;
-
-type Section = { id: string; title: string; body: ReactNode };
 
 export function GuidePage() {
   const { role } = useSignedIn();
-  const [chosen, setChosen] = useUiState<Audience>("guideAudience", "factory");
+  const [chosen, setChosen] = useUiState<Audience>("guideAudience", "admin");
   const audience: Audience = role === "admin" ? chosen : role;
-  const sections = guideSections(audience);
+  const sections = audience === "admin" ? adminGuideSections() : guideSections(audience);
 
   const jump = (id: string) => document.getElementById(`guide-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -38,11 +52,7 @@ export function GuidePage() {
       <div className="page-head">
         <div className="title-block">
           <h1>User guide</h1>
-          <p className="muted">
-            {audience === "factory"
-              ? "How to follow your MARGEN orders and keep their production and shipping up to date."
-              : "How to follow your organization's MARGEN orders, from confirmation to delivery."}
-          </p>
+          <p className="muted">{SUBTITLES[audience]}</p>
         </div>
         {role === "admin" && (
           <label className="inline-select">
@@ -57,7 +67,7 @@ export function GuidePage() {
           </label>
         )}
       </div>
-      {role === "admin" && (
+      {role === "admin" && audience !== "admin" && (
         <p className="notice">
           You're reading the guide as {AUDIENCE_LABELS[audience].toLowerCase()} see it. They see only their own guide, with no
           way to switch.
@@ -88,6 +98,22 @@ export function GuidePage() {
       ))}
     </div>
   );
+}
+
+// The admin guide: running MARGEN's side of the Dashboard. Factory and client users never see it.
+function adminGuideSections(): Section[] {
+  return [
+    { id: "admin-account", title: "Your Admin account", body: <AdminAccountSection /> },
+    { id: "admin-flow", title: "How an order moves", body: <AdminFlowSection /> },
+    { id: "admin-new-orders", title: "Creating orders", body: <AdminNewOrdersSection /> },
+    { id: "admin-order", title: "Working on an order", body: <AdminOrderSection /> },
+    { id: "admin-people", title: "Organizations, factories and contacts", body: <AdminPeopleSection /> },
+    { id: "admin-leads", title: "Leads and athletes", body: <AdminLeadsSection /> },
+    { id: "admin-users", title: "Users and access", body: <AdminUsersSection /> },
+    { id: "admin-emails", title: "Emails", body: <AdminEmailsSection /> },
+    { id: "admin-more", title: "Items, reporting and status colors", body: <AdminMoreSection /> },
+    { id: "admin-other-guides", title: "The factory and client guides", body: <AdminOtherGuidesSection /> },
+  ];
 }
 
 function guideSections(audience: Audience): Section[] {
@@ -484,7 +510,7 @@ function StatusesSection({ audience }: { audience: Audience }) {
       <h3>{factory ? "Production status: yours to update" : "Production status: updated by the factory"}</h3>
       <p>
         {factory
-          ? "Move each order along as production progresses. You can pick any status at any time, so you can also correct a mistake."
+          ? "Move each order along as production progresses, one step at a time. The menu offers the next step, or the one before to correct a mistake."
           : "The factory moves each order along these steps as the work progresses."}
       </p>
       <ol className="guide-flow" aria-label="Production steps">

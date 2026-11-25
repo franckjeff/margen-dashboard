@@ -128,7 +128,7 @@ export const PAGES: Page[] = [
   { name: "emails", label: "Email Admin and Logs", roles: ["admin"], group: "Admin" },
   // The colour of each status badge, for everyone.
   { name: "status-colors", label: "Status colors", roles: ["admin"], group: "Admin" },
-  // How the app works, written for factory or client users; admins can read either version.
+  // How the app works: a guide for admins, one for factory users and one for client users; admins can read all three.
   { name: "guide", label: "User guide", roles: ["admin", "factory", "client"] },
 ];
 

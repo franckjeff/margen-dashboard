@@ -25,7 +25,7 @@ const renderGuide = (as: Role) => {
 const contents = () => screen.getAllByRole("listitem").filter((li) => li.closest(".guide-toc")).map((li) => li.textContent);
 
 describe("User guide", () => {
-  it("explains every order status to both audiences", () => {
+  it("explains every order status to every audience", () => {
     for (const meanings of Object.values(ORDER_STATUS_MEANINGS)) {
       expect(Object.keys(meanings).sort()).toEqual(Object.keys(ORDER_STATUSES).sort());
     }
@@ -48,8 +48,18 @@ describe("User guide", () => {
     expect(screen.queryByText(/factory order ID/i)).not.toBeInTheDocument();
   });
 
-  it("lets admins switch between the two guides", async () => {
+  it("shows admins their own guide first", () => {
     renderGuide("admin");
+    expect(contents()).toContain("Users and access");
+    expect(contents()).toContain("Emails");
+    expect(contents()).not.toContain("Good habits");
+    // The admin guide isn't introduced as another audience's view.
+    expect(screen.queryByText(/You're reading the guide as/)).not.toBeInTheDocument();
+  });
+
+  it("lets admins switch between the three guides", async () => {
+    renderGuide("admin");
+    await userEvent.selectOptions(screen.getByLabelText("Guide for"), "factory");
     expect(contents()).toContain("Good habits");
     await userEvent.selectOptions(screen.getByLabelText("Guide for"), "client");
     expect(contents()).toContain("Placing a new order");

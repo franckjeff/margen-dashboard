@@ -1,8 +1,15 @@
-// The two audiences of the User guide.
-export type Audience = "factory" | "client";
+// The audiences of the User guide. Admins read their own guide, or either of the others.
+export type Audience = "admin" | "factory" | "client";
 
-// What each order status means for each audience. Every status in ORDER_STATUSES needs both.
+// What each order status means for each audience. Every status in ORDER_STATUSES needs all three.
 export const ORDER_STATUS_MEANINGS: Record<Audience, Record<string, string>> = {
+  admin: {
+    received: "A new order: check it has an organization and items, then accept it.",
+    accepted: "Confirmed. Assign a factory to start production.",
+    in_production: "Assigned to a factory, which moves the production status along.",
+    shipped: "Set on its own when production reaches Shipped. Can be archived from here.",
+    cancelled: "Won't go ahead. Final: a cancelled order can't be reopened.",
+  },
   factory: {
     received: "MARGEN has received the order. Wait for it to be accepted before starting, unless MARGEN tells you otherwise.",
     accepted: "The order is confirmed. Go ahead with production.",

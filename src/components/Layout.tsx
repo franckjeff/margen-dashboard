@@ -8,7 +8,7 @@ import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
 import { useUiState } from "../lib/uiState";
 import { ErrorBoundary } from "./ErrorBoundary";
-import { ChevronIcon, MoonIcon, SunIcon } from "./icons";
+import { ChevronIcon, MenuIcon, MoonIcon, SunIcon } from "./icons";
 import { NoticeBar, useNotice } from "./Notice";
 
 // The primary logo always sits on navy, as the brand guidelines show it.
@@ -71,8 +71,10 @@ export function Layout() {
     else entries.push(p.group ? { group: p.group, pages: [p] } : p);
   }
 
-  const tab = (p: Page) => (
+  // Top-level entries have an icon in front; the pages inside a group don't.
+  const tab = (p: Page, topLevel = false) => (
     <NavLink key={p.name} to={`/${p.name}`} className={({ isActive }) => `tab${isActive ? " active" : ""}`}>
+      {topLevel && <MenuIcon name={p.name} />}
       {p.label}
       {hasMenuCount(p.name) && <MenuCount page={p} />}
     </NavLink>
@@ -106,7 +108,7 @@ export function Layout() {
         </Link>
         <nav className="tabs" aria-label="Main menu">
           {entries.map((entry) => {
-            if (!("pages" in entry)) return tab(entry);
+            if (!("pages" in entry)) return tab(entry, true);
             // Groups start closed; the one holding the current page opens unless the user closed it.
             const holdsPage = entry.pages.some((p) => p.name === page);
             const open = menuGroups[entry.group] ?? holdsPage;
@@ -120,11 +122,14 @@ export function Layout() {
                   aria-controls={id}
                   onClick={() => setMenuGroups((groups) => ({ ...groups, [entry.group]: !open }))}
                 >
-                  {entry.group}
+                  <span className="tab-group-name">
+                    <MenuIcon name={entry.group} />
+                    {entry.group}
+                  </span>
                   <ChevronIcon />
                 </button>
                 <div className="tab-group-pages" id={id}>
-                  {entry.pages.map(tab)}
+                  {entry.pages.map((p) => tab(p))}
                 </div>
               </div>
             );
