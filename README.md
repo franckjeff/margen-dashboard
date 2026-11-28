@@ -48,6 +48,7 @@ Open http://localhost:5173 and sign in with a Supabase account. Saved code chang
 | `src/assets/`, `public/` | MARGEN logo and favicon, taken from the brand's logo files |
 | `src/config.ts` | Supabase project URL and publishable key (safe in the browser) |
 | `supabase/migrations/` | Every database change, in the order it was applied |
+| `supabase/rollbacks/` | Scripts that undo a migration completely, for a feature that's being tried out |
 | `supabase/functions/` | Server-side functions that need the project's secret key (creating accounts, sending emails) |
 
 ## Adding a page
@@ -207,6 +208,11 @@ Every schema change follows the same steps:
 4. Regenerate the types with `npm run db:types`, then run `npm run build`.
 5. If the change affects who can see or change something, update `supabase/tests/access_rules.sql`
    and run it (see Access tests below).
+
+A feature being tried out can come with a rollback script in `supabase/rollbacks/`, named after its migration. It
+removes everything the migration added (and its data) in one transaction, and forgets the migration so it can be applied
+again later. Tasks (`20261126120000_tasks.sql`) has one: run its rollback on MARGEN TEST, redeploy `send-emails` from
+`main`, and leave the `tasks` branch unmerged.
 
 `src/lib/database.types.ts` is generated: never edit it by hand. It's how TypeScript checks every
 database call, so a hand edit with a mistake would hide real errors until someone opens the page.

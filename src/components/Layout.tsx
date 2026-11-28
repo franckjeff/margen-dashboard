@@ -19,8 +19,8 @@ type MenuEntry = Page | { group: string; pages: Page[] };
 
 // How many records a menu item's page lists, beside it. Nothing shows until it has loaded.
 function MenuCount({ page }: { page: Page }) {
-  const { role } = useSignedIn();
-  const count = useMenuCount(page.name, role);
+  const { role, userId } = useSignedIn();
+  const count = useMenuCount(page.name, role, userId);
   if (count.data === undefined) return null;
   return <span className="tab-count">({count.data})</span>;
 }

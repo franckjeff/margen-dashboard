@@ -34,6 +34,7 @@ const StatusColorsPage = lazy(() =>
   import("./features/statusColors/StatusColorsPage").then((m) => ({ default: m.StatusColorsPage })),
 );
 const UsersPage = lazy(() => import("./features/users/UsersPage").then((m) => ({ default: m.UsersPage })));
+const TasksPage = lazy(() => import("./features/tasks/TasksPage").then((m) => ({ default: m.TasksPage })));
 import { messageOf } from "./lib/supabase";
 
 const Loading = () => <p className="loading">Loading…</p>;
@@ -119,6 +120,7 @@ function AppRoutes() {
       <Route element={<Layout />}>
         <Route index element={<Navigate to={home} replace />} />
         <Route path="dashboard" element={page("dashboard", <DashboardPage />)} />
+        {records("tasks", (id, editing) => <TasksPage id={id} editing={editing} />)}
         <Route path="order" element={page("order", <OrderEntryPage />)} />
         {records("customs", (id, editing) => <OrdersPage id={id} editing={editing} />)}
         {/* Orders on these lists open on their usual page, #/customs/<id>. */}

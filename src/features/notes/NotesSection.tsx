@@ -6,14 +6,15 @@ import { useNotes, type Note } from "../../data/queries";
 import { supabase, unwrap } from "../../lib/supabase";
 import { useConfirm } from "../../components/Confirm";
 
-type SubjectColumn = "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "order_id" | "lead_id";
+type SubjectColumn = "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "order_id" | "lead_id" | "task_id";
 type Subject =
   | { contact_id: string }
   | { athlete_id: string }
   | { factory_id: string }
   | { organization_id: string }
   | { order_id: string }
-  | { lead_id: string };
+  | { lead_id: string }
+  | { task_id: string };
 
 export function useDeleteNote() {
   return useDbAction({
@@ -38,8 +39,8 @@ export function NoteMeta({ note, before, after }: { note: Note; before?: ReactNo
   );
 }
 
-// Notes timeline for a contact, organization, athlete, factory, order or lead, newest first, with a box to add one.
-// Admins delete any note; anyone else (a factory, on its orders) only their own.
+// Notes timeline for a contact, organization, athlete, factory, order, lead or task, newest first, with a box to add one.
+// Admins delete any note; anyone else (a factory, on its orders and tasks) only their own.
 export function NotesSection({ subject, placeholder, hint }: { subject: Subject; placeholder?: string; hint?: string }) {
   const ask = useConfirm();
   const notes = useNotes();

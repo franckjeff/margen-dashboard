@@ -176,6 +176,7 @@ export type Database = {
           send_after: string
           sent_at: string | null
           status: string
+          task_id: string | null
         }
         Insert: {
           attempts?: number
@@ -197,6 +198,7 @@ export type Database = {
           send_after?: string
           sent_at?: string | null
           status?: string
+          task_id?: string | null
         }
         Update: {
           attempts?: number
@@ -218,6 +220,7 @@ export type Database = {
           send_after?: string
           sent_at?: string | null
           status?: string
+          task_id?: string | null
         }
         Relationships: [
           {
@@ -260,6 +263,13 @@ export type Database = {
             columns: ["recipient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbox_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -470,6 +480,7 @@ export type Database = {
           lead_id: string | null
           order_id: string | null
           organization_id: string | null
+          task_id: string | null
         }
         Insert: {
           athlete_id?: string | null
@@ -484,6 +495,7 @@ export type Database = {
           lead_id?: string | null
           order_id?: string | null
           organization_id?: string | null
+          task_id?: string | null
         }
         Update: {
           athlete_id?: string | null
@@ -498,6 +510,7 @@ export type Database = {
           lead_id?: string | null
           order_id?: string | null
           organization_id?: string | null
+          task_id?: string | null
         }
         Relationships: [
           {
@@ -547,6 +560,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -949,6 +969,73 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      tasks: {
+        Row: {
+          assignee_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          order_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assignee_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          order_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assignee_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          order_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

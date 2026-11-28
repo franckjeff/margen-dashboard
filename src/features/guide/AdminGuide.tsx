@@ -23,6 +23,10 @@ export function AdminAccountSection() {
           stays on the page it was added to.
         </li>
         <li>
+          <Ui>Tasks</Ui>: your to-dos, and the ones you give other admins and factory users. The number beside it is how many of
+          yours aren't done yet.
+        </li>
+        <li>
           <em>Custom Orders</em>: the order pages <Ui>New</Ui>, <Ui>In Production</Ui>, <Ui>Shipped</Ui> and{" "}
           <Ui>Cancelled &amp; Archived</Ui>, plus <Ui>Submit an order</Ui>, <Ui>Order requests</Ui> and <Ui>Items</Ui>.
         </li>
@@ -246,6 +250,37 @@ export function AdminLeadsSection() {
       <p>
         <Link to="/athletes">Athletes</Link> keeps the athletes MARGEN works with. A new note about an athlete emails the other
         admins.
+      </p>
+    </>
+  );
+}
+
+export function AdminTasksSection() {
+  return (
+    <>
+      <p>
+        <Link to="/tasks">Tasks</Link> are to-dos for one person: you, another admin, or a factory user (someone with a Factory
+        account; a factory contact without an account can't get tasks). Click <Ui>Add</Ui>, give the task a title, choose who
+        it's for, and if you like a due date, the order it's about and a description. The person you give it to gets an
+        email, unless it's you.
+      </p>
+      <ul>
+        <li>
+          <Ui>My tasks</Ui> lists your own tasks by when they're due: Overdue, Today, Next 7 days, Later and No due date. Click the
+          round tick to mark one done; done tasks fold away under <em>Completed</em>.
+        </li>
+        <li>
+          <Ui>All tasks</Ui> lists everyone's, with the usual search, sorting and tick boxes to delete. It starts with the tasks
+          not done yet; choose another status in the filter.
+        </li>
+        <li>
+          A task's page has its details and its notes, where you and the person it's for can write updates. Change its status
+          there, or click <Ui>Edit</Ui> to change anything else.
+        </li>
+      </ul>
+      <p>
+        A factory user sees only the tasks given to them. They can change the status and add notes, but not change or delete
+        the task.
       </p>
     </>
   );

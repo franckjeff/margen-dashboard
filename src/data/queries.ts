@@ -32,6 +32,7 @@ export const keys = {
   users: ["users"] as const,
   statusColors: ["statusColors"] as const,
   dashboardCounts: ["dashboardCounts"] as const,
+  tasks: ["tasks"] as const,
 };
 
 // disabled: an admin disabled the account; it keeps its profile but has no access.
@@ -60,7 +61,7 @@ export type OrderEvent = Pick<Tables<"order_events">, "id" | "order_id" | "actio
 };
 export type Note = Pick<
   Tables<"notes">,
-  "id" | "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "order_id" | "lead_id" | "body" | "created_at" | "created_by" | "author_name" | "from_factory"
+  "id" | "contact_id" | "athlete_id" | "factory_id" | "organization_id" | "order_id" | "lead_id" | "task_id" | "body" | "created_at" | "created_by" | "author_name" | "from_factory"
 > & {
   author: { email: string | null } | null;
   // The name of what the note is about, so the Dashboard needn't load every contact, athlete, organization and factory.
@@ -70,6 +71,7 @@ export type Note = Pick<
   factory: { name: string } | null;
   order: { margen_order_id: string } | null;
   lead: { first_name: string; last_name: string } | null;
+  task: { title: string } | null;
 };
 export type User = Pick<Tables<"profiles">, "id" | "email" | "first_name" | "last_name" | "muted_email_kinds" | "factory_id" | "organization_id" | "created_at" | "disabled_at"> & {
   role: Role;
@@ -182,6 +184,28 @@ export function useOrders() {
   });
 }
 
+// A task, with who it's for and the order it's about. Factory users get only their own tasks, and can't read
+// admins' profiles: who created it is kept on the task (created_by_name).
+export type Task = Tables<"tasks"> & {
+  assignee: { first_name: string | null; last_name: string | null; email: string | null } | null;
+  order: { margen_order_id: string } | null;
+};
+
+// Every task this user can see, those due soonest first.
+export function useTasks() {
+  return useQuery({
+    queryKey: keys.tasks,
+    queryFn: async (): Promise<Task[]> =>
+      unwrap(
+        await supabase
+          .from("tasks")
+          .select("*, assignee:profiles!tasks_assignee_id_fkey(first_name, last_name, email), order:orders(margen_order_id)")
+          .order("due_date", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: false }),
+      ),
+  });
+}
+
 // The orders an order page lists (archived ones aside), counted.
 const orderListCount = (list: OrderList) => ({
   key: keys.orders,
@@ -191,7 +215,16 @@ const orderListCount = (list: OrderList) => ({
 // The menu items that show how many records their page lists, and how each is counted.
 // Each count sits under its page's query key, so whatever refreshes the page refreshes the count.
 // The database's access rules apply as usual: everyone counts only what they can see.
-const MENU_COUNTS: Partial<Record<PageName, { key: readonly string[]; count: (role: Role) => PromiseLike<{ count: number | null; error: PostgrestError | null }> }>> = {
+type MenuCountSpec = {
+  key: readonly string[];
+  count: (role: Role, userId: string) => PromiseLike<{ count: number | null; error: PostgrestError | null }>;
+};
+const MENU_COUNTS: Partial<Record<PageName, MenuCountSpec>> = {
+  // The signed-in user's own tasks still to do.
+  tasks: {
+    key: keys.tasks,
+    count: (_, userId) => supabase.from("tasks").select("id", { count: "exact", head: true }).eq("assignee_id", userId).neq("status", "done"),
+  },
   customs: orderListCount("customs"),
   "production-orders": orderListCount("production-orders"),
   "shipped-orders": orderListCount("shipped-orders"),
@@ -219,13 +252,13 @@ const MENU_COUNTS: Partial<Record<PageName, { key: readonly string[]; count: (ro
 export const hasMenuCount = (page: PageName) => page in MENU_COUNTS;
 
 // How many records a menu item's page lists. Only the number comes back, not the records.
-export function useMenuCount(page: PageName, role: Role) {
+export function useMenuCount(page: PageName, role: Role, userId: string) {
   const spec = MENU_COUNTS[page];
   return useQuery({
     queryKey: [...(spec?.key ?? []), "menuCount", page],
     enabled: !!spec,
     queryFn: async (): Promise<number> => {
-      const { count, error } = await spec!.count(role);
+      const { count, error } = await spec!.count(role, userId);
       if (error) throw new DbError(error);
       return count ?? 0;
     },
@@ -307,7 +340,7 @@ export function useNotes() {
         await supabase
           .from("notes")
           .select(
-            "id, contact_id, athlete_id, factory_id, organization_id, order_id, lead_id, body, created_at, created_by, author_name, from_factory, author:profiles!notes_created_by_fkey(email), contact:contacts(first_name, last_name), athlete:athletes(first_name, last_name), organization:organizations(name), factory:factories(name), order:orders(margen_order_id), lead:leads(first_name, last_name)",
+            "id, contact_id, athlete_id, factory_id, organization_id, order_id, lead_id, task_id, body, created_at, created_by, author_name, from_factory, author:profiles!notes_created_by_fkey(email), contact:contacts(first_name, last_name), athlete:athletes(first_name, last_name), organization:organizations(name), factory:factories(name), order:orders(margen_order_id), lead:leads(first_name, last_name), task:tasks(title)",
           )
           .order("created_at", { ascending: false }),
       ),

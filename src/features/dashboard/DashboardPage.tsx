@@ -167,7 +167,7 @@ function AdminStats() {
   );
 }
 
-// Notes this user hasn't hidden yet, newest first, each with the contact, organization, athlete, factory or order it's about.
+// Notes this user hasn't hidden yet, newest first, each with the contact, organization, athlete, factory, order, lead or task it's about.
 function DashboardNotes() {
   const notes = useNotes();
   const dismissals = useDismissals();
@@ -199,6 +199,7 @@ function DashboardNotes() {
     if (n.factory_id) return { kind: "Factory", to: `/factories/${n.factory_id}`, name: n.factory?.name };
     if (n.order_id) return { kind: "Order", to: `/customs/${n.order_id}`, name: n.order?.margen_order_id };
     if (n.lead_id) return { kind: "Lead", to: `/leads/${n.lead_id}`, name: n.lead && fullName(n.lead) };
+    if (n.task_id) return { kind: "Task", to: `/tasks/${n.task_id}`, name: n.task?.title };
     return { kind: "Athlete", to: `/athletes/${n.athlete_id}`, name: n.athlete && fullName(n.athlete) };
   };
 

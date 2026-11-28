@@ -10,7 +10,8 @@ export type Kind =
   | "quote_request"
   | "athlete_note_added"
   | "order_note_from_factory"
-  | "order_note_from_admin";
+  | "order_note_from_admin"
+  | "task_assigned";
 export type Details = Record<string, string | number | null>;
 
 // What a template needs to know about the email it writes.
@@ -200,6 +201,23 @@ export function write(email: EmailFacts, appUrl: string, today = new Date()): Me
             { label: "Open the order", url: open(`customs/${d.order_id}`) },
           ),
         };
+      // To the admin or factory user a task was given to. Only the order's MARGEN ID: no client details.
+      case "task_assigned":
+        return {
+          subject: `New task for you: ${d.task_title}`,
+          ...layout(
+            d.task_title ? String(d.task_title) : "New task",
+            [hello, `${d.written_by || "MARGEN"} gave you a task in the MARGEN Dashboard.`],
+            [
+              ["Task", d.task_title],
+              ["Due", day(d.due_date)],
+              ["Order", d.margen_order_id],
+              ["Details", d.body],
+              ["From", d.written_by],
+            ],
+            { label: "Open the task", url: open(`tasks/${d.task_id}`) },
+          ),
+        };
     }
   })();
   return email.sample ? { ...message, subject: `[Sample] ${message.subject}` } : message;
@@ -230,5 +248,8 @@ export function sampleDetails(today = new Date()): Details {
     athlete_name: "Sam Sample",
     body: "This is a sample email. No note was added.",
     written_by: "Alex Sample",
+    task_id: null,
+    task_title: "Send the size chart for SAMPLE-001",
+    due_date: isoDay(new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000)),
   };
 }

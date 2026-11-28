@@ -13,6 +13,7 @@ const ADMIN_KINDS: Record<string, string> = {
   quote_request: "Quote requests",
   athlete_note_added: "Athlete notes",
   order_note_from_factory: "Factory order notes",
+  task_assigned: "Tasks given to them",
 };
 
 const adminName = (u: User) => (u.first_name && u.last_name ? fullName({ first_name: u.first_name, last_name: u.last_name }) : (u.first_name ?? u.email));

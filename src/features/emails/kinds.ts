@@ -8,4 +8,5 @@ export const KIND_LABELS: Record<string, string> = {
   athlete_note_added: "Athlete note added (to admins)",
   order_note_from_factory: "Order note from the factory (to admins)",
   order_note_from_admin: "Order note from MARGEN (to the factory's default contact)",
+  task_assigned: "Task assigned (to the admin or factory user it's for)",
 };

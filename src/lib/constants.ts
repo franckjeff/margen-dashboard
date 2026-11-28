@@ -11,6 +11,14 @@ export const LEAD_STATUSES: Record<string, string> = {
   lost: "Lost",
 };
 
+// Must match the check constraint on tasks.status.
+export const TASK_STATUSES: Record<string, string> = {
+  todo: "To do",
+  in_progress: "In progress",
+  done: "Done",
+};
+export const TASK_TONES: Record<string, string> = { todo: "muted", in_progress: "yellow", done: "success" };
+
 // Must match the check constraints on orders.order_status and orders.production_status.
 export const ORDER_STATUSES: Record<string, string> = {
   received: "Received",
@@ -77,6 +85,7 @@ export const LEAD_TEXT_FIELDS = ["organization_name", "email", "phone", "state",
 
 export type PageName =
   | "dashboard"
+  | "tasks"
   | "customs"
   | "production-orders"
   | "shipped-orders"
@@ -104,6 +113,8 @@ export type Page = { name: PageName; label: string; roles: Role[]; group?: strin
 // Hiding a page here is only cosmetic: the database's access rules are what protect the data.
 export const PAGES: Page[] = [
   { name: "dashboard", label: "Dashboard", roles: ["admin", "factory", "client"] },
+  // To-dos admins give each other and factory users. Factory users see only theirs.
+  { name: "tasks", label: "Tasks", roles: ["admin", "factory"] },
   // Consecutive pages with the same group sit under that heading in the menu.
   // Factory users see only the orders assigned to their factory; client users only their organization's.
   // Orders are listed by order status: new ones (received or accepted), those in production, and shipped

@@ -16,6 +16,7 @@ import {
   AdminOrderSection,
   AdminOtherGuidesSection,
   AdminPeopleSection,
+  AdminTasksSection,
   AdminUsersSection,
 } from "./AdminGuide";
 import { Ui, type Section } from "./GuideUi";
@@ -108,6 +109,7 @@ function adminGuideSections(): Section[] {
     { id: "admin-new-orders", title: "Creating orders", body: <AdminNewOrdersSection /> },
     { id: "admin-order", title: "Working on an order", body: <AdminOrderSection /> },
     { id: "admin-people", title: "Organizations, factories and contacts", body: <AdminPeopleSection /> },
+    { id: "admin-tasks", title: "Tasks", body: <AdminTasksSection /> },
     { id: "admin-leads", title: "Leads and athletes", body: <AdminLeadsSection /> },
     { id: "admin-users", title: "Users and access", body: <AdminUsersSection /> },
     { id: "admin-emails", title: "Emails", body: <AdminEmailsSection /> },
@@ -128,6 +130,7 @@ function guideSections(audience: Audience): Section[] {
     { id: "statuses", title: "Statuses explained", body: <StatusesSection audience={audience} /> },
     { id: "contacts", title: "Contacts and emails", body: <ContactsSection factory={factory} yours={yours} /> },
     !factory && { id: "new-order", title: "Placing a new order", body: <NewOrderSection /> },
+    factory && { id: "tasks", title: "Your tasks", body: <TasksSection /> },
     factory && { id: "habits", title: "Good habits", body: <HabitsSection /> },
     { id: "questions", title: "Questions and problems", body: <QuestionsSection factory={factory} yours={yours} /> },
   ];
@@ -208,7 +211,7 @@ function AccountSection({ factory }: { factory: boolean }) {
       </p>
       <h3>The menu</h3>
       <p>
-        Your menu has <Ui>Dashboard</Ui>, your home page; <Ui>New</Ui>, <Ui>In Production</Ui>, <Ui>Shipped</Ui> and{" "}
+        Your menu has <Ui>Dashboard</Ui>, your home page;{factory && <> <Ui>Tasks</Ui>, what MARGEN asked you to do;</>} <Ui>New</Ui>, <Ui>In Production</Ui>, <Ui>Shipped</Ui> and{" "}
         <Ui>Cancelled &amp; Archived</Ui>, under <em>Custom Orders</em>;{" "}
         <Ui>Contacts</Ui>, the people at {factory ? "your factory" : "your organization"}; and this <Ui>User guide</Ui>. Click{" "}
         <em>Custom Orders</em> to open or close its group. At the bottom you'll find your email, your access level (
@@ -633,6 +636,25 @@ function NewOrderSection() {
         MARGEN confirms the order by email. Once they've turned your request into an order, it appears on <Ui>New</Ui> as{" "}
         <em>Received</em> or <em>Accepted</em>.
       </p>
+    </>
+  );
+}
+
+function TasksSection() {
+  return (
+    <>
+      <p>
+        MARGEN can give you tasks: things to do, like sending a photo or checking a size. Each new one also arrives by email.{" "}
+        <Ui>Tasks</Ui> in the menu lists yours by when they're due, and the number beside it is how many aren't done yet.
+      </p>
+      <ul>
+        <li>Click the round tick in front of a task when it's done. Done tasks fold away under <em>Completed</em>.</li>
+        <li>
+          Click a task to open its page: what MARGEN asked, the order it's about, and its notes. Set it to{" "}
+          <em>In progress</em> while you work on it, and add a note to answer a question or say what's left. MARGEN sees it
+          straight away.
+        </li>
+      </ul>
     </>
   );
 }

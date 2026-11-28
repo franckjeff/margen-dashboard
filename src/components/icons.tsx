@@ -50,6 +50,12 @@ const MENU_ICON_PATHS: Record<string, ReactNode> = {
       <path d="M8.5 10.7L5 3h5l2 4.5L14 3h5l-3.5 7.7" />
     </>
   ),
+  tasks: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M8 12.3l2.8 2.8L16.2 9.5" />
+    </>
+  ),
   reports: <path d="M4 20.5h16M7 17v-5M12 17V6M17 17V9" />,
   Admin: (
     <>

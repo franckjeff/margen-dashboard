@@ -756,6 +756,33 @@ select pg_temp.check('organizations: deleting keeps an archived order, with the 
 select pg_temp.check('organizations: deleting one with nothing linked', 'admin', $q$select pg_temp.delete_organization_with(null, false, null)$q$, '0');
 select pg_temp.check('organizations: client can''t delete', 'client', $q$with x as (delete from public.organizations where id = '0000ace5-0000-4000-8000-0000000b0001' returning 1) select count(*) from x$q$, '0');
 
+-- Tasks. Task 1 is for the factory user (with a note from the admin), task 2 for the admin. Added here, after the
+-- admin-only checks above, as the factory user can read their task's notes.
+insert into public.tasks (id, title, assignee_id) values
+  ('0000ace5-0000-4000-8000-0000000a0001', 'Access test task for the factory', pg_temp.user_id('factory')),
+  ('0000ace5-0000-4000-8000-0000000a0002', 'Access test task for the admin', pg_temp.user_id('admin'));
+insert into public.notes (task_id, body) values ('0000ace5-0000-4000-8000-0000000a0001', 'Access test task note');
+select pg_temp.check('tasks: admin sees every task', 'admin', $q$select count(*) from public.tasks where id::text like '0000ace5-%'$q$, '2');
+select pg_temp.check('tasks: factory sees only its own', 'factory', $q$select count(*) from public.tasks$q$, '1');
+select pg_temp.check('tasks: other factory sees none', 'factory_b', $q$select count(*) from public.tasks$q$, '0');
+select pg_temp.check('tasks: client sees none', 'client', $q$select count(*) from public.tasks$q$, '0');
+select pg_temp.check('tasks: factory changes the status', 'factory', $q$with x as (update public.tasks set status = 'in_progress' where id = '0000ace5-0000-4000-8000-0000000a0001' returning 1) select count(*) from x$q$, '1');
+select pg_temp.check('tasks: done sets when it was completed', 'factory', $q$with x as (update public.tasks set status = 'done' where id = '0000ace5-0000-4000-8000-0000000a0001' returning completed_at) select count(*) from x where completed_at is not null$q$, '1');
+select pg_temp.check('tasks: factory can''t change the title', 'factory', $q$update public.tasks set title = 'x' where id = '0000ace5-0000-4000-8000-0000000a0001'$q$, 'denied');
+select pg_temp.check('tasks: factory can''t give it to someone else', 'factory', $q$update public.tasks set assignee_id = '0000ace5-0000-4000-8000-000000000001' where id = '0000ace5-0000-4000-8000-0000000a0001'$q$, 'denied');
+select pg_temp.check('tasks: factory can''t add', 'factory', $q$insert into public.tasks (title, assignee_id) values ('x', '0000ace5-0000-4000-8000-000000000002')$q$, 'denied');
+select pg_temp.check('tasks: factory can''t delete', 'factory', $q$with x as (delete from public.tasks returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('tasks: other factory can''t change it', 'factory_b', $q$with x as (update public.tasks set status = 'done' returning 1) select count(*) from x$q$, '0');
+select pg_temp.check('tasks: client can''t add', 'client', $q$insert into public.tasks (title) values ('x')$q$, 'denied');
+select pg_temp.check('tasks: admin can''t give one to a client', 'admin', $q$insert into public.tasks (title, assignee_id) values ('x', '0000ace5-0000-4000-8000-000000000004')$q$, 'error');
+select pg_temp.check('tasks: admin gives one to the other factory', 'admin', $q$insert into public.tasks (title, assignee_id) values ('x', '0000ace5-0000-4000-8000-000000000003')$q$, 'ok');
+select pg_temp.check('tasks: emails the person it''s for', 'admin', $q$select count(*) from public.email_outbox where task_id = '0000ace5-0000-4000-8000-0000000a0001' and kind = 'task_assigned' and recipient_id = '0000ace5-0000-4000-8000-000000000002'$q$, '1');
+select pg_temp.check('notes: factory sees its task''s notes', 'factory', $q$select count(*) from public.notes where task_id = '0000ace5-0000-4000-8000-0000000a0001'$q$, '1');
+select pg_temp.check('notes: factory adds a note to its task', 'factory', $q$insert into public.notes (task_id, body) values ('0000ace5-0000-4000-8000-0000000a0001', 'x')$q$, 'ok');
+select pg_temp.check('notes: factory can''t add to someone else''s task', 'factory', $q$insert into public.notes (task_id, body) values ('0000ace5-0000-4000-8000-0000000a0002', 'x')$q$, 'denied');
+select pg_temp.check('notes: other factory doesn''t see the task''s notes', 'factory_b', $q$select count(*) from public.notes where task_id is not null$q$, '0');
+select pg_temp.check('notes: other factory can''t add to the task', 'factory_b', $q$insert into public.notes (task_id, body) values ('0000ace5-0000-4000-8000-0000000a0001', 'x')$q$, 'denied');
+
 -- Order history keeps the name of whoever made a change, even after their account is deleted. The factory
 -- user changes order A's tracking number, then their account is deleted (as the test's owner). Last, as no
 -- later check uses the factory user.
